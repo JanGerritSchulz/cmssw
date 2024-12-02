@@ -118,11 +118,32 @@ phase2_tracker.toModify(iterHLTTracksMonitoringHLT,
                         TrackProducer    = 'hltGeneralTracks',
                         allTrackProducer = 'hltGeneralTracks')
 
+iterInitialMonitoringHLT = iterHLTTracksMonitoringHLT.clone(
+    primaryVertex    = 'hltPhase2PixelVertices',
+    FolderName       = 'HLT/Tracking/initialTracks',
+    TrackProducer    = 'hltInitialStepTracks',
+    allTrackProducer = 'hltInitialStepTracks',
+)
+
+iterInitialHPMonitoringHLT = iterHLTTracksMonitoringHLT.clone(
+    primaryVertex    = 'hltPhase2PixelVertices',
+    FolderName       = 'HLT/Tracking/initialTracksHP',
+    TrackProducer    = 'hltInitialStepTrackSelectionHighPurity',
+    allTrackProducer = 'hltInitialStepTrackSelectionHighPurity',
+)
+
 iterHighPtTripletsMonitoringHLT = iterHLTTracksMonitoringHLT.clone(
     primaryVertex    = 'hltPhase2PixelVertices',
     FolderName       = 'HLT/Tracking/highPtTripletTracks',
     TrackProducer    = 'hltHighPtTripletStepTracks',
     allTrackProducer = 'hltHighPtTripletStepTracks',
+)
+
+iterHighPtTripletsHPMonitoringHLT = iterHLTTracksMonitoringHLT.clone(
+    primaryVertex    = 'hltPhase2PixelVertices',
+    FolderName       = 'HLT/Tracking/highPtTripletTracksHP',
+    TrackProducer    = 'hltHighPtTripletStepTrackSelectionHighPurity',
+    allTrackProducer = 'hltHighPtTripletStepTrackSelectionHighPurity',
 )
 
 iter3TracksMonitoringHLT = trackingMonHLT.clone(
@@ -256,7 +277,7 @@ trkHLTDQMSourceExtra = cms.Sequence(
 
 from Configuration.Eras.Modifier_run3_common_cff import run3_common
 run3_common.toReplaceWith(trackingMonitorHLT, cms.Sequence(pixelTracksMonitoringHLT + iterHLTTracksMonitoringHLT + doubletRecoveryHPTracksMonitoringHLT )) # + iter0HPTracksMonitoringHLT ))
-phase2_tracker.toReplaceWith(trackingMonitorHLT, cms.Sequence(pixelTracksMonitoringHLT + iterHLTTracksMonitoringHLT + iterHighPtTripletsMonitoringHLT))
+phase2_tracker.toReplaceWith(trackingMonitorHLT, cms.Sequence(pixelTracksMonitoringHLT + iterHLTTracksMonitoringHLT + iterInitialMonitoringHLT + iterInitialHPMonitoringHLT + iterHighPtTripletsMonitoringHLT + iterHighPtTripletsHPMonitoringHLT))
 
 run3_common.toReplaceWith(trackingMonitorHLTall, cms.Sequence(pixelTracksMonitoringHLT + iter0TracksMonitoringHLT + iterHLTTracksMonitoringHLT))
 run3_common.toReplaceWith(egmTrackingMonitorHLT, cms.Sequence(gsfTracksMonitoringHLT))
