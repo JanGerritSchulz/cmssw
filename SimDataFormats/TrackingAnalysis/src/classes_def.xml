@@ -40,4 +40,8 @@
   <class name="edm::Wrapper<std::unordered_map<UniqueSimTrackId, TrackingParticleRef, UniqueSimTrackIdHash>>"/>
   <class name="SimTrackToTPMap"/>
   <class name="edm::Wrapper<SimTrackToTPMap>"/>
+
+  <class name="SimDoublets"/>
+  <class name="std::vector<SimDoublets>"/>
+  <class name="edm::Wrapper< std::vector<SimDoublets> >"/>
 </lcgdict>
