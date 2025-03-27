@@ -22,7 +22,9 @@
 <use name="Validation/RecoTrack"/>
 <use name="RecoTracker/PixelTrackFitting"/>
 <use name="DataFormats/VertexReco"/>
+<use name="DataFormats/TrackerCommon"/>
 <use name="DataFormats/Phase2TrackerCluster"/>
+<use name="DQMServices/Core"/>
 <lib name="MathMore"/>
 <library file="*.cc" name="ValidationRecoTrackPlugins">
   <flags EDM_PLUGIN="1"/>
