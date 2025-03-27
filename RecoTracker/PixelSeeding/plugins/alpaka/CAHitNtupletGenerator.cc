@@ -61,6 +61,12 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       desc.add<bool>("doSharedHitCut", true)->setComment("Sharing hit nTuples cleaning");
       desc.add<bool>("dupPassThrough", false)->setComment("Do not reject duplicate");
       desc.add<bool>("useSimpleTripletCleaner", true)->setComment("use alternate implementation");
+
+      desc.add<int>("minYsizeB1", 25);
+      desc.add<int>("minYsizeB2", 15);
+      desc.add<int>("cellMaxDYSize12", 12)->setComment("Maximum cluster size difference for B1/B2");
+      desc.add<int>("cellMaxDYSize", 10)->setComment("Maximum cluster size difference");
+      desc.add<int>("cellMaxDYPred", 20)->setComment("Maximum cluster size difference prediction");
     }
 
     AlgoParams makeCommonParams(edm::ParameterSet const& cfg) {
@@ -150,6 +156,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                       cfg.getParameter<bool>("idealConditions"),
                                       (float)cfg.getParameter<double>("cellZ0Cut"),
                                       (float)cfg.getParameter<double>("cellPtCut"),
+                                      cfg.getParameter<int>("minYsizeB1"),
+                                      cfg.getParameter<int>("minYsizeB2"),
+                                      cfg.getParameter<int>("cellMaxDYSize12"),
+                                      cfg.getParameter<int>("cellMaxDYSize"),
+                                      cfg.getParameter<int>("cellMaxDYPred"),
                                       cfg.getParameter<std::vector<int>>("phiCuts")};
     }
 
