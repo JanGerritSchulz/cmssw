@@ -33,16 +33,16 @@
 
 // Exception throwing (or willful crash in kernels)
 #if defined(__CUDACC__) && defined(__CUDA_ARCH__)
-#define SOA_THROW_OUT_OF_RANGE(A, I, R)                         \
-  {                                                             \
-    printf("%s: index %d out of range %d\n", (A), (I), (R));    \
-    __trap();                                                   \
+#define SOA_THROW_OUT_OF_RANGE(A, I, R)                      \
+  {                                                          \
+    printf("%s: index %d out of range %d\n", (A), (I), (R)); \
+    __trap();                                                \
   }
 #elif defined(__HIPCC__) && defined(__HIP_DEVICE_COMPILE__)
-#define SOA_THROW_OUT_OF_RANGE(A, I, R)                         \
-  {                                                             \
-    printf("%s: index %d out of range %d\n", (A), (I), (R));    \
-    abort();                                                    \
+#define SOA_THROW_OUT_OF_RANGE(A, I, R)                      \
+  {                                                          \
+    printf("%s: index %d out of range %d\n", (A), (I), (R)); \
+    abort();                                                 \
   }
 #else
 #define SOA_THROW_OUT_OF_RANGE(A, I, R)                         \
