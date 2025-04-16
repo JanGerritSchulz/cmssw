@@ -82,7 +82,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
       /// Is this a pair with inner == 0
       ALPAKA_FN_ACC ALPAKA_FN_INLINE bool startAt0(int16_t pid) const {
-        ALPAKA_ASSERT_ACC((pixelTopology::Phase2::layerPairs[pid * 2] == 0) == ((pid < 3) | (pid >= 23 && pid < 28)));
+        ALPAKA_ASSERT_ACC((pixelTopology::Phase2::layerPairs[pid * 2] == 0) == ((pid < 3) | (pid >= 23 && pid < 24)));
         return pixelTopology::Phase2::layerPairs[pid * 2] == 0;
       }
     };
