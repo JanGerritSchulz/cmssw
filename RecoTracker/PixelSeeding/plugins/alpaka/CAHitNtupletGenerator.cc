@@ -155,7 +155,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                       cfg.getParameter<int>("cellMaxDYSize12"),
                                       cfg.getParameter<int>("cellMaxDYSize"),
                                       cfg.getParameter<int>("cellMaxDYPred"),
-                                      cfg.getParameter<std::vector<int>>("phiCuts")};
+                                      cfg.getParameter<std::vector<int>>("phiCuts"),
+                                      cfg.getParameter<std::vector<double>>("cellMinz"),
+                                      cfg.getParameter<std::vector<double>>("cellMaxz"),
+                                      cfg.getParameter<std::vector<double>>("cellMaxr")};
     }
 
   }  // namespace
@@ -234,6 +237,16 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         ->setComment(
             "Maximum cluster size difference between size of inner cluster and its prediction based on angle to "
             "the outer hit");
+
+    desc.add<std::vector<double>>(
+            "cellMinz", std::vector<double>(std::begin(phase1PixelTopology::minz), std::end(phase1PixelTopology::minz)))
+        ->setComment("Minimum z of inner RecHit for each layer pair");
+    desc.add<std::vector<double>>(
+            "cellMaxz", std::vector<double>(std::begin(phase1PixelTopology::maxz), std::end(phase1PixelTopology::maxz)))
+        ->setComment("Maximum z of inner RecHit for each layer pair");
+    desc.add<std::vector<double>>(
+            "cellMaxr", std::vector<double>(std::begin(phase1PixelTopology::maxr), std::end(phase1PixelTopology::maxr)))
+        ->setComment("Cut for dr of cells");
 
     desc.add<std::vector<int>>(
             "phiCuts",
@@ -316,6 +329,17 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
             "Maximum cluster size difference between size of inner cluster and its prediction based on angle to "
             "the outer hit");
 
+
+    desc.add<std::vector<double>>(
+            "cellMinz", std::vector<double>(std::begin(phase2PixelTopology::minz), std::end(phase2PixelTopology::minz)))
+        ->setComment("Minimum z of inner RecHit for each layer pair");
+    desc.add<std::vector<double>>(
+            "cellMaxz", std::vector<double>(std::begin(phase2PixelTopology::maxz), std::end(phase2PixelTopology::maxz)))
+        ->setComment("Maximum z of inner RecHit for each layer pair");
+    desc.add<std::vector<double>>(
+            "cellMaxr", std::vector<double>(std::begin(phase2PixelTopology::maxr), std::end(phase2PixelTopology::maxr)))
+        ->setComment("Cut for dr of cells");
+    
     desc.add<std::vector<int>>(
             "phiCuts",
             std::vector<int>(std::begin(phase2PixelTopology::phicuts), std::end(phase2PixelTopology::phicuts)))
