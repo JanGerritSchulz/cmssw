@@ -130,6 +130,7 @@ private:
   std::vector<int> track_nHits_;
   std::vector<int> track_hitIds_;
   std::vector<bool> track_isFake_;
+  std::vector<bool> track_isSignal_;
 };
 
 void PixelTrackNtuplizer::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
@@ -321,14 +322,17 @@ void PixelTrackNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetu
   for (auto const& track : trackRefs) {
     // check if the track is associated
     bool isFake{true};
+    bool isSignal{false};
     auto foundTP = recSimColl.find(track);
     if (foundTP != recSimColl.end()) {
       const auto& tp = foundTP->val;
       if (!tp.empty()) {
         isFake = false;
+        isSignal = (tp[0].first->eventId().bunchCrossing() == 0 && tp[0].first->eventId().event() == 0);
       }
     }
     track_isFake_.push_back(isFake);
+    track_isSignal_.push_back(isSignal);
     track_nHits_.push_back(track->recHitsSize());
 
     // loop over the RecHits of that Track
@@ -384,6 +388,7 @@ void PixelTrackNtuplizer::beginJob() {
   output_tree_->Branch("track_nHits", &track_nHits_);
   output_tree_->Branch("track_hitIds", &track_hitIds_);
   output_tree_->Branch("track_isFake", &track_isFake_);
+  output_tree_->Branch("track_isSignal", &track_isSignal_);
 }
 
 void PixelTrackNtuplizer::endJob() {}
@@ -407,6 +412,7 @@ void PixelTrackNtuplizer::clearVectors() {
   track_nHits_.clear();
   track_hitIds_.clear();
   track_isFake_.clear();
+  track_isSignal_.clear();
 
   trackingParticle_hitIds_Vector_.clear();
   recHit_keysVector_.clear();
