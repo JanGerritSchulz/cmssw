@@ -118,10 +118,10 @@ void HGCalGeometry::newCell(
 #ifdef EDM_ML_DEBUG
       edm::LogVerbatim("HGCalGeom") << "Valid Id [0] " << HGCScintillatorDetId(idc);
     } else {
-      edm::LogVerbatim("HGCalGeom") << "Check " << HGCScintillatorDetId(idc) << " from " << HGCScintillatorDetId(detId)
-                                    << " Mode " << m_topology.dddConstants().geomMode() << ":" << m_topology.geomMode()
-                                    << " Valid " << m_topology.tileTrapezoid() << ":" << m_topology.valid(idc)
-                                    << " ERROR ???";
+      edm::LogWarning("HGCalGeom") << "Check " << HGCScintillatorDetId(idc) << " from " << HGCScintillatorDetId(detId)
+                                   << " Mode " << m_topology.dddConstants().geomMode() << ":" << m_topology.geomMode()
+                                   << " Valid " << m_topology.tileTrapezoid() << ":" << m_topology.valid(idc)
+                                   << " ERROR ???";
 #endif
     }
   } else {
