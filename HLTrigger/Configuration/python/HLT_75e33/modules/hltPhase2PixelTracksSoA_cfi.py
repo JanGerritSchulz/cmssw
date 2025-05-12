@@ -1,7 +1,7 @@
 import FWCore.ParameterSet.Config as cms
 
 hltPhase2PixelTracksSoA = cms.EDProducer('CAHitNtupletAlpakaPhase2@alpaka',
-    caGeometry = cms.string('hltPhase2CAGeometry'),
+    #caGeometry = cms.string('hltPhase2CAGeometry'),
     pixelRecHitSrc = cms.InputTag('hltPhase2SiPixelRecHitsSoA'),
     ptmin = cms.double(0.9),
     hardCurvCut = cms.double(0.0328407225),
