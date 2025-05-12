@@ -1,18 +1,14 @@
-#define BROKENLINE_DEBUG
+// #define BROKENLINE_DEBUG
 // #define BL_DUMP_HITS
-#define GPU_DEBUG
+// #define GPU_DEBUG
 #include <cstdint>
 
 #include <alpaka/alpaka.hpp>
 
 #include "DataFormats/TrackingRecHitSoA/interface/TrackingRecHitsSoA.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/config.h"
-<<<<<<< HEAD
 #include "HeterogeneousCore/AlpakaInterface/interface/debug.h"
-#include "RecoLocalTracker/SiPixelRecHits/interface/pixelCPEforDevice.h"
-=======
 #include "RecoTracker/PixelSeeding/interface/CAGeometrySoA.h"
->>>>>>> AdrianoDee/flexible_ca_final_dev
 #include "RecoTracker/PixelTrackFitting/interface/alpaka/BrokenLine.h"
 
 #include "HelixFit.h"
@@ -200,24 +196,21 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         if (invalidTkId == ptkids[local_idx])
           break;
         auto tkid = ptkids[local_idx];
-        
+
         ALPAKA_ASSERT_ACC(int(tkid) < tupleMultiplicity->capacity());
-        
+
         riemannFit::Map3xNd<N> hits(phits + local_idx);
         riemannFit::Map4d fast_fit(pfast_fit + local_idx);
         riemannFit::Map6xNf<N> hits_ge(phits_ge + local_idx);
-        
+
         brokenline::PreparedBrokenLineData<N> data;
-        
+
         brokenline::karimaki_circle_fit circle;
         riemannFit::LineFit line;
-        
+
         brokenline::prepareBrokenLineData(acc, hits, fast_fit, bField, data);
-        printf("kernelBLFit::prepareBrokenLineData\n");
         brokenline::lineFit(acc, hits_ge, fast_fit, bField, data, line);
-        printf("kernelBLFit::lineFit\n");
         brokenline::circleFit(acc, hits, hits_ge, fast_fit, bField, data, circle);
-        printf("kernelBLFit::circleFit\n");
 
         reco::copyFromCircle(results_view, circle.par, circle.cov, line.par, line.cov, 1.f / float(bField), tkid);
         results_view[tkid].pt() = float(bField) / float(std::abs(circle.par(2)));
@@ -254,7 +247,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                                         uint32_t hitsInFit,
                                                         uint32_t maxNumberOfTuples,
                                                         Queue &queue) {
-
     ALPAKA_ASSERT_ACC(tuples_);
 
 #ifdef GPU_DEBUG
@@ -389,7 +381,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                               fast_fit_resultsDevice.data());
 #ifdef GPU_DEBUG
           alpaka::wait(queue);
-          std::cout << "Kernel_BLFastFit("<< i <<") and Kernel_BLFit("<< i <<") -> done! " << std::endl;
+          std::cout << "Kernel_BLFastFit(" << i << ") and Kernel_BLFit(" << i << ") -> done! " << std::endl;
 #endif
         });
 
