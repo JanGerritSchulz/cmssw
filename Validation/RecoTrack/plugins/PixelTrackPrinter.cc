@@ -127,6 +127,11 @@ private:
   std::vector<SiPixelRecHitRef::key_type> recHit_keysVector_;  // not stored directly
 
   // Tracks
+  std::vector<float> track_eta_;
+  std::vector<float> track_phi_;
+  std::vector<float> track_pt_;
+  std::vector<float> track_nchi2_;
+  std::vector<float> track_ndof_;
   std::vector<int> track_nHits_;
   std::vector<int> track_hitIds_;
   std::vector<bool> track_isFake_;
@@ -334,6 +339,11 @@ void PixelTrackNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetu
     track_isFake_.push_back(isFake);
     track_isSignal_.push_back(isSignal);
     track_nHits_.push_back(track->recHitsSize());
+    track_eta_.push_back(track->eta());
+    track_phi_.push_back(track->phi());
+    track_pt_.push_back(track->pt());
+    track_nchi2_.push_back(track->normalizedChi2());
+    track_ndof_.push_back(track->ndof());
 
     // loop over the RecHits of that Track
     for (size_t j{0}; j < track->recHitsSize(); j++) {
@@ -385,6 +395,11 @@ void PixelTrackNtuplizer::beginJob() {
   output_tree_->Branch("recHit_detId", &recHit_detId_);
   output_tree_->Branch("recHit_layerId", &recHit_layerId_);
   output_tree_->Branch("recHit_trackingParticle", &recHit_trackingParticle_);
+  output_tree_->Branch("track_eta", &track_eta_);
+  output_tree_->Branch("track_phi", &track_phi_);
+  output_tree_->Branch("track_pt", &track_pt_);
+  output_tree_->Branch("track_nchi2", &track_nchi2_);
+  output_tree_->Branch("track_ndof", &track_ndof_);
   output_tree_->Branch("track_nHits", &track_nHits_);
   output_tree_->Branch("track_hitIds", &track_hitIds_);
   output_tree_->Branch("track_isFake", &track_isFake_);
@@ -409,6 +424,11 @@ void PixelTrackNtuplizer::clearVectors() {
   recHit_detId_.clear();
   recHit_layerId_.clear();
   recHit_trackingParticle_.clear();
+  track_eta_.clear();
+  track_phi_.clear();
+  track_pt_.clear();
+  track_nchi2_.clear();
+  track_ndof_.clear();
   track_nHits_.clear();
   track_hitIds_.clear();
   track_isFake_.clear();
