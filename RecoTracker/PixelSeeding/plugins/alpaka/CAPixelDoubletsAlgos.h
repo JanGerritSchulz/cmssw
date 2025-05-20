@@ -24,6 +24,7 @@
 
 // #define GPU_DEBUG
 // #define DOUBLETS_DEBUG
+// #define CA_WARNINGS
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE::caPixelDoublets {
   using namespace cms::alpakatools;
@@ -315,7 +316,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::caPixelDoublets {
 
           auto ind = alpaka::atomicAdd(acc, nCells, (uint32_t)1, alpaka::hierarchy::Blocks{});
           if (ind >= maxNumOfDoublets) {
-#ifdef GPU_DEGBU
+#ifdef CA_WARNINGS
             printf("Warning!!!! Too many cells (limit = %d)!\n", maxNumOfDoublets);
 #endif
             alpaka::atomicSub(acc, nCells, (uint32_t)1, alpaka::hierarchy::Blocks{});
