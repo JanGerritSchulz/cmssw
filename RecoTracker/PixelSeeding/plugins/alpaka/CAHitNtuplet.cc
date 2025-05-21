@@ -153,7 +153,9 @@ public:
     };
     auto isPh2Pixel = [&](DetId detId) {
       return (trackerGeometry.getDetectorType(detId) == TrackerGeometry::ModuleType::Ph2PXB
-      || trackerGeometry.getDetectorType(detId) == TrackerGeometry::ModuleType::Ph2PXF);
+      || trackerGeometry.getDetectorType(detId) == TrackerGeometry::ModuleType::Ph2PXF
+      || trackerGeometry.getDetectorType(detId) == TrackerGeometry::ModuleType::Ph2PXF
+      || trackerGeometry.getDetectorType(detId) == TrackerGeometry::ModuleType::Ph2PXF3D);
     };
     if constexpr (std::is_base_of_v<pixelTopology::Phase2, TrackerTraits>) {
       int counter = 0;
