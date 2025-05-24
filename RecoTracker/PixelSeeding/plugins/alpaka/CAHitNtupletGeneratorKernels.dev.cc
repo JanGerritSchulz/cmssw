@@ -118,7 +118,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         // Structures and Counters Storage
         device_simpleCells_{cms::alpakatools::make_device_buffer<SimpleCell[]>(queue, maxDoublets)},
         device_extraStorage_{
-            cms::alpakatools::make_device_buffer<cms::alpakatools::AtomicPairCounter::DoubleWord[]>(queue, 3u)},
+            cms::alpakatools::make_device_buffer<cms::alpakatools::AtomicPairCounter::DoubleWord[]>(queue, 5u)},
         device_hitTuple_apc_{reinterpret_cast<cms::alpakatools::AtomicPairCounter *>(device_extraStorage_.data())},
         device_nCells_{
             cms::alpakatools::make_device_view(queue, *reinterpret_cast<uint32_t *>(device_extraStorage_.data() + 2))},
