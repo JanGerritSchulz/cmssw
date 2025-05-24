@@ -72,7 +72,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::caHitNtupletGeneratorKernels {
         int old = i == 0 ? 0 : mm.moduleStart()[ll.layerStarts()[i - 1]];
         printf("LayerStart %d/%d at module %d: %d - %d\n",
                i,
-               ll.metadata().size(),
+               ll.metadata().size() - 1,
                ll.layerStarts()[i],
                hitsLayerStart[i],
                hitsLayerStart[i] - old);
@@ -395,7 +395,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::caHitNtupletGeneratorKernels {
         auto ro = thisCell.outer_r(hh);
         auto zo = thisCell.outer_z(hh);
         auto thetaCut = ll[thisCell.innerLayer()].caThetaCut();
-
+        
         // loop on inner cells
         for (uint32_t j : cms::alpakatools::independent_group_elements_x(acc, numberOfPossibleNeighbors)) {
           auto otherCell = outerHitCells[j];
@@ -403,7 +403,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::caHitNtupletGeneratorKernels {
           auto r1 = oc.inner_r(hh);
           auto z1 = oc.inner_z(hh);
           auto dcaCut = ll[oc.innerLayer()].caDCACut();
-
           bool aligned = Cell::areAlignedRZ(r1, z1, ri, zi, ro, zo, params.ptmin_, thetaCut);
           if (aligned && thisCell.dcaCut(hh, oc, dcaCut, params.hardCurvCut_)) {
             auto t_ind = alpaka::atomicAdd(acc, nTrips, (uint32_t)1, alpaka::hierarchy::Blocks{});

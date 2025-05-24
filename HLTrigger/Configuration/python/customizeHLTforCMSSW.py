@@ -208,18 +208,6 @@ def customizeHLTfor47630(process):
 
     return process
 
-def customizeHLTfor47306Bug(process, menuType="GRun"):
-
-    vertex_producers = ['alpaka_serial_sync::PixelVertexProducerAlpakaPhase1','PixelVertexProducerAlpakaPhase1@alpaka']
-
-    for producer in vertex_producers:
-        for prod in producers_by_type(process, producer):
-
-            if hasattr(prod,'oneKernel'):
-                setattr(prod, 'oneKernel', cms.bool(False))
-
-    return process
-
 # CMSSW version specific customizations
 def customizeHLTforCMSSW(process, menuType="GRun"):
 
