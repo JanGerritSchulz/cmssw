@@ -9,8 +9,8 @@
 namespace pixelTopology {
 
   constexpr auto maxNumberOfLadders = 160;
-  constexpr uint8_t maxLayers = 28 + 3; // CA Extension to 3 OT barrel layers
-  constexpr uint8_t maxPairs = 64 + 64; // CA
+  constexpr uint8_t maxLayers = 28 + 3;  // CA Extension to 3 OT barrel layers
+  constexpr uint8_t maxPairs = 64 + 64;  // CA
 
   // TODO
   // Once CUDA is dropped this could be wrapped in #ifdef CA_TRIPLETS_HOLE
@@ -192,8 +192,9 @@ namespace phase1PixelTopology {
       20., 9., 9., 20., 7., 7., 5., 5., 20., 6., 6., 5., 5., 20., 20., 9., 9., 9., 9.};
 
   HOST_DEVICE_CONSTANT float dcaCuts[numberOfLayers] = {0.15, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25};
-    
-  HOST_DEVICE_CONSTANT float thetaCuts[numberOfLayers] = {0.002, 0.002, 0.002, 0.002, 0.003, 0.003, 0.003, 0.003, 0.003, 0.003};
+
+  HOST_DEVICE_CONSTANT float thetaCuts[numberOfLayers] = {
+      0.002, 0.002, 0.002, 0.002, 0.003, 0.003, 0.003, 0.003, 0.003, 0.003};
 
   static constexpr uint32_t layerStart[numberOfLayers + 1] = {0,
                                                               96,
@@ -440,7 +441,7 @@ namespace pixelTopology {
   };
 
   struct Phase2OT : public Phase2 {
-    static constexpr uint32_t numberOfLayers = 28 + 3; //OT Barrel Extension
+    static constexpr uint32_t numberOfLayers = 28 + 3;  //OT Barrel Extension
   };
 
   struct Phase1 {

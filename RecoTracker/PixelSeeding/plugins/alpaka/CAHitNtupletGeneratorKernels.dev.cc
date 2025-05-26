@@ -731,12 +731,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                           this->device_hitContainer_.data(),
                           this->counters_.data());
 
-
-      workDiv1D = cms::alpakatools::make_workdiv<Acc1D>(1,1);
+      workDiv1D = cms::alpakatools::make_workdiv<Acc1D>(1, 1);
       alpaka::exec<Acc1D>(queue, workDiv1D, Kernel_printCounters{}, this->counters_.data());
       alpaka::wait(queue);
 
-      workDiv1D = cms::alpakatools::make_workdiv<Acc1D>(1,1);
+      workDiv1D = cms::alpakatools::make_workdiv<Acc1D>(1, 1);
       alpaka::exec<Acc1D>(queue,
                           workDiv1D,
                           Kernel_print_found_ntuplets<TrackerTraits>{},
@@ -748,8 +747,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                           100,
                           0);
       alpaka::wait(queue);
-  }
-
+    }
 
 #ifdef GPU_DEBUG
     alpaka::wait(queue);
