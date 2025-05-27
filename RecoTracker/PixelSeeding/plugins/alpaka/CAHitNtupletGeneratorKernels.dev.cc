@@ -41,13 +41,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         // Hits -> Track
         device_hitToTuple_{cms::alpakatools::make_device_buffer<GenericContainer>(queue)},
         device_hitToTupleStorage_{cms::alpakatools::make_device_buffer<GenericContainerStorage[]>(
-            queue, int(nHits * m_params.algoParams_.avgHitsPerTrack_) + 1)},
+            queue, int(maxTuples * m_params.algoParams_.avgHitsPerTrack_) + 1)},
         device_hitToTupleOffsets_{cms::alpakatools::make_device_buffer<GenericContainerOffsets[]>(queue, nHits + 1)},
         device_hitToTupleView_{device_hitToTuple_.data(),
                                device_hitToTupleOffsets_.data(),
                                device_hitToTupleStorage_.data(),
                                int(nHits + 1),
-                               int(nHits * m_params.algoParams_.avgHitsPerTrack_) + 1},
+                               int(maxTuples * m_params.algoParams_.avgHitsPerTrack_) + 1},
 
         // (Outer) Hits-> Cells
         device_hitToCell_{cms::alpakatools::make_device_buffer<GenericContainer>(queue)},
