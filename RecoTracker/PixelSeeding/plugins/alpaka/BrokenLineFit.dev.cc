@@ -1,5 +1,5 @@
 // #define BROKENLINE_DEBUG
-// #define BL_DUMP_HITS
+#define BL_DUMP_HITS
 // #define GPU_DEBUG
 #include <cstdint>
 
@@ -83,7 +83,24 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         done = 0;
         alpaka::syncBlockThreads(acc);
         bool dump =
-            (foundNtuplets->size(tkid) == 5 && 0 == alpaka::atomicAdd(acc, &done, 1, alpaka::hierarchy::Blocks{}));
+            (foundNtuplets->size(tkid) <= 50 && 0 == alpaka::atomicAdd(acc, &done, 1, alpaka::hierarchy::Blocks{}));
+        if (dump) {
+          printf("Track id %d (tkid=%d):\n", local_idx, tkid);
+          printf("|| %3s | %4s | %7s | %7s | %7s | %7s | %7s | %7s | %7s | %7s | %7s | %7s | %7s ||\n",
+                 "hit",
+                 "mid",
+                 "lxerr",
+                 "lyerr",
+                 "x",
+                 "y",
+                 "z",
+                 "Cxx",
+                 "Cxy",
+                 "Cyy",
+                 "Czx",
+                 "Czy",
+                 "Czz");
+        }
 #endif
 
         // Prepare data structure
@@ -136,18 +153,17 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 #endif
 
 #ifdef BL_DUMP_HITS
-          bool dump = foundNtuplets->size(tkid) == 5;
+          bool dump = foundNtuplets->size(tkid) <= 50;
           if (dump) {
-            printf("Track id %d %d Hit %d on %d\nGlobal: hits.col(%d) << %f,%f,%f\n",
-                   local_idx,
-                   tkid,
+            printf("|| %3d | %4d | % 4.1e | % 4.1e | % 4.1e | % 4.1e | % 4.1e | % 4.1e | % 4.1e | % 4.1e | % 4.1e | % 4.1e | % 4.1e ||\n",
                    hit,
                    hh[hit].detectorIndex(),
-                   i,
+                   hh[hit].xerrLocal(),
+                   hh[hit].yerrLocal(),
                    hh[hit].xGlobal(),
                    hh[hit].yGlobal(),
-                   hh[hit].zGlobal());
-            printf("Error: hits_ge.col(%d) << %e,%e,%e,%e,%e,%e\n", i, ge[0], ge[1], ge[2], ge[3], ge[4], ge[5]);
+                   hh[hit].zGlobal(),
+                   ge[0], ge[1], ge[2], ge[3], ge[4], ge[5]);
           }
 #endif
 

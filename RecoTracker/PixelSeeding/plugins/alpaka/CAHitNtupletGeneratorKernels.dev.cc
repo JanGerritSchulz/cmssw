@@ -77,7 +77,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                     device_cellToNeighborsOffsets_.data(),
                                     device_cellToNeighborsStorage_.data(),
                                     int(maxDoublets + 1),
-                                    int(maxDoublets * m_params.algoParams_.avgCellsPerCell_)},
+                                    int(maxDoublets * m_params.algoParams_.avgCellsPerCell_) + 1},
 
         // Cell -> Tracks
         device_cellToTracks_{cms::alpakatools::make_device_buffer<GenericContainer>(queue)},
@@ -253,9 +253,14 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     std::cout << "Kernel_connect -> Done!" << std::endl;
 #endif
 
-    auto threadsPerBlock = 1024;
+    auto threadsPerBlock = 1024;//1024;
     auto blocks = cms::alpakatools::divide_up_by(maxDoublets * m_params.algoParams_.avgCellsPerCell_, threadsPerBlock);
     auto workDiv1D = cms::alpakatools::make_workdiv<Acc1D>(blocks, threadsPerBlock);
+
+#ifdef GPU_DEBUG
+    alpaka::wait(queue);
+    std::cout << "Work division for Kernel_fillGenericCouple -> Done!" << std::endl;
+#endif
 
     alpaka::exec<Acc1D>(queue,
                         workDiv1D,

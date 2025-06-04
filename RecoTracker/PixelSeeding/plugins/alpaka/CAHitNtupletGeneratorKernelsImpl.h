@@ -4,7 +4,7 @@
 #define GPU_DEBUG
 // #define NTUPLE_DEBUG
 // #define CA_DEBUG
-// #define CA_WARNINGS
+#define CA_WARNINGS
 // C++ includes
 #include <cmath>
 #include <cstdint>
@@ -443,6 +443,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::caHitNtupletGeneratorKernels {
 
         }  // loop on inner cells
       }  // loop on outer cells
+// #ifdef CA_WARNINGS
+//       if (cms::alpakatools::once_per_grid(acc))
+//         printf("  built %d cell->cell (triplets) associations (limit = %d) from %d cells\n",
+//                *nTrips,
+//                maxTriplets,
+//                *nCells);
+// #endif
     }
   };
 
@@ -455,6 +462,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::caHitNtupletGeneratorKernels {
                                   uint32_t const *nElements,
                                   GenericContainer *genericHisto) const {
       for (uint32_t index : cms::alpakatools::uniform_elements(acc, *nElements)) {
+        // printf(" !Warning, code might crash in next line because of index=%d out of bounds %d\n", index, *nElements);
+
+        // printf(
+        //       " !Warning, code might crash in next line because of cn[index].inner()=%d or cn[index].outer()=%d "
+        //       "(maxNDoublets=13107200)\n",
+        //       cn[index].inner(), cn[index].outer());
+
         genericHisto->fill(acc, cn[index].inner(), cn[index].outer());
       }
     }
@@ -1088,8 +1102,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::caHitNtupletGeneratorKernels {
         auto nh = foundNtuplets->size(i);
         if (nh < 3)
           continue;
-        if (tracks_view[i].quality() < loose)
-          continue;
+        // if (tracks_view[i].quality() < loose)
+          // continue;
 
         printf("TK: %10d %3d %3d %3d %6.1f %9.3f %8.3f %8.3f %9.3f %9.3f %9.3f %9.3f %9.3f\n",
                10000 * iev + i,                              // ID

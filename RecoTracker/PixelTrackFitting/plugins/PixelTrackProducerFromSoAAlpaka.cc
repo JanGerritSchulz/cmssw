@@ -6,6 +6,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <typeinfo>
 
 #include "DataFormats/BeamSpot/interface/BeamSpot.h"
 #include "DataFormats/GeometrySurface/interface/Plane.h"
@@ -142,6 +143,8 @@ void PixelTrackProducerFromSoAAlpaka::produce(edm::StreamID streamID,
   std::cout << "Converting soa helix in reco tracks" << std::endl;
 #endif
 
+  std::cout << "Starting PixelTrackProducerFromSoAAlpaka::produce" << std::endl;
+
   // index map: trackId(in SoA) -> trackId(in legacy edm)
   auto indToEdmP = std::make_unique<IndToEdm>();
   auto &indToEdm = *indToEdmP;
@@ -175,6 +178,9 @@ void PixelTrackProducerFromSoAAlpaka::produce(edm::StreamID streamID,
     nOTHits = otRecHitsDSV->dataSize();
   }
 
+  std::cout << "nPixelHits = " << nPixelHits << std::endl;
+  std::cout << "nOTHits = " << nOTHits << std::endl;
+
   size_t nHits = nPixelHits + nOTHits;
 
   // hitmap to go from a unique RecHit identifier to the RecHit in the legacy collection
@@ -183,6 +189,7 @@ void PixelTrackProducerFromSoAAlpaka::produce(edm::StreamID streamID,
   hitmap.resize(nHits, nullptr);
 
   // loop over pixel RecHits to fill the hitmap
+  std::cout << "Start filling the hitmap for pixel hits" << std::endl;
   for (auto const &pixelHit : pixelRecHits) {
     auto const &thit = static_cast<BaseTrackerRecHit const &>(pixelHit);
     auto const detI = thit.det()->index();
@@ -268,16 +275,28 @@ void PixelTrackProducerFromSoAAlpaka::produce(edm::StreamID streamID,
 
     // perform the exact same loop of how the SoA is initially filled with OT hits
     // and get the index by counting the hits (starting from nPixelHits)
+    std::cout << "Start filling the hitmap for OT hits" << std::endl;
     for (auto const &detSet : *otRecHitsDSV) {
       auto detId = detSet.detId();
       if (isPinPSinOTBarrel(DetId(detId))) {
         for (int idx = moduleStartOT[getModuleIdOT(detId)]; auto const &recHit : detSet) {
+            // std::cout << " recHit at idx=" << idx << ": &recHit            = " << &recHit << " with type(&recHit) = " << typeid(&recHit).name() << std::endl;
+          assert(nullptr == hitmap[idx]);
           hitmap[idx] = &recHit;
+            // std::cout << " recHit at idx=" << idx << ": (&recHit)->clone() = " << (&recHit)->clone()
+            //           << std::endl;
+            // std::cout << " recHit at idx=" << idx << ": hitmap[idx]        = " << hitmap[idx] << " with type(hitmap[idx]) = " << typeid(hitmap[idx]).name()
+            //           << std::endl;
+            // std::cout << " recHit at idx=" << idx << std::endl;
+            // auto* hit = hitmap[idx]->clone();
+            // std::cout << "  -> succesfully cloned RecHit from hitmap to address " << hit << std::endl;
+            // delete hit;
           idx++;
         }
       }
     }
   }
+  std::cout << "Done filling the hitmap" << std::endl;
 
   std::vector<const TrackingRecHit *> hits;
   hits.reserve(5);  //TODO move to a configurable parameter?
@@ -307,6 +326,7 @@ void PixelTrackProducerFromSoAAlpaka::produce(edm::StreamID streamID,
   indToEdm.resize(nTracks, -1);
 
   // loop over (sorted) tracks
+  std::cout << "Start looping over Tracks" << std::endl;
   for (const auto &it : sortIdxs) {
     auto nHits = reco::nHits(tsoa.view(), it);
     assert(nHits >= 3);
@@ -329,8 +349,16 @@ void PixelTrackProducerFromSoAAlpaka::produce(edm::StreamID streamID,
     auto start = (it == 0) ? 0 : hitOffs[it - 1];
     auto end = hitOffs[it];
 
-    for (auto iHit = start; iHit < end; ++iHit)
+    for (auto iHit = start; iHit < end; ++iHit) {
+      // if (!hitmap[hitIdxs[iHit]]) {
+      //   std::cout << "hitmap[hitIdxs[iHit]=" << hitIdxs[iHit] << "] == nullptr :-(" << std::endl;
+      // }
+      // if (nt < 5) {
+      //   std::cout << "track " << nt << ": fill hits[iHit-start=" << iHit - start
+      //             << "] with hitmap[hitIdxs[iHit]=" << hitIdxs[iHit] << "] == " << hitmap[hitIdxs[iHit]] << std::endl;
+      // }
       hits[iHit - start] = hitmap[hitIdxs[iHit]];
+    }
 
 #ifdef CA_DEBUG
     std::cout << "track soa : " << it << " with hits: ";
