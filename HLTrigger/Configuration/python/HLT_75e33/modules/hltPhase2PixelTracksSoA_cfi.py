@@ -114,7 +114,7 @@ hltPhase2PixelTracksSoA = cms.EDProducer('CAHitNtupletAlpakaPhase2OT@alpaka',
             0.003,                      # 27
             0.003,                      # 29
             0.003),                     # 30
-        startingPairs = cms.vint32(
+        startingPairs = cms.vuint32(
                 0,    # PXB0-1
                 1,    # PXB0-4
                 2,    # PXB0-16
@@ -150,7 +150,7 @@ hltPhase2PixelTracksSoA = cms.EDProducer('CAHitNtupletAlpakaPhase2OT@alpaka',
 #                30,
 #                31,
 #                32),
-        pairGraph = cms.vint32(
+        pairGraph = cms.vuint32(
                 0, 1,                         # 0
                 0, 4,                         # 1
                 0, 16,                        # 2
