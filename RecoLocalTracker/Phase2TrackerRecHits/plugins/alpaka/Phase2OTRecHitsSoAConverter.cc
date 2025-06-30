@@ -85,7 +85,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     descriptions.addWithDefaultLabel(desc);
   }
 
-  void Phase2OTRecHitsSoAConverter::beginRun(edm::Run const &iRun, edm::EventSetup const& iSetup) {
+  void Phase2OTRecHitsSoAConverter::beginRun(edm::Run const& iRun, edm::EventSetup const& iSetup) {
     const auto& trackerGeometry = &iSetup.getData(geomTokenRun_);
     auto isPinPSinOTBarrel = [&](DetId detId) {
       //    std::cout << (int)trackerGeometry->getDetectorType(detId) << " " << (trackerGeometry->getDetectorType(detId) == TrackerGeometry::ModuleType::Ph2PSP) << "\n";
