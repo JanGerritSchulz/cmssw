@@ -151,8 +151,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       std::vector<int> moduleToindexInDets;
 
       auto isPinPSinOTBarrel = [&](DetId detId) {
-        //    std::cout << (int)trackerGeometry->getDetectorType(detId) << " " << (trackerGeometry->getDetectorType(detId) == TrackerGeometry::ModuleType::Ph2PSP) << "\n";
-        //    std::cout << (int)detId.subdetId() << " " << (detId.subdetId() == StripSubdetector::TOB) << std::endl;
+#ifdef GPU_DEBUG
+		std::cout << (int)trackerGeometry->getDetectorType(detId) << " " << (trackerGeometry->getDetectorType(detId) == TrackerGeometry::ModuleType::Ph2PSP) << "\n";
+		std::cout << (int)detId.subdetId() << " " << (detId.subdetId() == StripSubdetector::TOB) << std::endl;
+#endif
         // Select only P-hits from the OT barrel
         return (trackerGeometry.getDetectorType(detId) == TrackerGeometry::ModuleType::Ph2PSP &&
                 detId.subdetId() == StripSubdetector::TOB);
@@ -298,7 +300,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         cellSoA.startingPair()[i] = false;
       }
 
-      for (const int& i : iCache->startingPairs_)
+      for (const unsigned int& i : iCache->startingPairs_)
         cellSoA.startingPair()[i] = true;
 
       return std::make_shared<CAGeometryCache>(std::move(product));
@@ -313,8 +315,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     const device::EDGetToken<HitsOnDevice> tokenHit_;
     const device::EDPutToken<TkSoADevice> tokenTrack_;
 
-    const TFormula maxNumberOfDoublets_;
-    const TFormula maxNumberOfTuples_;
+    const ::reco::FormulaEvaluator maxNumberOfDoublets_;
+    const ::reco::FormulaEvaluator maxNumberOfTuples_;
     Algo deviceAlgo_;
   };
 
@@ -325,11 +327,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         tokenField_(esConsumes()),
         tokenHit_(consumes(iConfig.getParameter<edm::InputTag>("pixelRecHitSrc"))),
         tokenTrack_(produces()),
-        maxNumberOfDoublets_(
-            TFormula("doubletsHitsDependecy", iConfig.getParameter<std::string>("maxNumberOfDoublets").data())),
-        maxNumberOfTuples_(
-            TFormula("tracksHitsDependency", iConfig.getParameter<std::string>("maxNumberOfTuples").data())),
-        deviceAlgo_(iConfig) {
+		maxNumberOfDoublets_(iConfig.getParameter<std::string>("maxNumberOfDoublets")),
+        maxNumberOfTuples_(iConfig.getParameter<std::string>("maxNumberOfTuples")),
+		deviceAlgo_(iConfig) {
     iCache->tokenGeometry_ = esConsumes<edm::Transition::BeginRun>();
     iCache->tokenTopology_ = esConsumes<edm::Transition::BeginRun>();
   }
@@ -351,8 +351,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     auto const& geometry = runCache()->get(iEvent.queue());
     auto const& hits = iEvent.get(tokenHit_);
 
-    uint32_t const maxTuples = maxNumberOfTuples_.Eval(hits.nHits());
-    uint32_t const maxDoublets = maxNumberOfDoublets_.Eval(hits.nHits());
+	std::array<double, 1> nHitsV = {{double(hits.nHits())}};
+	std::array<double, 1> emptyV;
+
+    uint32_t const maxTuples = maxNumberOfTuples_.evaluate(nHitsV, emptyV);
+    uint32_t const maxDoublets = maxNumberOfDoublets_.evaluate(nHitsV, emptyV);
 
     iEvent.emplace(tokenTrack_,
                    deviceAlgo_.makeTuplesAsync(hits, geometry, bf, maxDoublets, maxTuples, iEvent.queue()));
