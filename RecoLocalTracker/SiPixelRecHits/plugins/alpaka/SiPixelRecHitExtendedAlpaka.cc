@@ -156,7 +156,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         std::cout << "Copied scalar column with index " << idx << '\n';
 #endif
       } else {
+#ifdef GPU_DEBUG
         std::cout << "Copying array at column " << idx << '\n';
+#endif
         // copy Pixel hits
         alpaka::memcpy(queue,
                        cms::alpakatools::make_device_view(queue, outCol.data(), nPixHits),
