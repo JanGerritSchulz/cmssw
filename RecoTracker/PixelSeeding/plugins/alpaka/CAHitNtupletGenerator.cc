@@ -260,7 +260,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
             "pairGraph",
             std::vector<unsigned int>(std::begin(layerPairs),
                                       std::begin(layerPairs) + (pixelTopology::Phase1::nPairsForQuadruplets * 2)))
-      ->setComment("CA graph");
+        ->setComment("CA graph");
     geometryParams
         .add<std::vector<int>>(
             "phiCuts",
@@ -268,19 +268,43 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         ->setComment("Cuts in phi for cells");
     geometryParams
         .add<std::vector<double>>(
-            "minZ",
+            "minInnerZ",
             std::vector<double>(std::begin(minz), std::begin(minz) + pixelTopology::Phase1::nPairsForQuadruplets))
-        ->setComment("Cuts in min z (on inner hit) for cells");
+        ->setComment("Cuts in min z (of inner hit) for cells");
     geometryParams
         .add<std::vector<double>>(
-            "maxZ",
+            "maxInnerZ",
             std::vector<double>(std::begin(maxz), std::begin(maxz) + pixelTopology::Phase1::nPairsForQuadruplets))
-        ->setComment("Cuts in max z (on inner hit) for cells");
+        ->setComment("Cuts in max z (of inner hit) for cells");
     geometryParams
         .add<std::vector<double>>(
-            "maxR",
+            "maxDR",
             std::vector<double>(std::begin(maxr), std::begin(maxr) + pixelTopology::Phase1::nPairsForQuadruplets))
         ->setComment("Cuts in max r for cells");
+    geometryParams
+        .add<std::vector<double>>("minOuterZ", std::vector<double>(pixelTopology::Phase1::nPairsForQuadruplets, -10000))
+        ->setComment("Cuts in min z (of outer hit) for cells");
+    geometryParams
+        .add<std::vector<double>>("maxOuterZ", std::vector<double>(pixelTopology::Phase1::nPairsForQuadruplets, 10000))
+        ->setComment("Cuts in max z (of outer hit) for cells");
+    geometryParams
+        .add<std::vector<double>>("minInnerR", std::vector<double>(pixelTopology::Phase1::nPairsForQuadruplets, -10000))
+        ->setComment("Cuts in min r (of inner hit) for cells");
+    geometryParams
+        .add<std::vector<double>>("maxInnerR", std::vector<double>(pixelTopology::Phase1::nPairsForQuadruplets, 10000))
+        ->setComment("Cuts in max r (of inner hit) for cells");
+    geometryParams
+        .add<std::vector<double>>("minOuterR", std::vector<double>(pixelTopology::Phase1::nPairsForQuadruplets, -10000))
+        ->setComment("Cuts in min r (of outer hit) for cells");
+    geometryParams
+        .add<std::vector<double>>("maxOuterR", std::vector<double>(pixelTopology::Phase1::nPairsForQuadruplets, 10000))
+        ->setComment("Cuts in max r (of outer hit) for cells");
+    geometryParams
+        .add<std::vector<double>>("minDZ", std::vector<double>(pixelTopology::Phase1::nPairsForQuadruplets, -10000))
+        ->setComment("Cuts in max dz for cells");
+    geometryParams
+        .add<std::vector<double>>("maxDZ", std::vector<double>(pixelTopology::Phase1::nPairsForQuadruplets, 10000))
+        ->setComment("Cuts in min dz for cells");
 
     desc.add<edm::ParameterSetDescription>("geometry", geometryParams)
         ->setComment(
@@ -343,17 +367,17 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         ->setComment("Cuts in phi for cells");
     geometryParams
         .add<std::vector<double>>(
-            "minZ",
+            "minInnerZ",
             std::vector<double>(std::begin(minz), std::begin(minz) + pixelTopology::Phase1::nPairsForQuadruplets))
         ->setComment("Cuts in min z (on inner hit) for cells");
     geometryParams
         .add<std::vector<double>>(
-            "maxZ",
+            "maxInnerZ",
             std::vector<double>(std::begin(maxz), std::begin(maxz) + pixelTopology::Phase1::nPairsForQuadruplets))
         ->setComment("Cuts in max z (on inner hit) for cells");
     geometryParams
         .add<std::vector<double>>(
-            "maxR",
+            "maxDR",
             std::vector<double>(std::begin(maxr), std::begin(maxr) + pixelTopology::Phase1::nPairsForQuadruplets))
         ->setComment("Cuts in max r for cells");
 
@@ -361,6 +385,30 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         ->setComment(
             "Quality cuts based on the results of the track fit:\n  - apply cuts based on the fit results (pT, Tip, "
             "Zip).");
+    geometryParams
+        .add<std::vector<double>>("minOuterZ", std::vector<double>(pixelTopology::Phase1::nPairsForQuadruplets, -10000))
+        ->setComment("Cuts in min z (of outer hit) for cells");
+    geometryParams
+        .add<std::vector<double>>("maxOuterZ", std::vector<double>(pixelTopology::Phase1::nPairsForQuadruplets, 10000))
+        ->setComment("Cuts in max z (of outer hit) for cells");
+    geometryParams
+        .add<std::vector<double>>("minInnerR", std::vector<double>(pixelTopology::Phase1::nPairsForQuadruplets, -10000))
+        ->setComment("Cuts in min r (of inner hit) for cells");
+    geometryParams
+        .add<std::vector<double>>("maxInnerR", std::vector<double>(pixelTopology::Phase1::nPairsForQuadruplets, 10000))
+        ->setComment("Cuts in max r (of inner hit) for cells");
+    geometryParams
+        .add<std::vector<double>>("minOuterR", std::vector<double>(pixelTopology::Phase1::nPairsForQuadruplets, -10000))
+        ->setComment("Cuts in min r (of outer hit) for cells");
+    geometryParams
+        .add<std::vector<double>>("maxOuterR", std::vector<double>(pixelTopology::Phase1::nPairsForQuadruplets, 10000))
+        ->setComment("Cuts in max r (of outer hit) for cells");
+    geometryParams
+        .add<std::vector<double>>("minDZ", std::vector<double>(pixelTopology::Phase1::nPairsForQuadruplets, -10000))
+        ->setComment("Cuts in max dz for cells");
+    geometryParams
+        .add<std::vector<double>>("maxDZ", std::vector<double>(pixelTopology::Phase1::nPairsForQuadruplets, 10000))
+        ->setComment("Cuts in min dz for cells");
   }
 
   template <>
@@ -402,12 +450,30 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     geometryParams
         .add<std::vector<int>>("phiCuts", std::vector<int>(std::begin(phicuts), std::begin(phicuts) + nPairs))
         ->setComment("Cuts in phi for cells");
-    geometryParams.add<std::vector<double>>("minZ", std::vector<double>(std::begin(minz), std::begin(minz) + nPairs))
+    geometryParams
+        .add<std::vector<double>>("minInnerZ", std::vector<double>(std::begin(minz), std::begin(minz) + nPairs))
         ->setComment("Cuts in min z (on inner hit) for cells");
-    geometryParams.add<std::vector<double>>("maxZ", std::vector<double>(std::begin(maxz), std::begin(maxz) + nPairs))
+    geometryParams
+        .add<std::vector<double>>("maxInnerZ", std::vector<double>(std::begin(maxz), std::begin(maxz) + nPairs))
         ->setComment("Cuts in max z (on inner hit) for cells");
-    geometryParams.add<std::vector<double>>("maxR", std::vector<double>(std::begin(maxr), std::begin(maxr) + nPairs))
+    geometryParams.add<std::vector<double>>("maxDR", std::vector<double>(std::begin(maxr), std::begin(maxr) + nPairs))
         ->setComment("Cuts in max r for cells");
+    geometryParams.add<std::vector<double>>("minOuterZ", std::vector<double>(nPairs, -10000))
+        ->setComment("Cuts in min z (of outer hit) for cells");
+    geometryParams.add<std::vector<double>>("maxOuterZ", std::vector<double>(nPairs, 10000))
+        ->setComment("Cuts in max z (of outer hit) for cells");
+    geometryParams.add<std::vector<double>>("minInnerR", std::vector<double>(nPairs, -10000))
+        ->setComment("Cuts in min r (of inner hit) for cells");
+    geometryParams.add<std::vector<double>>("maxInnerR", std::vector<double>(nPairs, 10000))
+        ->setComment("Cuts in max r (of inner hit) for cells");
+    geometryParams.add<std::vector<double>>("minOuterR", std::vector<double>(nPairs, -10000))
+        ->setComment("Cuts in min r (of outer hit) for cells");
+    geometryParams.add<std::vector<double>>("maxOuterR", std::vector<double>(nPairs, 10000))
+        ->setComment("Cuts in max r (of outer hit) for cells");
+    geometryParams.add<std::vector<double>>("minDZ", std::vector<double>(nPairs, -10000))
+        ->setComment("Cuts in max dz for cells");
+    geometryParams.add<std::vector<double>>("maxDZ", std::vector<double>(nPairs, 10000))
+        ->setComment("Cuts in min dz for cells");
 
     desc.add<edm::ParameterSetDescription>("geometry", geometryParams)
         ->setComment(
@@ -442,24 +508,43 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                   std::vector<double>(std::begin(thetaCuts), std::begin(thetaCuts) + numberOfLayers))
         ->setComment("Cut on origin radius. One per layer, the layer being the innermost one for a triplet.");
     geometryParams
-        .add<std::vector<unsigned int>>("startingPairs", {0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11, 12, 13, 14, 15, 16,
-														  17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32})
+        .add<std::vector<unsigned int>>("startingPairs",
+                                        {0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11, 12, 13, 14, 15, 16,
+                                         17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32})
         ->setComment(
             "The list of the ids of pairs from which the CA ntuplets building may start.");  //TODO could be parsed via an expression
     // cells params
     geometryParams
-        .add<std::vector<unsigned int>>("pairGraph",
-                               std::vector<unsigned int>(std::begin(layerPairs), std::begin(layerPairs) + (nPairs * 2)))
+        .add<std::vector<unsigned int>>(
+            "pairGraph", std::vector<unsigned int>(std::begin(layerPairs), std::begin(layerPairs) + (nPairs * 2)))
         ->setComment("CA graph");
     geometryParams
         .add<std::vector<int>>("phiCuts", std::vector<int>(std::begin(phicuts), std::begin(phicuts) + nPairs))
         ->setComment("Cuts in phi for cells");
-    geometryParams.add<std::vector<double>>("minZ", std::vector<double>(std::begin(minz), std::begin(minz) + nPairs))
+    geometryParams
+        .add<std::vector<double>>("minInnerZ", std::vector<double>(std::begin(minz), std::begin(minz) + nPairs))
         ->setComment("Cuts in min z (on inner hit) for cells");
-    geometryParams.add<std::vector<double>>("maxZ", std::vector<double>(std::begin(maxz), std::begin(maxz) + nPairs))
+    geometryParams
+        .add<std::vector<double>>("maxInnerZ", std::vector<double>(std::begin(maxz), std::begin(maxz) + nPairs))
         ->setComment("Cuts in max z (on inner hit) for cells");
-    geometryParams.add<std::vector<double>>("maxR", std::vector<double>(std::begin(maxr), std::begin(maxr) + nPairs))
+    geometryParams.add<std::vector<double>>("maxDR", std::vector<double>(std::begin(maxr), std::begin(maxr) + nPairs))
         ->setComment("Cuts in max r for cells");
+    geometryParams.add<std::vector<double>>("minOuterZ", std::vector<double>(nPairs, -10000))
+        ->setComment("Cuts in min z (of outer hit) for cells");
+    geometryParams.add<std::vector<double>>("maxOuterZ", std::vector<double>(nPairs, 10000))
+        ->setComment("Cuts in max z (of outer hit) for cells");
+    geometryParams.add<std::vector<double>>("minInnerR", std::vector<double>(nPairs, -10000))
+        ->setComment("Cuts in min r (of inner hit) for cells");
+    geometryParams.add<std::vector<double>>("maxInnerR", std::vector<double>(nPairs, 10000))
+        ->setComment("Cuts in max r (of inner hit) for cells");
+    geometryParams.add<std::vector<double>>("minOuterR", std::vector<double>(nPairs, -10000))
+        ->setComment("Cuts in min r (of outer hit) for cells");
+    geometryParams.add<std::vector<double>>("maxOuterR", std::vector<double>(nPairs, 10000))
+        ->setComment("Cuts in max r (of outer hit) for cells");
+    geometryParams.add<std::vector<double>>("minDZ", std::vector<double>(nPairs, -10000))
+        ->setComment("Cuts in max dz for cells");
+    geometryParams.add<std::vector<double>>("maxDZ", std::vector<double>(nPairs, 10000))
+        ->setComment("Cuts in min dz for cells");
 
     desc.add<edm::ParameterSetDescription>("geometry", geometryParams)
         ->setComment(
