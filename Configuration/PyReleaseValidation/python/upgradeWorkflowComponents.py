@@ -2129,7 +2129,7 @@ upgradeWFs['NGTScouting'].step3 = {
 
 upgradeWFs['NGTScoutingAlpaka'] = deepcopy(upgradeWFs['NGTScouting'])
 upgradeWFs['NGTScoutingAlpaka'].suffix = '_NGTScoutingAlpaka'
-upgradeWFs['NGTScoutingAlpaka'].offset = 0.771
+upgradeWFs['NGTScoutingAlpaka'].offset = 0.773
 upgradeWFs['NGTScoutingAlpaka'].step2 = {
     '-s':'DIGI:pdigi_valid,L1TrackTrigger,L1,L1P2GT,DIGI2RAW,HLT:NGTScouting,VALIDATION:@hltValidation',
     '--procModifiers': 'alpaka',
