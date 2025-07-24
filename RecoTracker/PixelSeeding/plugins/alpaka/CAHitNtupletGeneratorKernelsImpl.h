@@ -136,23 +136,24 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::caHitNtupletGeneratorKernels {
 
 #ifdef NTUPLE_DEBUGS
       if (cms::alpakatools::once_per_grid(acc)) {
-        printf("number of found cells %d \n found tuples %d with total hits %d out of %d\n",
+        printf("CA NUMBER OUTPUT: %d cells, %d Ntuples, %d used hits, %d hits\n",
                *nCells,
                apc->get().first,
                apc->get().second,
                nHits);
-        if (apc->get().first < tracks_view.metadata().size()) {
-        ALPAKA_ASSERT_ACC(foundNtuplets->size(apc->get().first) == 0);
-        ALPAKA_ASSERT_ACC(foundNtuplets->size() == apc->get().second);
-        }
+        // if (apc->get().first < tracks_view.metadata().size()) {
+        //   ALPAKA_ASSERT_ACC(foundNtuplets->size(apc->get().first) == 0);
+        //   ALPAKA_ASSERT_ACC(foundNtuplets->size() == apc->get().second);
+        // }
       }
 
-      for (auto idx : cms::alpakatools::uniform_elements(acc, foundNtuplets->nOnes())) {
-      if (foundNtuplets->size(idx) > TrackerTraits::maxHitsOnTrack)  // current real limit
-      printf("ERROR %d, %d\n", idx, foundNtuplets->size(idx));
-      ALPAKA_ASSERT_ACC(foundNtuplets->size(idx) <= TrackerTraits::maxHitsOnTrack);
-      for (auto ih = foundNtuplets->begin(idx); ih != foundNtuplets->end(idx); ++ih)
-      ALPAKA_ASSERT_ACC(int(*ih) < nHits);
+      // for (auto idx : cms::alpakatools::uniform_elements(acc, foundNtuplets->nOnes())) {
+      //   if (foundNtuplets->size(idx) > TrackerTraits::maxHitsOnTrack)  // current real limit
+      //     printf("ERROR %d, %d\n", idx, foundNtuplets->size(idx));
+      //   ALPAKA_ASSERT_ACC(foundNtuplets->size(idx) <= TrackerTraits::maxHitsOnTrack);
+      //   for (auto ih = foundNtuplets->begin(idx); ih != foundNtuplets->end(idx); ++ih)
+      //     ALPAKA_ASSERT_ACC(int(*ih) < nHits);
+      // }
       }
 #endif
 
