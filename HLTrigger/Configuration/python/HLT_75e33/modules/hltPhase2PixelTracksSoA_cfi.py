@@ -103,20 +103,27 @@ layerPairs = [
 
 # find the layerPairs that contain a layer that is excluded
 excludeLayerPair = [any([(lp[0] == l) or (lp[1] == l) for l in layersToExclude]) for lp in layerPairs]
+excludeCAExtension = [any([(lp[0] == l) or (lp[1] == l) for l in [28, 29, 30]]) for lp in layerPairs]
 
 # exclude those layerPairs
-layerPairs_ = []
+layerPairsAlpaka = []
+layerPairsCAExtension = []
 for i, lp in enumerate(layerPairs):
+    if (not excludeLayerPair[i]) and (not excludeCAExtension[i]):
+        layerPairsAlpaka.append(lp)
     if not excludeLayerPair[i]:
-        layerPairs_.append(lp)
-layerPairs = layerPairs_
+        layerPairsCAExtension.append(lp)
 
 # get startingPairs for Ntuplet building
-startingPairs = []
-for i, lp in enumerate(layerPairs):
+startingPairsAlpaka = []
+for i, lp in enumerate(layerPairsAlpaka):
     if lp[2]:
-        startingPairs.append(i)
+        startingPairsAlpaka.append(i)
 
+startingPairsCAExtension = []
+for i, lp in enumerate(layerPairsCAExtension):
+    if lp[2]:
+        startingPairsCAExtension.append(i)
 
 hltPhase2PixelTracksSoA = cms.EDProducer('CAHitNtupletAlpakaPhase2@alpaka',
     pixelRecHitSrc = cms.InputTag('hltPhase2SiPixelRecHitsSoA'),
@@ -154,20 +161,20 @@ hltPhase2PixelTracksSoA = cms.EDProducer('CAHitNtupletAlpakaPhase2@alpaka',
     geometry = cms.PSet(
         caDCACuts = cms.vdouble(0.15, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25),
         caThetaCuts = cms.vdouble(0.002, 0.002, 0.002, 0.002, 0.003, 0.003, 0.003, 0.003, 0.003, 0.003, 0.003, 0.003, 0.003, 0.003, 0.003, 0.003, 0.003, 0.003, 0.003, 0.003, 0.003, 0.003, 0.003, 0.003, 0.003, 0.003, 0.003, 0.003),
-        startingPairs = cms.vuint32(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32),
-        pairGraph = cms.vuint32(0, 1, 0, 4, 0, 16, 1, 2, 1, 4, 1, 16, 2, 3, 2, 4, 2, 16, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 16, 17, 17, 18, 18, 19, 19, 20, 20, 21, 21, 22, 22, 23, 0, 2, 0, 5, 0, 17, 0, 6, 0, 18, 1, 3, 1, 5, 1, 17, 1, 6, 1, 18, 11, 12, 12, 13, 13, 14, 14, 15, 23, 24, 24, 25, 25, 26, 26, 27, 4, 6, 5, 7, 6, 8, 7, 9, 8, 10, 9, 11, 10, 12, 16, 18, 17, 19, 18, 20, 19, 21, 20, 22, 21, 23, 22, 24),
-        phiCuts = cms.vint32(522, 522, 522, 626, 730, 730, 626, 730, 730, 522, 522, 522, 522, 522, 522, 522, 522, 522, 522, 522, 522, 522, 522, 522, 522, 522, 522, 522, 522, 730, 730, 730, 730, 730, 730, 730, 730, 730, 730, 730, 730, 730, 730, 730, 730, 730, 730, 522, 522, 522, 522, 522, 522, 522, 522),
-        minInnerZ = cms.vdouble(-16, 4, -22, -17, 6, -22, -18, 11, -22, 23, 30, 39, 50, 65, 82, 109, -28, -35, -44, -55, -70, -87, -113, -16, 7, -22, 11, -22, -17, 9, -22, 13, -22, 137, 173, 199, 229, -142, -177, -203, -233, 23, 30, 39, 50, 65, 82, 109, -28, -35, -44, -55, -70, -87, -113),
-        maxInnerZ = cms.vdouble(17, 22, -4, 17, 22, -6, 18, 22, -11, 28, 35, 44, 55, 70, 87, 113, -23, -30, -39, -50, -65, -82, -109, 17, 22, -7, 22, -10, 17, 22, -9, 22, -13, 142, 177, 203, 233, -137, -173, -199, -229, 28, 35, 44, 55, 70, 87, 113, -23, -30, -39, -50, -65, -82, -109),
-        maxDR = cms.vdouble(5, 5, 5, 7, 8, 8, 7, 7, 7, 6, 6, 6, 6, 5, 6, 5, 6, 6, 6, 6, 5, 6, 5, 5, 5, 5, 5, 5, 5, 8, 8, 8, 8, 6, 5, 5, 5, 6, 5, 5, 5, 9, 9, 9, 8, 8, 8, 11, 9, 9, 9, 8, 8, 8, 11),
-        minOuterZ = cms.vdouble(-10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000),
-        maxOuterZ = cms.vdouble( 10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000),
-        minInnerR = cms.vdouble(-10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000),
-        maxInnerR = cms.vdouble( 10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000),
-        minOuterR = cms.vdouble(-10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000),
-        maxOuterR = cms.vdouble( 10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000),
-        minDZ     = cms.vdouble(-10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000),
-        maxDZ     = cms.vdouble( 10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000,  10000),
+        startingPairs = cms.vuint32(startingPairsAlpaka),
+        pairGraph = cms.vuint32(sum([[lp[0], lp[1]] for lp in layerPairsAlpaka], [])),
+        phiCuts   = cms.vint32( [lp[ 3] for lp in layerPairsAlpaka]),
+        minInnerR = cms.vdouble([lp[ 4] for lp in layerPairsAlpaka]),
+        maxInnerR = cms.vdouble([lp[ 5] for lp in layerPairsAlpaka]),
+        minOuterR = cms.vdouble([lp[ 6] for lp in layerPairsAlpaka]),
+        maxOuterR = cms.vdouble([lp[ 7] for lp in layerPairsAlpaka]),
+        maxDR     = cms.vdouble([lp[ 8] for lp in layerPairsAlpaka]),
+        minInnerZ = cms.vdouble([lp[ 9] for lp in layerPairsAlpaka]),
+        maxInnerZ = cms.vdouble([lp[10] for lp in layerPairsAlpaka]),
+        minOuterZ = cms.vdouble([lp[11] for lp in layerPairsAlpaka]),
+        maxOuterZ = cms.vdouble([lp[12] for lp in layerPairsAlpaka]),
+        minDZ     = cms.vdouble([lp[13] for lp in layerPairsAlpaka]),
+        maxDZ     = cms.vdouble([lp[14] for lp in layerPairsAlpaka]),
     ),
     # autoselect the alpaka backend
     alpaka = cms.untracked.PSet(backend = cms.untracked.string(''))
@@ -286,20 +293,20 @@ _hltPhase2PixelTracksSoA = cms.EDProducer('CAHitNtupletAlpakaPhase2OT@alpaka',
             0.003,                      # 28
             0.003,                      # 29
             0.003),                     # 30
-        startingPairs = cms.vuint32(startingPairs),
-        pairGraph = cms.vuint32(sum([[lp[0], lp[1]] for lp in layerPairs], [])),
-        phiCuts   = cms.vint32( [lp[ 3] for lp in layerPairs]),
-        minInnerR = cms.vdouble([lp[ 4] for lp in layerPairs]),
-        maxInnerR = cms.vdouble([lp[ 5] for lp in layerPairs]),
-        minOuterR = cms.vdouble([lp[ 6] for lp in layerPairs]),
-        maxOuterR = cms.vdouble([lp[ 7] for lp in layerPairs]),
-        maxDR     = cms.vdouble([lp[ 8] for lp in layerPairs]),
-        minInnerZ = cms.vdouble([lp[ 9] for lp in layerPairs]),
-        maxInnerZ = cms.vdouble([lp[10] for lp in layerPairs]),
-        minOuterZ = cms.vdouble([lp[11] for lp in layerPairs]),
-        maxOuterZ = cms.vdouble([lp[12] for lp in layerPairs]),
-        minDZ     = cms.vdouble([lp[13] for lp in layerPairs]),
-        maxDZ     = cms.vdouble([lp[14] for lp in layerPairs]),
+        startingPairs = cms.vuint32(startingPairsCAExtension),
+        pairGraph = cms.vuint32(sum([[lp[0], lp[1]] for lp in layerPairsCAExtension], [])),
+        phiCuts   = cms.vint32( [lp[ 3] for lp in layerPairsCAExtension]),
+        minInnerR = cms.vdouble([lp[ 4] for lp in layerPairsCAExtension]),
+        maxInnerR = cms.vdouble([lp[ 5] for lp in layerPairsCAExtension]),
+        minOuterR = cms.vdouble([lp[ 6] for lp in layerPairsCAExtension]),
+        maxOuterR = cms.vdouble([lp[ 7] for lp in layerPairsCAExtension]),
+        maxDR     = cms.vdouble([lp[ 8] for lp in layerPairsCAExtension]),
+        minInnerZ = cms.vdouble([lp[ 9] for lp in layerPairsCAExtension]),
+        maxInnerZ = cms.vdouble([lp[10] for lp in layerPairsCAExtension]),
+        minOuterZ = cms.vdouble([lp[11] for lp in layerPairsCAExtension]),
+        maxOuterZ = cms.vdouble([lp[12] for lp in layerPairsCAExtension]),
+        minDZ     = cms.vdouble([lp[13] for lp in layerPairsCAExtension]),
+        maxDZ     = cms.vdouble([lp[14] for lp in layerPairsCAExtension]),
     ),
     # autoselect the alpaka backend
     alpaka = cms.untracked.PSet(backend = cms.untracked.string(''))
