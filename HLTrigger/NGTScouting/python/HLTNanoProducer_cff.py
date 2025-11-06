@@ -115,6 +115,46 @@ hltNanoFlavour = cms.Sequence(
     NanoHltTables
 )
 
+hltNanoProducerPixelOnly = cms.Sequence(
+    NanoGenTable
+    + pixelTrackAssoc
+    + hltPixelTrackTable
+    + hltPixelTrackExtTable
+    + hltPixelTrackRecHitsTable
+)
+
+
+dstNanoProducer = cms.Sequence(
+    NanoGenTable
+    + dstTriggerAcceptFilter
+    + hltVertexTable
+    + pixelTrackAssoc
+    + hltPixelTrackTable
+    + hltPixelVertexTable
+    + hltGeneralTrackTable
+    + hltEgammaPacker
+    + hltPhotonTable
+    + hltElectronTable
+    + hltPhase2L3MuonIdTracks
+    + hltMuonTable
+    + hltPFCandidateTable
+    + hltJetTable
+    + hltTauTable
+    + hltTrackstersTableSequence
+    + hltTiclCandidateTable
+    + hltTiclCandidateExtraTable
+    + hltTiclSuperClustersTable
+    + hltTauExtTable
+    + METTable
+    + HTTable
+)
+
+trackingExtraNanoProducer = cms.Sequence(
+    hltPixelTrackExtTable+
+    hltPixelTrackRecHitsTable+
+    hltGeneralTrackExtTable
+)
+
 # Phase-2 HLT Nano flavour with MC/HGCal info (NANO:@Phase2HLTVal)
 hltValidationNanoFlavour = cms.Sequence(
     NanoGenTables
