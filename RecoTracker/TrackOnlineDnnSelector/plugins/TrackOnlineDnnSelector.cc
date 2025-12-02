@@ -34,6 +34,7 @@
 #include "DataFormats/TrackReco/interface/TrackExtra.h"
 #include "DataFormats/TrackReco/interface/TrackFwd.h"
 #include "PhysicsTools/ONNXRuntime/interface/ONNXRuntime.h"
+#include <fstream>
 
 //
 // class declaration
@@ -116,6 +117,7 @@ void TrackOnlineDnnSelector::produce(edm::Event& iEvent, const edm::EventSetup& 
   using namespace edm;
 
   edm::LogWarning("TrackOnlineDnnSelector") << "Hello world! Let's produce";
+  static std::ofstream probFile("probabilities.txt", std::ios::app);
 
   //retrieve tokens
   auto tracksIn = iEvent.getHandle(tracks_);
@@ -209,8 +211,8 @@ void TrackOnlineDnnSelector::produce(edm::Event& iEvent, const edm::EventSetup& 
 
       // retrieve Beamspot related features
       if (beamSpotIn.isValid() || !(this->skipNonExistingSrc_)) {
-        tracks_input[tbase + 23] = track.dxy(point);
-        tracks_input[tbase + 24] = track.dz(point);
+        tracks_input[tbase + 23] = track.dz(point);
+        tracks_input[tbase + 24] = track.dxy(point);
       }
     }
   } 
@@ -225,8 +227,15 @@ void TrackOnlineDnnSelector::produce(edm::Event& iEvent, const edm::EventSetup& 
   const auto& probTensor = pidOutput[0];
   const float* probabilities = probTensor.data();
 
-  for(int it = 0; it < nTracks; it++){
-    std::cout << "Prob: " << probabilities[it] << std::endl;
+  if (!probFile.is_open()) {
+    edm::LogWarning("TrackOnlineDnnSelector") << "Could not open probabilities.txt for writing!";
+  } 
+  else {
+    probFile << "Event " << iEvent.id().event() << "\n";
+    for (int it = 0; it < nTracks; it++) {
+      probFile << probabilities[it] << "\n";
+    }
+    probFile << "----\n";
   }
 }
 
@@ -284,15 +293,11 @@ void TrackOnlineDnnSelector::fillDescriptions(edm::ConfigurationDescriptions& de
    
   desc.add<std::vector<std::string>>("inputNames", {"hits", "tracks"});
   desc.add<std::vector<std::string>>("output_en", {"probabilities"});
-
   desc.add<bool>("skipNonExistingSrc", true);
   desc.add<uint32_t>("maxRecHits", 16);
   desc.add<edm::InputTag>("tracksSrc", edm::InputTag("hltInitialStepTracks"));
   desc.add<edm::InputTag>("beamSpot", edm::InputTag("hltOnlineBeamSpot"));
-  descriptions.add("trackOnlineDnnSelector", desc);
-
-
-  
+  descriptions.add("trackOnlineDnnSelector", desc);  
 }
 
 //define this as a plug-in
