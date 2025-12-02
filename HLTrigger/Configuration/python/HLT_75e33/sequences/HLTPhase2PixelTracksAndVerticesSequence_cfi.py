@@ -56,7 +56,7 @@ _HLTPhase2PixelTracksAndVerticesSequenceCAExtension = cms.Sequence(
   +hltPhase2PixelTracksSoA
   +hltPhase2PixelTracksCAExtension
   +HLTPhase2PixelVertexingSequence
-  +hltPhase2PixelTracksCutClassifier
+#  +hltPhase2PixelTracksCutClassifier
   +hltTrackOnlineDnnSelector
   +hltPhase2PixelTracks
 )

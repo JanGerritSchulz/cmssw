@@ -62,6 +62,7 @@ private:
   // ----------member data ---------------------------
   const bool skipNonExistingSrc_;
   const uint32_t maxRecHits_;
+  const double probThreshold_;
   const edm::EDGetTokenT<std::vector<reco::Track>> tracks_;
   const edm::EDGetTokenT<reco::BeamSpot> beamSpot_;
 
@@ -69,7 +70,6 @@ private:
   const cms::Ort::ONNXRuntime* onnxSession_;
   const std::vector<std::string> inputNames_;
   const std::vector<std::string> output_en_;
-
 };
 
 namespace {
@@ -83,9 +83,9 @@ namespace {
 TrackOnlineDnnSelector::TrackOnlineDnnSelector(const edm::ParameterSet& params) 
     : skipNonExistingSrc_(params.getParameter<bool>("skipNonExistingSrc")),
       maxRecHits_(params.getParameter<uint32_t>("maxRecHits")),
+      probThreshold_(params.getParameter<double>("probThreshold")),
       tracks_(consumes<std::vector<reco::Track>>(params.getParameter<edm::InputTag>("tracksSrc"))),
       beamSpot_(consumes<reco::BeamSpot>(params.getParameter<edm::InputTag>("beamSpot"))),
-
       onnxRuntimeInstance_(std::make_unique<cms::Ort::ONNXRuntime>(
             params.getParameter<edm::FileInPath>("onnxModelPath").fullPath().c_str())),
       inputNames_(params.getParameter<std::vector<std::string>>("inputNames")),  // Define input names for inference
@@ -139,6 +139,13 @@ void TrackOnlineDnnSelector::produce(edm::Event& iEvent, const edm::EventSetup& 
   std::vector<std::vector<float>> input_Data_;
   std::vector<std::vector<int64_t>> input_shapes_ = {hits_shape, tracks_shape}; 
 
+  // Initialize output
+
+  auto mvas  = std::make_unique<MVACollection>(nTracks, -99.f);
+  auto quals = std::make_unique<QualityMaskCollection>(nTracks, 0);
+
+  // prepare input data 
+  
   // retrieve the BS information
   math::XYZPoint point;
   if (beamSpotIn.isValid() || !(this->skipNonExistingSrc_)) {
@@ -237,6 +244,28 @@ void TrackOnlineDnnSelector::produce(edm::Event& iEvent, const edm::EventSetup& 
     }
     probFile << "----\n";
   }
+
+  // Loop over tracks, fill probability and quality mask
+  for (int i = 0; i < nTracks; i++) {
+
+      float prob = probabilities[i];
+      (*mvas)[i] = prob;
+
+      unsigned char mask = 0;
+
+      // Only highPurity is meaningful: 1 bit when prob > threshold
+      if (prob > probThreshold_) {
+          mask |= (1 << reco::TrackBase::highPurity);
+      }
+
+      // loose and tight intentionally left OFF
+
+      (*quals)[i] = mask;
+  }
+
+  // put into event
+  iEvent.put(std::move(mvas), "MVAValues");
+  iEvent.put(std::move(quals), "QualityMasks");
 }
 
 // ------------ method called once each stream before processing any runs, lumis or events  ------------
@@ -295,6 +324,7 @@ void TrackOnlineDnnSelector::fillDescriptions(edm::ConfigurationDescriptions& de
   desc.add<std::vector<std::string>>("output_en", {"probabilities"});
   desc.add<bool>("skipNonExistingSrc", true);
   desc.add<uint32_t>("maxRecHits", 16);
+  desc.add<double>("probThreshold", 0.095)->setComment("DNN probability threshold for highPurity");
   desc.add<edm::InputTag>("tracksSrc", edm::InputTag("hltInitialStepTracks"));
   desc.add<edm::InputTag>("beamSpot", edm::InputTag("hltOnlineBeamSpot"));
   descriptions.add("trackOnlineDnnSelector", desc);  
