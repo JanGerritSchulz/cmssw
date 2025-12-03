@@ -117,8 +117,7 @@ void TrackOnlineDnnSelector::produce(edm::Event& iEvent, const edm::EventSetup& 
   using namespace edm;
 
   edm::LogWarning("TrackOnlineDnnSelector") << "Hello world! Let's produce";
-  static std::ofstream probFile("probabilities.txt", std::ios::app);
-
+  
   //retrieve tokens
   auto tracksIn = iEvent.getHandle(tracks_);
   auto beamSpotIn = iEvent.getHandle(beamSpot_);
@@ -233,17 +232,6 @@ void TrackOnlineDnnSelector::produce(edm::Event& iEvent, const edm::EventSetup& 
   auto pidOutput = onnxSession_->run(inputNames_, input_Data_, input_shapes_, output_en_, nTracks);
   const auto& probTensor = pidOutput[0];
   const float* probabilities = probTensor.data();
-
-  if (!probFile.is_open()) {
-    edm::LogWarning("TrackOnlineDnnSelector") << "Could not open probabilities.txt for writing!";
-  } 
-  else {
-    probFile << "Event " << iEvent.id().event() << "\n";
-    for (int it = 0; it < nTracks; it++) {
-      probFile << probabilities[it] << "\n";
-    }
-    probFile << "----\n";
-  }
 
   // Loop over tracks, fill probability and quality mask
   for (int i = 0; i < nTracks; i++) {
