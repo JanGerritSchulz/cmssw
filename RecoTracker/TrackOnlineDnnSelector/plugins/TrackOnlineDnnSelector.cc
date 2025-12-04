@@ -60,7 +60,6 @@ private:
   //void endLuminosityBlock(edm::LuminosityBlock const&, edm::EventSetup const&) override;
 
   // ----------member data ---------------------------
-  const bool skipNonExistingSrc_;
   const uint32_t maxRecHits_;
   const double probThreshold_;
   const edm::EDGetTokenT<std::vector<reco::Track>> tracks_;
@@ -81,8 +80,7 @@ namespace {
 // constructors and destructor
 //
 TrackOnlineDnnSelector::TrackOnlineDnnSelector(const edm::ParameterSet& params) 
-    : skipNonExistingSrc_(params.getParameter<bool>("skipNonExistingSrc")),
-      maxRecHits_(params.getParameter<uint32_t>("maxRecHits")),
+    : maxRecHits_(params.getParameter<uint32_t>("maxRecHits")),
       probThreshold_(params.getParameter<double>("probThreshold")),
       tracks_(consumes<std::vector<reco::Track>>(params.getParameter<edm::InputTag>("tracksSrc"))),
       beamSpot_(consumes<reco::BeamSpot>(params.getParameter<edm::InputTag>("beamSpot"))),
@@ -143,11 +141,19 @@ void TrackOnlineDnnSelector::produce(edm::Event& iEvent, const edm::EventSetup& 
   auto mvas  = std::make_unique<MVACollection>(nTracks, -99.f);
   auto quals = std::make_unique<QualityMaskCollection>(nTracks, 0);
 
+  // Escape if there are no tracks:
+  if(!tracksIn.isValid() || nTracks==0){
+    iEvent.put(std::move(mvas), "MVAValues");
+    iEvent.put(std::move(quals), "QualityMasks");
+    return ;
+  }
+  
+  
   // prepare input data 
   
   // retrieve the BS information
   math::XYZPoint point;
-  if (beamSpotIn.isValid() || !(this->skipNonExistingSrc_)) {
+  if (beamSpotIn.isValid()) {
     const auto& beamSpot = *beamSpotIn;
     point = math::XYZPoint(beamSpot.x0(), beamSpot.y0(), beamSpot.z0());
   }
@@ -158,74 +164,68 @@ void TrackOnlineDnnSelector::produce(edm::Event& iEvent, const edm::EventSetup& 
   }
 
   
-  if (tracksIn.isValid() || !(this->skipNonExistingSrc_)) {
-    const auto& tracks = *tracksIn;
+  const auto& tracks = *tracksIn;
 
-    for (int64_t tkIndex = 0; tkIndex < nTracks; ++tkIndex) {
-      const auto& track = tracks[tkIndex];
+  for (int64_t tkIndex = 0; tkIndex < nTracks; ++tkIndex) {
+    const auto& track = tracks[tkIndex];
 
-      // Retrieve recHit features
-      for (auto it = track.recHitsBegin(); it != track.recHitsEnd(); ++it) {
-        auto hit = *it;
-        auto const& globalPoint = hit->globalPosition();
-        auto const& globalError = hit->globalPositionError();
-        auto hitIndex = std::distance(track.recHitsBegin(), it);
-        if (hitIndex >= maxRecHits_) {
-          edm::LogWarning("TrackOnlineDnnSelector")
-              << " Track " << tkIndex << " has more (" << track.recHitsSize() << ") than " << maxRecHits_
-              << " recHits, skipping the rest.";
-          break;
-        }
-
-        auto base = tkIndex * maxRecHits_ * nHitFeatures + hitIndex * nHitFeatures;
-        hits_input[base + 0] = globalPoint.x();
-        hits_input[base + 1] = globalPoint.y();
-        hits_input[base + 2] = globalPoint.z();
-        hits_input[base + 3] = globalError.cxx();
-        hits_input[base + 4] = globalError.cyy();
-        hits_input[base + 5] = globalError.czz();
-        hits_input[base + 6] = globalPoint.perp();
-        hits_input[base + 7] = globalPoint.eta();
-        hits_input[base + 8] = globalPoint.phi();
+    // Retrieve recHit features
+    for (auto it = track.recHitsBegin(); it != track.recHitsEnd(); ++it) {
+      auto hit = *it;
+      auto const& globalPoint = hit->globalPosition();
+      auto const& globalError = hit->globalPositionError();
+      auto hitIndex = std::distance(track.recHitsBegin(), it);
+      if (hitIndex >= maxRecHits_) {
+        edm::LogWarning("TrackOnlineDnnSelector")
+            << " Track " << tkIndex << " has more (" << track.recHitsSize() << ") than " << maxRecHits_
+            << " recHits, skipping the rest.";
+        break;
       }
 
-      // retrieve recoPixelTrack features 
-      auto tbase = tkIndex * nTrackFeatures;
-      tracks_input[tbase + 0] = nPixelHits(track);
-      tracks_input[tbase + 1] = nTrkLays(track);
-      tracks_input[tbase + 2] = track.charge();
-      tracks_input[tbase + 3] = track.chi2();
-      tracks_input[tbase + 4] = track.dxy();
-      tracks_input[tbase + 5] = track.dz();
-      tracks_input[tbase + 6] = track.dzError();
-      tracks_input[tbase + 7] = track.dsz();
-      tracks_input[tbase + 8] = track.dszError();
-      tracks_input[tbase + 9] = track.dxyError();
-      tracks_input[tbase + 10] = track.eta();
-      tracks_input[tbase + 11] = track.etaError();
-      tracks_input[tbase + 12] = track.lambdaError();
-      tracks_input[tbase + 13] = track.ndof();
-      tracks_input[tbase + 14] = track.phi();
-      tracks_input[tbase + 15] = track.phiError();
-      tracks_input[tbase + 16] = track.pt();
-      tracks_input[tbase + 17] = track.ptError();
-      tracks_input[tbase + 18] = track.qoverp();
-      tracks_input[tbase + 19] = track.qoverpError();
-      tracks_input[tbase + 20] = track.vx();
-      tracks_input[tbase + 21] = track.vy();
-      tracks_input[tbase + 22] = track.vz();
+      auto base = tkIndex * maxRecHits_ * nHitFeatures + hitIndex * nHitFeatures;
+      hits_input[base + 0] = globalPoint.x();
+      hits_input[base + 1] = globalPoint.y();
+      hits_input[base + 2] = globalPoint.z();
+      hits_input[base + 3] = globalError.cxx();
+      hits_input[base + 4] = globalError.cyy();
+      hits_input[base + 5] = globalError.czz();
+      hits_input[base + 6] = globalPoint.perp();
+      hits_input[base + 7] = globalPoint.eta();
+      hits_input[base + 8] = globalPoint.phi();
+    }
 
-      // retrieve Beamspot related features
-      if (beamSpotIn.isValid() || !(this->skipNonExistingSrc_)) {
-        tracks_input[tbase + 23] = track.dz(point);
-        tracks_input[tbase + 24] = track.dxy(point);
-      }
+    // retrieve recoPixelTrack features 
+    auto tbase = tkIndex * nTrackFeatures;
+    tracks_input[tbase + 0] = nPixelHits(track);
+    tracks_input[tbase + 1] = nTrkLays(track);
+    tracks_input[tbase + 2] = track.charge();
+    tracks_input[tbase + 3] = track.chi2();
+    tracks_input[tbase + 4] = track.dxy();
+    tracks_input[tbase + 5] = track.dz();
+    tracks_input[tbase + 6] = track.dzError();
+    tracks_input[tbase + 7] = track.dsz();
+    tracks_input[tbase + 8] = track.dszError();
+    tracks_input[tbase + 9] = track.dxyError();
+    tracks_input[tbase + 10] = track.eta();
+    tracks_input[tbase + 11] = track.etaError();
+    tracks_input[tbase + 12] = track.lambdaError();
+    tracks_input[tbase + 13] = track.ndof();
+    tracks_input[tbase + 14] = track.phi();
+    tracks_input[tbase + 15] = track.phiError();
+    tracks_input[tbase + 16] = track.pt();
+    tracks_input[tbase + 17] = track.ptError();
+    tracks_input[tbase + 18] = track.qoverp();
+    tracks_input[tbase + 19] = track.qoverpError();
+    tracks_input[tbase + 20] = track.vx();
+    tracks_input[tbase + 21] = track.vy();
+    tracks_input[tbase + 22] = track.vz();
+
+    // retrieve Beamspot related features
+    if (beamSpotIn.isValid()) {
+      tracks_input[tbase + 23] = track.dz(point);
+      tracks_input[tbase + 24] = track.dxy(point);
     }
   } 
-  else {
-    edm::LogWarning("TrackOnlineDnnSelector")
-        << " Invalid handle for recHit features in tracks input collection";
-  }
 
   input_Data_.push_back(hits_input);
   input_Data_.push_back(tracks_input);
@@ -310,7 +310,6 @@ void TrackOnlineDnnSelector::fillDescriptions(edm::ConfigurationDescriptions& de
    
   desc.add<std::vector<std::string>>("inputNames", {"hits", "tracks"});
   desc.add<std::vector<std::string>>("output_en", {"probabilities"});
-  desc.add<bool>("skipNonExistingSrc", true);
   desc.add<uint32_t>("maxRecHits", 16);
   desc.add<double>("probThreshold", 0.095)->setComment("DNN probability threshold for highPurity");
   desc.add<edm::InputTag>("tracksSrc", edm::InputTag("hltInitialStepTracks"));
