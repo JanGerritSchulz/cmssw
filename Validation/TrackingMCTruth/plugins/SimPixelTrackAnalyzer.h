@@ -68,6 +68,7 @@ namespace simdoublets {
     double dz;
     double dxy;
     double vertpos;
+    double curvature;
     int pdgId{0};
   };
 }  // namespace simdoublets
@@ -500,6 +501,8 @@ private:
   CoupledMonitorElement h_numSkippedLayersPerTrackingObject_;
   CoupledMonitorElement h_numRecHitsPerTrackingObject_;
   CoupledMonitorElement h_numLayersPerTrackingObject_;
+  CoupledMonitorElement h_numRecHitsMinusLayers_;
+  CoupledMonitorElement h_numRecHitsMinusLayersVsEta_;
   CoupledMonitorElement h_numSkippedLayersVsEta_;
   CoupledMonitorElement h_numLayersVsEta_;
   CoupledMonitorElement h_numSkippedLayersVsPt_;
@@ -535,11 +538,11 @@ private:
   std::vector<CoupledCutMonitorElement> hVector_Ysize_;
   std::vector<CoupledCutMonitorElement> hVector_DYsize_;
   std::vector<CoupledCutMonitorElement> hVector_DYPred_;
-  // histograms of doublet connections
+  // histograms of doublet/triplet connections
   CoupledCutMonitorElement h_hardCurvCut_;
   CoupledCutMonitorElement h_dCurvCut_;
   CoupledCutMonitorElement h_curvRatioCut_;
-  // vectors of historgrams (one per layer)
+  // vectors of histograms (one per layer)
   std::vector<CoupledCutMonitorElement> hVector_caThetaCut_;
   std::vector<CoupledCutMonitorElement> hVector_caDCACut_;
   std::vector<CoupledCutMonitorElement> hVector_firstHitR_;
