@@ -5,6 +5,7 @@
 //
 
 // #define DOUBLETCUTS_PRINTOUTS
+// #define TRIPLETCURVATURES_PRINTOUTS
 // #define LOSTNTUPLETS_PRINTOUTS
 
 // user include files
@@ -356,7 +357,8 @@ namespace simdoublets {
         ->setComment(
             "Maximum difference between actual and expected cluster size of inner RecHit. Barrel-forward cells.");
 
-    desc.add<std::vector<int>>("isBarrel", {1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0})
+    desc.add<std::vector<int>>("isBarrel", {1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                                            0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0})
         ->setComment(
             "Bool vector with one element per layer that defines if the min/max cut for doublet building is applied in "
             "z (isBarrel->true) or r (isBarrel->false).");
@@ -775,6 +777,15 @@ void SimPixelTrackAnalyzer<TrackerTraits>::fillCutHistograms(
       // CATheta cut
       hVector_caThetaCut_.at(doublet.innerLayerId()).fill(passedConnect, cellCutVariables.CAThetaCut(i));
 
+#ifdef TRIPLETCURVATURES_PRINTOUTS
+      printf("%d %d %d %f %f\n",
+             doublet.innerNeighborsInnerLayerId(),
+             doublet.innerLayerId(),
+             doublet.outerLayerId(),
+             trackTruth.curvature,
+             neighbor.curvature());
+#endif
+
       // loop over the neighbors of the neighbors to fill histograms on triplet connections
       if (hasValidTripletNeighbors) {
         for (size_t j{0}; bool const passedTripletConnect : cellCutVariables.tripletConnectionPassed()) {
@@ -985,11 +996,13 @@ void SimPixelTrackAnalyzer<TrackerTraits>::fillGeneralHistograms(SimPixelTrack c
   h_numSimDoubletsPerTrackingObject_.fill(passed, numSimDoublets);
   h_numRecHitsPerTrackingObject_.fill(passed, simPixelTrack.numRecHits());
   h_numLayersPerTrackingObject_.fill(passed, simPixelTrack.numLayers());
+  h_numRecHitsMinusLayers_.fill(passed, simPixelTrack.numRecHits() - simPixelTrack.numLayers());
   h_numSkippedLayersPerTrackingObject_.fill(passed, numSkippedLayers);
   h_numSkippedLayersVsNumLayers_.fill(passed, simPixelTrack.numLayers(), numSkippedLayers);
   h_numSkippedLayersVsNumRecHits_.fill(passed, simPixelTrack.numRecHits(), numSkippedLayers);
   h_numRecHitsVsEta_.fill(passed, trackTruth.eta, simPixelTrack.numRecHits());
   h_numLayersVsEta_.fill(passed, trackTruth.eta, simPixelTrack.numLayers());
+  h_numRecHitsMinusLayersVsEta_.fill(passed, trackTruth.eta, simPixelTrack.numRecHits() - simPixelTrack.numLayers());
   h_numSkippedLayersVsEta_.fill(passed, trackTruth.eta, numSkippedLayers);
   h_numRecHitsVsPt_.fill(passed, trackTruth.pt, simPixelTrack.numRecHits());
   h_numLayersVsPt_.fill(passed, trackTruth.pt, simPixelTrack.numLayers());
@@ -1085,6 +1098,7 @@ void SimPixelTrackAnalyzer<TrackerTraits>::analyze(const edm::Event& iEvent, con
       trackTruth.dz = track->dz(beamSpotPoint);
       trackTruth.phi = track->phi();
       trackTruth.pt = track->pt();
+      trackTruth.curvature = track->charge() / (87.78 * trackTruth.pt);
       trackTruth.eta = track->eta();
     } else {
       auto trackingParticle = simPixelTrack.trackingParticle();
@@ -1098,6 +1112,7 @@ void SimPixelTrackAnalyzer<TrackerTraits>::analyze(const edm::Event& iEvent, con
       trackTruth.vertpos = std::sqrt(vertexTPwrtBS.perp2());
       trackTruth.phi = trackingParticle->phi();
       trackTruth.pt = trackingParticle->pt();
+      trackTruth.curvature = trackingParticle->charge() / (87.78 * trackTruth.pt);
       trackTruth.eta = trackingParticle->eta();
       trackTruth.pdgId = trackingParticle->pdgId();
 
@@ -1282,6 +1297,14 @@ void SimPixelTrackAnalyzer<TrackerTraits>::bookHistograms(DQMStore::IBooker& ibo
                                        15,
                                        -0.5,
                                        14.5);
+  h_numRecHitsMinusLayers_.book1D(ibook,
+                                  "numRecHitsMinusLayers",
+                                  "Number of hits minus number of layers hit by " + trackingObject,
+                                  "#RecHits - #layers",
+                                  "Number of " + trackingObject + "s",
+                                  15,
+                                  -0.5,
+                                  14.5);
   h_numSkippedLayersPerTrackingObject_.book1D(ibook,
                                               "numSkippedLayers",
                                               "Number of layers skipped by " + trackingObject,
@@ -1365,6 +1388,18 @@ void SimPixelTrackAnalyzer<TrackerTraits>::bookHistograms(DQMStore::IBooker& ibo
                            16,
                            -1.5,
                            14.5);
+
+  h_numRecHitsMinusLayersVsEta_.book2D(ibook,
+                                       "numRecHitsMinusLayers_vs_eta",
+                                       "Number of hits minus number of layers hit by Tracking Particle vs #eta",
+                                       "True pseudorapidity #eta",
+                                       "#RecHits - #layers",
+                                       etaNBins,
+                                       etamin,
+                                       etamax,
+                                       16,
+                                       -1.5,
+                                       14.5);
   h_numSkippedLayersVsEta_.book2D(ibook,
                                   "numSkippedLayers_vs_eta",
                                   "Number of layers skipped by Tracking Particle vs #eta",
