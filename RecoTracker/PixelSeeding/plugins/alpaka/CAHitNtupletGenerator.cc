@@ -76,6 +76,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
               std::vector<unsigned int>(TrackerTraits::startingPairs,
                                         TrackerTraits::startingPairs + TrackerTraits::nStartingPairs))
           ->setComment("The list of the ids of pairs from which the CA ntuplets building may start.");
+      geometryParams
+          .add<std::vector<double>>("startingPairMaxInnerR", std::vector<double>(TrackerTraits::nStartingPairs, 99.0))
+          ->setComment(
+              "The maximum allowed r coordinate of the inner hit of a doublet to use it as a starting point for "
+              "ntuplet building.");
       // cells params
       geometryParams
           .add<std::vector<unsigned int>>(
@@ -182,7 +187,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       desc.add<bool>("doSharedHitCut", true)->setComment("Sharing hit nTuples cleaning");
       desc.add<bool>("dupPassThrough", false)->setComment("Do not reject duplicate");
       desc.add<bool>("useSimpleTripletCleaner", true)->setComment("use alternate implementation");
-      desc.add<bool>("disableTripletCleaner", false)->setComment("Disable the triplet cleaner entirely."); // FIXME this should be implemented as an automatic check (simple if) that disables if minHitsPerNtuplet > 3
+      desc.add<bool>("disableTripletCleaner", false)
+          ->setComment(
+              "Disable the triplet cleaner entirely.");  // FIXME this should be implemented as an automatic check (simple if) that disables if minHitsPerNtuplet > 3
       desc.add<bool>("disableFastDuplicateRemover", false)->setComment("Disable the fastDuplicateRemover");
       desc.add<bool>("disableEarlyDuplicateRemover", false)->setComment("Disable the earlyDuplicateRemover");
     }

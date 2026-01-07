@@ -48,6 +48,7 @@ namespace reco {
           caDCACuts_(iConfig.getParameter<std::vector<double>>("caDCACuts")),
           pairGraph_(iConfig.getParameter<std::vector<unsigned int>>("pairGraph")),
           startingPairs_(iConfig.getParameter<std::vector<unsigned int>>("startingPairs")),
+          startingPairMaxInnerR_(iConfig.getParameter<std::vector<double>>("startingPairMaxInnerR")),
           phiCuts_(iConfig.getParameter<std::vector<int>>("phiCuts")),
           ptCuts_(iConfig.getParameter<std::vector<double>>("ptCuts")),
           minInner_(iConfig.getParameter<std::vector<double>>("minInner")),
@@ -74,6 +75,7 @@ namespace reco {
     // Cells params
     const std::vector<unsigned int> pairGraph_;
     const std::vector<unsigned int> startingPairs_;
+    const std::vector<double> startingPairMaxInnerR_;
     const std::vector<int> phiCuts_;
     const std::vector<double> ptCuts_;
     const std::vector<double> minInner_;
@@ -315,10 +317,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         cellSoA.minDZ()[i] = iCache->minDZ_[i];
         cellSoA.maxDR()[i] = iCache->maxDR_[i];
         cellSoA.startingPair()[i] = false;
+        cellSoA.startingPairMaxInnerR()[i] = 0.;
       }
 
-      for (const unsigned int& i : iCache->startingPairs_)
+      for (const unsigned int& i : iCache->startingPairs_) {
         cellSoA.startingPair()[i] = true;
+        cellSoA.startingPairMaxInnerR()[i] = iCache->startingPairMaxInnerR_[i];
+      }
 
       return std::make_shared<CAGeometryCache>(std::move(product));
     }

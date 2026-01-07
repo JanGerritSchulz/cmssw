@@ -90,14 +90,16 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::caHitNtupletGeneratorKernels {
                                   uint32_t const *__restrict__ nTrips,
                                   uint32_t const *__restrict__ nCellTracks) const {
       if (cms::alpakatools::once_per_grid(acc))
-        printf("nSizes:%d;%d;%d;%d;%d;%d;%d\n",
-               hh.metadata().size(),
-               hh.metadata().size() - hh.offsetBPIX2(),
-               *nCells,
-               *nTrips,
-               *nCellTracks,
-               tt.nTracks(),
-               tt.metadata().size());
+        printf(
+            "nSizes: hh.metadata().size() %d; hh.metadata().size() - hh.offsetBPIX2() %d; nCells %d; nTrips %d; "
+            "nCellTracks %d; nTracks %d; tt.metadata().size() %d\n",
+            hh.metadata().size(),
+            hh.metadata().size() - hh.offsetBPIX2(),
+            *nCells,
+            *nTrips,
+            *nCellTracks,
+            tt.nTracks(),
+            tt.metadata().size());
     }
   };
 
@@ -503,8 +505,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::caHitNtupletGeneratorKernels {
         if (cellNeighborsHisto->size(idx) == 0)
           continue;
 
+        // check if the layer pair of the cell is among the set of starting pairs
         auto pid = thisCell.layerPairId();
         bool doit = cc[pid].startingPair();
+
+        // check if the most inner hit does not fulfill the starting requirement
+        if (thisCell.inner_r() > cc[pid].startingPairMaxInnerR())
+          continue;
 
         constexpr uint32_t maxDepth = TrackerTraits::maxDepth;
 #ifdef CA_DEBUG

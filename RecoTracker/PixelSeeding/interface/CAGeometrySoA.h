@@ -38,6 +38,7 @@ namespace reco {
   GENERATE_SOA_LAYOUT(CAGraphLayout,
                       SOA_COLUMN(GraphNode, graph),
                       SOA_COLUMN(bool, startingPair),
+                      SOA_COLUMN(float, startingPairMaxInnerR),
                       SOA_COLUMN(int16_t, phiCuts),
                       SOA_COLUMN(float, minInner),
                       SOA_COLUMN(float, maxInner),
