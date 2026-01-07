@@ -4,7 +4,7 @@
 // #define GPU_DEBUG
 // #define NTUPLE_DEBUG
 // #define CA_DEBUG
-// #define CA_WARNINGS
+#define CA_WARNINGS
 
 // C++ includes
 #include <cmath>
