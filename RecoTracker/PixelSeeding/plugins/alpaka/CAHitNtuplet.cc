@@ -140,8 +140,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
       assert(iCache->caThetaCuts_.size() == iCache->caDCACuts_.size());
 
+      assert(iCache->startingPairs_.size() == iCache->startingPairMaxInnerR_.size());
+
       int n_layers = iCache->caThetaCuts_.size();
       int n_pairs = iCache->pairGraph_.size() / 2;
+      int n_startingpairs = iCache->startingPairs_.size();
       int n_modules = 0;
 
 #ifdef GPU_DEBUG
@@ -320,9 +323,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         cellSoA.startingPairMaxInnerR()[i] = 0.;
       }
 
-      for (const unsigned int& i : iCache->startingPairs_) {
-        cellSoA.startingPair()[i] = true;
-        cellSoA.startingPairMaxInnerR()[i] = iCache->startingPairMaxInnerR_[i];
+      for (int i = 0; i < n_startingpairs; ++i) {
+        const auto l = iCache->startingPairs_[i];
+        cellSoA.startingPair()[l] = true;
+        cellSoA.startingPairMaxInnerR()[l] = iCache->startingPairMaxInnerR_[i];
       }
 
       return std::make_shared<CAGeometryCache>(std::move(product));

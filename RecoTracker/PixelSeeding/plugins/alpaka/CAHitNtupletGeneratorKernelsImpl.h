@@ -510,8 +510,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::caHitNtupletGeneratorKernels {
         bool doit = cc[pid].startingPair();
 
         // check if the most inner hit does not fulfill the starting requirement
-        // if (thisCell.inner_r() > cc[pid].startingPairMaxInnerR())
-        //   continue;
+        if (thisCell.inner_r() > cc[pid].startingPairMaxInnerR())
+          doit = false;
 
         constexpr uint32_t maxDepth = TrackerTraits::maxDepth;
 #ifdef CA_DEBUG
