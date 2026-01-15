@@ -381,6 +381,11 @@ namespace simdoublets {
             std::vector<unsigned int>(TrackerTraits::startingPairs,
                                       TrackerTraits::startingPairs + TrackerTraits::nStartingPairs))
         ->setComment("The list of the ids of pairs from which the CA ntuplets building may start.");
+    geometryParams
+        .add<std::vector<double>>("startingPairMaxInnerR", std::vector<double>(TrackerTraits::nStartingPairs, 99.0))
+        ->setComment(
+            "The maximum allowed r coordinate of the inner hit of a doublet to use it as a starting point for "
+            "ntuplet building.");
     // cells params
     geometryParams
         .add<std::vector<unsigned int>>(
