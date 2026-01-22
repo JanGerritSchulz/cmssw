@@ -1,4 +1,5 @@
 #include <alpaka/alpaka.hpp>
+#include <xtd/math/sqrt.h>
 
 #include "HeterogeneousCore/AlpakaInterface/interface/workdivision.h"
 
@@ -18,27 +19,24 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         if (i >= tracks.nTracks())
             return;
         
-        enum CovIndex {
-            cPhi = 0,
-            cTip = 5,
-            cInvPt = 9,
-            cCotanTheta = 12,
-            cZip = 14
-        };
+        constexpr int cPhi = 0;
+        constexpr int cTip = 5;
+        constexpr int cInvPt = 9;
+        constexpr int cZip = 14;
 
         auto cov = tracks[i].covariance();
         auto state = tracks[i].state();
         float pt    = tracks[i].pt();
         int ndof  = nHits(tracks, i) * 2 - 5;
-        float ptError = alpaka::math::sqrt(acc, cov(cInvPt)) * pt * pt;
+        float ptError = xtd::sqrt(cov(cInvPt)) * pt * pt;
 
         trackFeatures.chi2(i)     = tracks[i].chi2() * ndof;
-        trackFeatures.dzError(i)  = alpaka::math::sqrt(acc, cov(cZip));
-        trackFeatures.dxyError(i) = alpaka::math::sqrt(acc, cov(cTip));
+        trackFeatures.dzError(i)  = xtd::sqrt(cov(cZip));
+        trackFeatures.dxyError(i) = xtd::sqrt(cov(cTip));
         trackFeatures.eta(i)      = tracks[i].eta();
         trackFeatures.ndof(i)     = ndof;
         trackFeatures.phi(i)      = tracks[i].state()(0);
-        trackFeatures.phiError(i) = alpaka::math::sqrt(acc, cov(cPhi));
+        trackFeatures.phiError(i) = xtd::sqrt(cov(cPhi));
         trackFeatures.pt(i)       = pt;
         trackFeatures.ptError(i)  = ptError;
         trackFeatures.qoverp(i)   = state(2);
