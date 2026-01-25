@@ -10,25 +10,23 @@
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
-    void launchTrackFeatureExtractorKernel(
+    void launchCAPreselectionKernel(
         Queue& queue,
         const int maxTracks,
+        const int maxTracksPreselection,
         const int minNumberOfHits,
         const ::pixelTrack::Quality minQuality,
-        const ::reco::TrackSoAConstView& tracks,
-        PixelTrackFeaturesSoA::View& trackFeatures,
+        const ::reco::TrackSoAConstView tracks,
         int* nKeptTracks,
-        int* newIndex,
-        int* nHitsPerKeptTrack
-        );
-    
-    void launchCompactKernel(
+        int* oldIndex
+    );
+
+    void launchFeaturesExtractorKernel(
         Queue& queue,
-        const int maxTracks,
-        const ::reco::TrackSoAConstView& tracks,
-        ::reco::TrackSoAView& outTracks,
-        const int* newIndex,
-        const int* outHitOffsets
+        const int maxTracksPreselection,
+        const ::reco::TrackSoAConstView tracks,
+        PixelTrackFeaturesSoA::View trackFeatures,
+        int* oldIndex
     );
 }
 

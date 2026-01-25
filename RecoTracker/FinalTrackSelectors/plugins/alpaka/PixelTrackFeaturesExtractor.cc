@@ -37,8 +37,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   private:
     void produce(device::Event&, const device::EventSetup&) override;
 
+    const device::EDGetToken<HitsOnDevice> tokenHit_;
     const device::EDGetToken<TkSoADevice> tokenTrackIn_;
     const int32_t maxTracks_;
+    const int32_t maxTracksPreselection_;
     const int32_t maxHitsPerTrack_;
     const int32_t minNumberOfHits_;
     const pixelTrack::Quality minQuality_;
@@ -51,8 +53,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   PixelTrackFeaturesExtractor::PixelTrackFeaturesExtractor(
       const edm::ParameterSet& iConfig)
       : EDProducer(iConfig),
+        tokenHit_(consumes(iConfig.getParameter<edm::InputTag>("pixelRecHitSrc"))),
         tokenTrackIn_(consumes(iConfig.getParameter<edm::InputTag>("pixelTrackSrc"))),
         maxTracks_(iConfig.getParameter<int>("maxTracks")),
+        maxTracksPreselection_(iConfig.getParameter<int>("maxTracksPreselection")),
         maxHitsPerTrack_(RecHitFeatures::MaxHitsPerTrack),
         minNumberOfHits_(iConfig.getParameter<int>("minNumberOfHits")),
         minQuality_(pixelTrack::qualityByName(iConfig.getParameter<std::string>("minQuality"))),
@@ -75,71 +79,53 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
     // Retrieve tokens
     auto& queue = iEvent.queue();
-    
+
     const auto& hits   = iEvent.get(tokenHit_);
     const auto& tracks = iEvent.get(tokenTrackIn_);
 
-    //Instanciate the features SoA
+    //Instanciate the necessary objects in memory
     std::cout << "PixelTrackFeaturesExtractor::Producing features collection" << std::endl;
+
     PixelTrackFeaturesOnDevice features(maxTracks_, queue);
-    
-    //Instanciate the variables
+    //TkSoADevice outTracks(maxTracksPreselection_, queue);
+
     auto d_nKeptTracks = cms::alpakatools::make_device_buffer<int>(queue);
-    auto d_newIndex = cms::alpakatools::make_device_buffer<int[]>(queue, maxTracks_);
-    auto d_nHitsPerKeptTrack = cms::alpakatools::make_device_buffer<int[]>(queue, maxTracks_);
-    auto h_zero = cms::alpakatools::make_host_buffer<int>();
+    auto h_nKeptTracks = cms::alpakatools::make_host_buffer<int>(queue);
+    auto d_oldIndex    = cms::alpakatools::make_device_buffer<int[]>(queue, maxTracksPreselection_);
+    auto h_zero        = cms::alpakatools::make_host_buffer<int>();
+
     *h_zero = 0;
-    
     alpaka::memcpy(queue, d_nKeptTracks, h_zero);
-    
+
     //Launch first kernel to look which tracks need to be filtered out
     // based on quality criteria from the CA
-    std::cout << "PixelTrackFeaturesExtractor::Launching kernel" << std::endl;
-    launchTrackFeatureExtractorKernel(
+    std::cout << "PixelTrackFeaturesExtractor::Launching Preselection kernel" << std::endl;
+    launchCAPreselectionKernel(
       queue,
       maxTracks_,
+      maxTracksPreselection_,
       minNumberOfHits_,
       minQuality_,
       tracks.view(),
-      features.view(),
       alpaka::getPtrNative(d_nKeptTracks),
-      alpaka::getPtrNative(d_newIndex),
-      alpaka::getPtrNative(d_nHitsPerKeptTrack)
+      alpaka::getPtrNative(d_oldIndex)
     );
     std::cout << "PixelTrackFeaturesExtractor::done" << std::endl;
 
-    //Prepare to shrink SoA
-    auto h_nKeptTracks = cms::alpakatools::make_host_buffer<int>();
-    auto h_nHitsPerKeptTrack = cms::alpakatools::make_host_buffer<int[]>(queue, maxTracks_);
-
     alpaka::memcpy(queue, h_nKeptTracks, d_nKeptTracks);
-    alpaka::memcpy(queue, h_nHitsPerKeptTrack, d_nHitsPerKeptTrack);
     alpaka::wait(queue);
     const int nKeptTracks = *h_nKeptTracks;
 
-    std::cout << "Kept tracks: " << nKeptTracks << "\n";
-    TkSoADevice outTracks(nKeptTracks, queue);
-    auto h_hitOffsets = cms::alpakatools::make_host_buffer<int[]>(queue, nKeptTracks);
-    auto d_hitOffsets = cms::alpakatools::make_host_buffer<int[]>(queue, nKeptTracks);
+    std::cout << "PixelTrackFeaturesExtractor::Kept tracks=" << nKeptTracks << "\n";
 
-    //Pre compute the new hit offsets per track
-    int sum = 0;
-    for (int i = 0; i < nKeptTracks; ++i) {
-      sum += h_nHitsPerKeptTrack[i];
-      h_hitOffsets[i] = sum;
-    }
-
-    alpaka::memcpy(queue, d_hitOffsets, h_hitOffsets);
-    
-    //Launch the kernel to clean the SoA
-    std::cout << "Prefiltering bad tracks" << std::endl;
-    launchCompactKernel(
+    //Launch the kernel to extract Features SoA
+    std::cout << "PixelTrackFeaturesExtractor::Launching Features Extractor kernel" << std::endl;
+    launchFeaturesExtractorKernel(
       queue, 
-      maxTracks_, 
+      maxTracksPreselection_, 
       tracks.view(), 
-      outTracks.view(), 
-      alpaka::getPtrNative(d_newIndex),
-      alpaka::getPtrNative(d_hitOffsets)
+      features.view(),
+      alpaka::getPtrNative(d_oldIndex)
     );
 
     //iEvent.emplace(tokenTrackOut_, std::move(outTracks));
@@ -148,8 +134,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   void PixelTrackFeaturesExtractor::fillDescriptions(
       edm::ConfigurationDescriptions& descriptions) {
     edm::ParameterSetDescription desc;
+        desc.add<edm::InputTag>("pixelRecHitSrc", {"hltPhase2SiPixelRecHitsSoA"});
     desc.add<edm::InputTag>("pixelTrackSrc", {"hltPhase2PixelTracksSoA"});
     desc.add<int>("maxTracks", 100000);
+    desc.add<int>("maxTracksPreselection", 10000);
     desc.add<int>("minNumberOfHits", 0);
     desc.add<std::string>("minQuality", "tight");
     descriptions.addWithDefaultLabel(desc);
