@@ -6,5 +6,6 @@ hltPhase2PixelTrackFeatureExtractor = cms.EDProducer('PixelTrackFeaturesExtracto
     maxTracks = cms.int32(100_000),
     maxTracksPreselection = cms.int32(10_000),
     minNumberOfHits = cms.int32(0),
+    avgHitsPerTrack = cms.int32(8),
     minQuality = cms.string('tight'),
 )
