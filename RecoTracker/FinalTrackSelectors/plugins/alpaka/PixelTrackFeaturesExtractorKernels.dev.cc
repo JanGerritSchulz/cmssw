@@ -1,5 +1,7 @@
 #include <alpaka/alpaka.hpp>
 #include <xtd/math/sqrt.h>
+#include <xtd/math/asinh.h>
+#include <xtd/math/atan2.h>
 #include <limits>
 
 #include "HeterogeneousCore/AlpakaInterface/interface/config.h"
@@ -14,9 +16,11 @@
 #include "RecoTracker/FinalTrackSelectors/plugins/alpaka/PixelTrackFeaturesExtractorKernels.h"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
-  using PixelTrackFeaturesSoAView = PixelTrackFeaturesSoA::View;
+  using PixelTrackFeaturesSoAView  = PixelTrackFeaturesSoA::View;
+  using PixelRecHitFeaturesSoAView = RecHitFeatures::PixelRecHitFeaturesSoA::View;
   using TrackHitSoA  = ::reco::TrackHitSoA;
-  
+  using HitFeaturesIDX = RecHitFeatures::HitFeature;
+
     struct CAPreselectionKernel{
         // Kernel used to preselect tracks which were flagged as good enough by the CA
         template <typename TAcc>
@@ -53,17 +57,18 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         ALPAKA_FN_ACC void operator()(
             TAcc const& acc,
             const int maxTracksPreselection,
-            const int maxHitsPerTrack,
             const ::reco::TrackSoAConstView tracks,
             const ::reco::TrackHitSoAConstView track_hits,
             const ::reco::TrackingRecHitConstView hits,
             PixelTrackFeaturesSoAView trackFeatures,
+            PixelRecHitFeaturesSoAView hitFeatures,
             int* nKeptTracks,
             int* oldIndex
         ) const {
 
             const int i = alpaka::getIdx<alpaka::Grid, alpaka::Threads>(acc)[0];
-
+            const float NaN = std::numeric_limits<float>::quiet_NaN();
+        
             if (i < *nKeptTracks){
                 int idx = oldIndex[i];
                 assert(idx>=0);
@@ -81,7 +86,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                 const int ndof   = n_hits * 2 - 5;
                 const float ptError = xtd::sqrt(cov(cInvPt)) * pt * pt;
 
-                assert(n_hits<=maxHitsPerTrack);
+                assert(n_hits<=RecHitFeatures::MaxHitsPerTrack);
 
                 trackFeatures.chi2(i)     = track.chi2() * ndof;
                 trackFeatures.dzError(i)  = xtd::sqrt(cov(cZip));
@@ -96,21 +101,47 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                 trackFeatures.dzBS(i)     = state(4);
                 trackFeatures.dxyBS(i)    = state(1);
 
-                //Access the hits associated to the track:
-                uint32_t inStart  = (idx == 0) ? 0 : tracks[idx-1].hitOffsets();
-                uint32_t inEnd    = track.hitOffsets();
+                //Prefill hit features:
+                auto hitMatrix = hitFeatures.hits(i);
+                for (int h = 0; h < RecHitFeatures::MaxHitsPerTrack; ++h) {
+                    for (int f = 0; f < RecHitFeatures::HitFeatures; ++f) {
+                        hitMatrix(h, f) = NaN;
+                    }
+                }
 
-                for (uint32_t h = 0; h < (inEnd - inStart); ++h) {
-                    auto hit_id    = track_hits[inStart + h].id();
-                    auto hit_detId = track_hits[inStart + h].detId();
-                    //TODO: extract hit features and save in SoA
-                    assert(hits[hit_id].detectorIndex()==hit_detId);
+                uint32_t inStart = (idx == 0) ? 0 : tracks[idx - 1].hitOffsets();
+                uint32_t inEnd   = track.hitOffsets();
+                uint32_t nHits   = inEnd - inStart;
+
+                nHits = std::min(nHits, uint32_t(RecHitFeatures::MaxHitsPerTrack));
+
+                for (uint32_t h = 0; h < nHits; ++h) {
+                    auto hit_id = track_hits[inStart + h].id();
+                    const auto hit = hits[hit_id];
+                    const float x = hit.xGlobal();
+                    const float y = hit.yGlobal();
+                    const float z = hit.zGlobal();
+                    const float r = hit.rGlobal();
+
+                    hitMatrix(h, HitFeaturesIDX::x) = x;
+                    hitMatrix(h, HitFeaturesIDX::y) = y;
+                    hitMatrix(h, HitFeaturesIDX::z) = z;
+
+                    hitMatrix(h, HitFeaturesIDX::xErr) =
+                        hit.xerrLocal();
+                    hitMatrix(h, HitFeaturesIDX::yErr) =
+                        hit.yerrLocal();
+
+                    hitMatrix(h, HitFeaturesIDX::r) = r;                        
+                    hitMatrix(h, HitFeaturesIDX::eta) =
+                        (r > 0.f) ? xtd::asinh(z / r) : 0.f;
+                    hitMatrix(h, HitFeaturesIDX::phi) =
+                        xtd::atan2(y, x);
                 }
             }
             else if (i < maxTracksPreselection)
             {
                 oldIndex[i] = -1;
-                const auto NaN = std::numeric_limits<float>::quiet_NaN();
                 trackFeatures.chi2(i)     = NaN;
                 trackFeatures.dzError(i)  = NaN;
                 trackFeatures.dxyError(i) = NaN;
@@ -123,6 +154,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                 trackFeatures.qoverp(i)   = NaN;
                 trackFeatures.dzBS(i)     = NaN;
                 trackFeatures.dxyBS(i)    = NaN;
+
+                auto hitMatrix = hitFeatures.hits(i);
+                for (int h = 0; h < RecHitFeatures::MaxHitsPerTrack; ++h) {
+                    for (int f = 0; f < RecHitFeatures::HitFeatures; ++f) {
+                        hitMatrix(h, f) = NaN;
+                    }
+                }
             }
         } 
     };
@@ -159,7 +197,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                     uint32_t inStart  = (idx == 0) ? 0 : tracks[idx-1].hitOffsets();
                     uint32_t inEnd    = track.hitOffsets();
                     uint32_t outStart = (i == 0) ? 0 :  nKeptHits[i-1];
-
+                    
                     for (uint32_t h = 0; h < (inEnd - inStart); ++h) {
                         track_hits_out[outStart+h].id()    = track_hits[inStart + h].id();
                         track_hits_out[outStart+h].detId() = track_hits[inStart + h].detId();
@@ -170,23 +208,33 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     };
 
     struct HitOffsetCompactKernel{
+        //TODO: implement the prefix scan provided my cmssw
         template <typename TAcc>
         ALPAKA_FN_ACC void operator()(
             TAcc const& acc,
             const int  maxTracksPreselection,
-            const int* nKeptTracks,
+            int* oldIndex,
+            int* nKeptTracks,
             int* nKeptHits
         ) const 
         {
-            //loop over the tracks we kept
-            const int nTracks = *nKeptTracks;
+            int nTracks = 0;
+            for (int j = 0; j < maxTracksPreselection; j++){
+                if (oldIndex[j] != -1){
+                    oldIndex[nTracks]  = oldIndex[j];
+                    nKeptHits[nTracks] = nKeptHits[j];   
+                    nTracks++;
+                }
+            }
+            *nKeptTracks = nTracks;
 
+            //loop over the tracks we kept and do the prefix sum
             for (int i = 1; i < nTracks; i++)
             {
                 nKeptHits[i] += nKeptHits[i-1]; 
             }
             for (int i = nTracks; i < maxTracksPreselection; i++){
-                nKeptHits[i] = -1;
+                nKeptHits[i] = nKeptHits[nTracks-1];
             }
         }
     };
@@ -227,11 +275,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     void launchFeaturesExtractorKernel(
         Queue& queue,
         const int maxTracksPreselection,
-        const int maxHitsPerTrack,
         const ::reco::TrackSoAConstView tracks,
         const ::reco::TrackHitSoAConstView track_hits,
         const ::reco::TrackingRecHitConstView hits,
-        PixelTrackFeaturesSoA::View trackFeatures,
+        PixelTrackFeaturesSoAView trackFeatures,
+        PixelRecHitFeaturesSoAView hitFeatures,
         int* nKeptTracks,
         int* oldIndex)
     {
@@ -246,11 +294,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
             workDiv,
             FeaturesExtractorKernel{},
             maxTracksPreselection,
-            maxHitsPerTrack,
             tracks,
             track_hits,
             hits,
             trackFeatures,
+            hitFeatures,
             nKeptTracks,
             oldIndex
         );
@@ -325,7 +373,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     void launchHitOffsetCompactKernel(
         Queue& queue,
         const int  maxTracksPreselection,
-        const int* nKeptTracks,
+        int* oldIndex,
+        int* nKeptTracks,
         int* nKeptHits)
     {
         constexpr uint32_t threadsPerBlock = 1;
@@ -339,8 +388,60 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
             workDiv,
             HitOffsetCompactKernel{},
             maxTracksPreselection,
+            oldIndex,
             nKeptTracks,
             nKeptHits
+        );
+    }
+
+    struct ScoreFilterKernel{
+        template <typename TAcc>
+        ALPAKA_FN_ACC void operator()(
+            TAcc const& acc,
+            const int maxTracksPreselection,
+            const double scoreThreshold,
+            int* nKeptTracks,
+            int* nKeptHits,
+            int* oldIndex,
+            const PixelTrackScoresSoA::View trackScores) const 
+        {
+            const int i = alpaka::getIdx<alpaka::Grid, alpaka::Threads>(acc)[0];
+
+            if (i < maxTracksPreselection){
+                const float score = trackScores[i].score();
+                //printf("Track %d: score=%f\n", i, score);   
+                if (score < scoreThreshold && oldIndex[i] != -1){
+                    oldIndex[i] = -1;
+                }
+            }
+        }
+    };
+
+    void launchScoreFilterKernel(
+        Queue& queue,
+        const int maxTracksPreselection,
+        const double scoreThreshold,
+        int* nKeptTracks,
+        int* nKeptHits,
+        int* oldIndex,
+        const PixelTrackScoresSoA::View trackScores
+    ){
+        constexpr uint32_t threadsPerBlock = 256;
+        const uint32_t blocks =
+            cms::alpakatools::divide_up_by(maxTracksPreselection, threadsPerBlock);
+        const auto workDiv =
+            cms::alpakatools::make_workdiv<Acc1D>(blocks, threadsPerBlock);
+
+        alpaka::exec<Acc1D>(
+            queue,
+            workDiv,
+            ScoreFilterKernel{},
+            maxTracksPreselection,
+            scoreThreshold,
+            nKeptTracks,
+            nKeptHits,
+            oldIndex,
+            trackScores
         );
     }
 }

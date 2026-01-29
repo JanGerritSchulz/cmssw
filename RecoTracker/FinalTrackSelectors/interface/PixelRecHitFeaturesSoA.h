@@ -7,7 +7,7 @@
 namespace RecHitFeatures {
 
   constexpr int MaxHitsPerTrack = 16;
-  constexpr int HitFeatures = 9;
+  constexpr int HitFeatures = 8;
 
   struct HitFeature {
     static constexpr int x    = 0;
@@ -15,10 +15,9 @@ namespace RecHitFeatures {
     static constexpr int z    = 2;
     static constexpr int xErr = 3;
     static constexpr int yErr = 4;
-    static constexpr int zErr = 5;
-    static constexpr int r    = 6;
-    static constexpr int eta  = 7;
-    static constexpr int phi  = 8;
+    static constexpr int r    = 5;
+    static constexpr int eta  = 6;
+    static constexpr int phi  = 7;
   };
 
   using HitMatrixRM = Eigen::Matrix<float, MaxHitsPerTrack, HitFeatures, Eigen::RowMajor>;

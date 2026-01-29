@@ -22,8 +22,10 @@
 #include "RecoTracker/FinalTrackSelectors/interface/PixelTrackFeaturesSoA.h"
 #include "RecoTracker/FinalTrackSelectors/interface/PixelRecHitFeaturesSoA.h"
 #include "RecoTracker/FinalTrackSelectors/plugins/alpaka/PixelTrackFeaturesDeviceCollection.h"
-#include "RecoTracker/FinalTrackSelectors/plugins/alpaka/PixelRecHiFeaturesDeviceCollection.h"
 #include "RecoTracker/FinalTrackSelectors/plugins/alpaka/PixelTrackFeaturesExtractorKernels.h"
+
+#include "PhysicsTools/PyTorchAlpaka/interface/TensorCollection.h"
+#include "PhysicsTools/PyTorchAlpaka/interface/alpaka/AlpakaModel.h"
 
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
@@ -48,9 +50,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     const int32_t avgHitsPerTrack_;
     const pixelTrack::Quality minQuality_;
 
+    torch::AlpakaModel model_;
+    const double scoreThreshold_;
+
     const device::EDPutToken<TkSoADevice> tokenTrackOut_;
-    //const device::EDPutToken<PixelTrackFeaturesOnDevice> tokenTrackOut_;
-    //const device::EDPutToken<PixelRecHitFeaturesOnDevice> tokenHitOut_;
   };
 
   PixelTrackFeaturesExtractor::PixelTrackFeaturesExtractor(
@@ -64,6 +67,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         minNumberOfHits_(iConfig.getParameter<int>("minNumberOfHits")),
         avgHitsPerTrack_(iConfig.getParameter<int>("avgHitsPerTrack")),
         minQuality_(pixelTrack::qualityByName(iConfig.getParameter<std::string>("minQuality"))),
+        model_(iConfig.getParameter<edm::FileInPath>("model").fullPath()),
+        scoreThreshold_(iConfig.getParameter<double>("scoreThreshold")),
         tokenTrackOut_(produces())
   {
     if (minQuality_ == pixelTrack::Quality::notQuality) {
@@ -91,7 +96,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     //Instanciate the necessary objects in memory
     std::cout << "PixelTrackFeaturesExtractor::Producing features collection" << std::endl;
 
-    PixelTrackFeaturesOnDevice features(maxTracks_, queue);
+    PixelTrackFeaturesOnDevice features(maxTracksPreselection_, queue);
+    PixelRecHitFeaturesOnDevice features_hit(maxTracksPreselection_, queue);
 
     auto d_nKeptTracks = cms::alpakatools::make_device_buffer<int>(queue);
     auto h_nKeptTracks = cms::alpakatools::make_host_buffer<int>(queue);
@@ -118,33 +124,88 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
     alpaka::memcpy(queue, h_nKeptTracks, d_nKeptTracks);
     alpaka::wait(queue);
-    const int nKeptTracks = *h_nKeptTracks;
+    int nKeptTracks = *h_nKeptTracks;
 
-    std::cout << "PixelTrackFeaturesExtractor::Kept tracks=" << nKeptTracks << "\n";
+    std::cout << "PixelTrackFeaturesExtractor::Prefiltered tracks=" << nKeptTracks << "\n";
 
     //Launch the kernel to extract Features SoA
     std::cout << "PixelTrackFeaturesExtractor::Launching Features Extractor kernel" << std::endl;
     launchFeaturesExtractorKernel(
       queue, 
       maxTracksPreselection_, 
-      maxHitsPerTrack_,
       tracks.view(),
       tracks.view<TrackHitSoA>(), 
       hits.view(),
       features.view(),
+      features_hit.view(),
       alpaka::getPtrNative(d_nKeptTracks),
       alpaka::getPtrNative(d_oldIndex)
     );
 
-    //Here in the middle there will be the DNN inference
+    //Perform the DNN inference
+    
+    // Combined input TensorCollection
+    cms::torch::alpakatools::TensorCollection<Queue> inputs(maxTracksPreselection_);
+    cms::torch::alpakatools::TensorCollection<Queue> outputs(maxTracksPreselection_);
+
+    PixelTrackScoresOnDevice trackScoresOnDevice(maxTracksPreselection_, queue);
+    
+    auto track_record = features.view().records();
+    auto hit_record = features_hit.view().records();
+    auto score_record = trackScoresOnDevice.view().records();
+
+    inputs.add<::RecHitFeatures::PixelRecHitFeaturesSoA>("hit_features",
+      hit_record.hits()
+    );
+
+    inputs.add<PixelTrackFeaturesSoA>("track_features",
+      track_record.chi2(),
+      track_record.dzError(),
+      track_record.dxyError(),
+      track_record.eta(),
+      track_record.ndof(),
+      track_record.phi(),
+      track_record.phiError(),
+      track_record.pt(),
+      track_record.ptError(),
+      track_record.qoverp(),
+      track_record.dzBS(),
+      track_record.dxyBS()
+    );
+
+    outputs.add<PixelTrackScoresSoA>("track_scores",
+      score_record.score()
+    );
+
+    model_.forward(queue, inputs, outputs);
+
+    std::cout << "PixelTrackFeaturesExtractor::DNN inference done" << std::endl;
+    //Filter tracks based on score threshold
+    launchScoreFilterKernel(
+      queue,
+      maxTracksPreselection_,
+      scoreThreshold_,
+      alpaka::getPtrNative(d_nKeptTracks),
+      alpaka::getPtrNative(d_nKeptHits),
+      alpaka::getPtrNative(d_oldIndex),
+      trackScoresOnDevice.view()
+    );
+    std::cout << "PixelTrackFeaturesExtractor::Filtering done" << std::endl;
+
 
     //Compact the d_nKeptHits to prepare to fill the new hit Offset
     launchHitOffsetCompactKernel(
       queue,
       maxTracksPreselection_,
+      alpaka::getPtrNative(d_oldIndex),
       alpaka::getPtrNative(d_nKeptTracks),
       alpaka::getPtrNative(d_nKeptHits)
     );
+
+    alpaka::memcpy(queue, h_nKeptTracks, d_nKeptTracks);
+    alpaka::wait(queue);
+    nKeptTracks = *h_nKeptTracks;
+    std::cout << "PixelTrackFeaturesExtractor::Filtered tracks=" << nKeptTracks << "\n";
 
     auto tracks_out = launchProduceOutputTracks (
         queue,
@@ -172,6 +233,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     desc.add<int>("minNumberOfHits", 0);
     desc.add<int>("avgHitsPerTrack", 8);
     desc.add<std::string>("minQuality", "tight");
+    desc.add<edm::FileInPath>("model");
+    desc.add<double>("scoreThreshold", 0.5);
     descriptions.addWithDefaultLabel(desc);
   }
 };
