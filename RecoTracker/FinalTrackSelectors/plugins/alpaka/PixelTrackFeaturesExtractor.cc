@@ -114,7 +114,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     auto d_nKeptHits   = cms::alpakatools::make_device_buffer<int[]>(queue, maxPreselectedTracks_);
     auto d_originalTrackIndex    = cms::alpakatools::make_device_buffer<int[]>(queue, maxPreselectedTracks_);
     alpaka::memset(queue, d_nKeptTracks, 0);
-    alpaka::memset(queue, d_originalTrackIndex, -1);
 
     //  - Features and scores containers
     PixelTrackFeaturesOnDevice  trackFeatures(maxPreselectedTracks_, queue);

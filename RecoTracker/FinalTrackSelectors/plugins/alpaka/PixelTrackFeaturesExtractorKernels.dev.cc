@@ -45,8 +45,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 #ifdef KERNELS_DEBUG
             if(i==0){
                 printf("PixelTrackFeaturesExtractorKernels: nTracks=%d\n", tracks.nTracks());
-                if(tracks.nTracks() > maxNumberOfTracks)
-                    printf("Warning: nTracks (%d) > maxNumberOfTracks (%d)\n", tracks.nTracks(), maxNumberOfTracks);
+                if(tracks.nTracks() >= maxNumberOfTracks)
+                    printf("Warning: nTracks (%d) >= maxNumberOfTracks (%d)\n", tracks.nTracks(), maxNumberOfTracks);
             }
 #endif
             const int trackLimit = std::min(maxNumberOfTracks, tracks.nTracks());
@@ -208,7 +208,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                 tracks_out.nTracks() = nTracks;
             }
 
-            if (i < maxPreselectedTracks){
+            if (i < nTracks){
                 int inputTrackIdx = originalTrackIndex[i];
                 if(inputTrackIdx >= 0){
                     const auto track = tracks[inputTrackIdx];
@@ -224,6 +224,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                         track_hits_out[outStart+h].id()    = track_hits[hitBegin + h].id();
                         track_hits_out[outStart+h].detId() = track_hits[hitBegin + h].detId();
                     }
+                }
+                else{
+#ifdef KERNELS_DEBUG
+                    printf("PixelTrackFeaturesExtractorKernels: Error inputTrackIdx is negative");
+#endif                    
                 }
             }
         } 
@@ -262,6 +267,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
             }
             for (int i = nTracks; i < maxPreselectedTracks; i++){
                 nKeptHits[i] = nKeptHits[nTracks-1];
+                originalTrackIndex[i] = -1;
             }
         }
     };
