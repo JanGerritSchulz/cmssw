@@ -106,3 +106,5 @@ DEFINE_FWK_MODULE(SimpleL2MuonTrajectorySeedFlatTableProducer);
 DEFINE_FWK_MODULE(SimpleTriggerTrackFlatTableProducer);
 DEFINE_FWK_MODULE(SimpleGsfTrackFlatTableProducer);
 DEFINE_FWK_MODULE(SimpleCompositeCandidateFlatTableProducer);
+DEFINE_FWK_MODULE(SimplePixelTrackSoATabFlatTableProducer);
+DEFINE_FWK_MODULE(SimplePixelTrackSoATabFlatTableProducer);

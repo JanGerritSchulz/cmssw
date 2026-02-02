@@ -21,50 +21,45 @@ class PixelTrackSoATab {
 
 public:
     PixelTrackSoATab() = default;
+
     PixelTrackSoATab(const reco::TrackSoAConstView& tracks, int idx)
-        : tracks_(&tracks), idx_(idx) {}
-
-    // ---- kinematics ----
-    float pt() const { return tracks_->pt(idx_); }
-    float eta() const { return tracks_->eta(idx_); }
-    float phi() const { return tracks_->state(idx_)(iPhi); }
-
-    int charge() const {
-        float qop = tracks_->state(idx_)(iQoverP);
-        return (qop > 0.f) - (qop < 0.f);
+    {
+        pt_ = tracks.pt(idx);
+        eta_ = tracks.eta(idx);
+        phi_ = tracks.state(idx)(iPhi);
+        charge_ = (tracks.state(idx)(iQoverP) > 0.f) - (tracks.state(idx)(iQoverP) < 0.f);
+        dxy_ = tracks.state(idx)(iTip);
+        dz_ = tracks.state(idx)(iZip);
+        dxyError_ = std::sqrt(tracks.covariance(idx)(cTip));
+        dzError_  = std::sqrt(tracks.covariance(idx)(cZip));
+        phiError_ = std::sqrt(tracks.covariance(idx)(cPhi));
+        ptError_  = std::sqrt(tracks.covariance(idx)(cInvPt)) * pt_ * pt_;
+        chi2_ = tracks.chi2(idx) * (2 * reco::nHits(tracks, idx) - 5);
+        nHits_ = reco::nHits(tracks, idx);
+        ndof_ = nHits_ * 2 - 5;
     }
 
-    // ---- impact parameters (beam spot frame) ----
-    float dxy() const { return tracks_->state(idx_)(iTip); }
-    float dz()  const { return tracks_->state(idx_)(iZip); }
-
-    // ---- errors (from SoA covariance layout) ----
-    float dxyError() const { return std::sqrt(tracks_->covariance(idx_)(cTip)); }
-    float dzError()  const { return std::sqrt(tracks_->covariance(idx_)(cZip)); }
-    float phiError() const { return std::sqrt(tracks_->covariance(idx_)(cPhi)); }
-
-    float ptError() const {
-        float pt = tracks_->pt(idx_);
-        return std::sqrt(tracks_->covariance(idx_)(cInvPt)) * pt * pt;
-    }
-
-    // ---- fit quality ----
-    float chi2() const {
-        return tracks_->chi2(idx_) * ndof();
-    }
-
-    int ndof() const {
-        int nh = nHits();
-        return 2 * nh - 5;
-    }
-
-    int nHits() const {
-        return reco::nHits(*tracks_, idx_);
-    }
+    float pt() const { return pt_; }
+    float eta() const { return eta_; }
+    float phi() const { return phi_; }
+    int charge() const { return charge_; }
+    float dxy() const { return dxy_; }
+    float dz() const { return dz_; }
+    float dxyError() const { return dxyError_; }
+    float dzError() const { return dzError_; }
+    float phiError() const { return phiError_; }
+    float ptError() const { return ptError_; }
+    float chi2() const { return chi2_; }
+    int nHits() const { return nHits_; }
+    int ndof() const { return ndof_; }
 
 private:
-    const reco::TrackSoAConstView* tracks_ = nullptr;
-    int idx_ = -1;
+    float pt_, eta_, phi_;
+    int charge_;
+    float dxy_, dz_;
+    float dxyError_, dzError_, phiError_;
+    float ptError_, chi2_;
+    int nHits_;
+    int ndof_;
 };
-
 #endif

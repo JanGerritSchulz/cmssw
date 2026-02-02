@@ -23,7 +23,7 @@ public:
 
 private:
     const edm::EDGetTokenT<TrackSoAHost> trackSoAToken_;
-
+    
     void produce(edm::StreamID, edm::Event& iEvent, const edm::EventSetup&) const override;
 };
 

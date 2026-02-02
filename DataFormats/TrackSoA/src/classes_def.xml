@@ -19,5 +19,6 @@
   
   <class name="PixelTrackSoATab"/>
   <class name="std::vector<PixelTrackSoATab>"/>
+  <class name="edm::Wrapper<std::vector<PixelTrackSoATab>>" splitLevel="0"/>
 </lcgdict>
 
