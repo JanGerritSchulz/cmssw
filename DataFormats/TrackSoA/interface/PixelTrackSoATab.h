@@ -1,6 +1,7 @@
 #ifndef DataFormats_TrackSoA_PixelTrackSoATab_h
 #define DataFormats_TrackSoA_PixelTrackSoATab_h
 
+#include <Eigen/Core>
 #include "DataFormats/TrackSoA/interface/TracksSoA.h"
 #include <cmath>
 
@@ -17,7 +18,6 @@ class PixelTrackSoATab {
     static constexpr int cTip = 5;
     static constexpr int cInvPt = 9;
     static constexpr int cZip = 14;
-    static constexpr int cQoverP = 2;
 
 public:
     PixelTrackSoATab() = default;
@@ -25,7 +25,7 @@ public:
         : tracks_(&tracks), idx_(idx) {}
 
     // ---- kinematics ----
-    float pt()  const { return tracks_->pt(idx_); }
+    float pt() const { return tracks_->pt(idx_); }
     float eta() const { return tracks_->eta(idx_); }
     float phi() const { return tracks_->state(idx_)(iPhi); }
 
@@ -44,7 +44,7 @@ public:
     float phiError() const { return std::sqrt(tracks_->covariance(idx_)(cPhi)); }
 
     float ptError() const {
-    float pt = tracks_->pt(idx_);
+        float pt = tracks_->pt(idx_);
         return std::sqrt(tracks_->covariance(idx_)(cInvPt)) * pt * pt;
     }
 
@@ -54,16 +54,17 @@ public:
     }
 
     int ndof() const {
-    int nh = reco::nHits(*tracks_, idx_);
+        int nh = nHits();
         return 2 * nh - 5;
     }
 
     int nHits() const {
         return reco::nHits(*tracks_, idx_);
     }
-    private:
-        const reco::TrackSoAConstView* tracks_ = nullptr;
-        int idx_ = -1;
-    };
+
+private:
+    const reco::TrackSoAConstView* tracks_ = nullptr;
+    int idx_ = -1;
+};
 
 #endif

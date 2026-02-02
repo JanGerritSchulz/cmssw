@@ -16,6 +16,9 @@ typedef SimpleCollectionFlatTableProducer<reco::Candidate> SimpleCandidateCollec
 #include "DataFormats/TrackReco/interface/Track.h"
 typedef SimpleFlatTableProducer<reco::Track> SimpleTrackFlatTableProducer;
 
+#include "DataFormats/TrackSoA/interface/PixelTrackSoATab.h"
+typedef SimpleFlatTableProducer<PixelTrackSoATab> SimplePixelTrackSoATabFlatTableProducer;
+
 #include "DataFormats/EgammaReco/interface/SuperCluster.h"
 typedef SimpleFlatTableProducer<reco::SuperCluster> SimpleSuperclusterFlatTableProducer;
 
