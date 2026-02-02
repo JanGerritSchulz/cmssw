@@ -114,7 +114,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                 trackFeatures.dxyError(i) = xtd::sqrt(cov(cTip));
                 trackFeatures.eta(i)      = track.eta();
                 trackFeatures.ndof(i)     = ndof;
-                trackFeatures.phi(i)      = track.state()(0);
+                trackFeatures.phi(i)      = state(0);
                 trackFeatures.phiError(i) = xtd::sqrt(cov(cPhi));
                 trackFeatures.pt(i)       = pt;
                 trackFeatures.ptError(i)  = ptError;
