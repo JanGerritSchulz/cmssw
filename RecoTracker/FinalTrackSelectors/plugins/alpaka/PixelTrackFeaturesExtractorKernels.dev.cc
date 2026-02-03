@@ -148,16 +148,16 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                     hitMatrix(h, HitFeaturesIDX::y) = y;
                     hitMatrix(h, HitFeaturesIDX::z) = z;
 
-                    hitMatrix(h, HitFeaturesIDX::xErr) =
-                        hit.xerrLocal();
-                    hitMatrix(h, HitFeaturesIDX::yErr) =
-                        hit.yerrLocal();
-
                     hitMatrix(h, HitFeaturesIDX::r) = r;                        
                     hitMatrix(h, HitFeaturesIDX::eta) =
                         (r > 0.f) ? xtd::asinh(z / r) : 0.f;
                     hitMatrix(h, HitFeaturesIDX::phi) =
                         xtd::atan2(y, x);
+
+                    hitMatrix(h, HitFeaturesIDX::xErr) =
+                        hit.xerrLocal();
+                    hitMatrix(h, HitFeaturesIDX::yErr) =
+                        hit.yerrLocal();
                 }
             }
             // Case 2: padding entries --> fill with NaNs for inference

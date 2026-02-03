@@ -9,5 +9,5 @@ hltPhase2PixelTrackFeatureExtractor = cms.EDProducer('PixelTrackFeaturesExtracto
     avgHitsPerTrack = cms.int32(8),
     minimumTrackQuality = cms.string('tight'),
     model = cms.FileInPath('RecoTracker/FinalTrackSelectors/data/track_classifier_GPU.pt'),
-    scoreThreshold = cms.double(-1)
+    scoreThreshold = cms.double(0.11)
 )
