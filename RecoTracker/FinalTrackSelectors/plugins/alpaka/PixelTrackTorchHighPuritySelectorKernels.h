@@ -18,18 +18,18 @@
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
-    void launchCAPreselectionKernel(
+    void launchCAPreselection(
         Queue& queue,
         const int maxNumberOfTracks,
         const int minNumberOfHits,
         const ::pixelTrack::Quality minimumTrackQuality,
         const ::reco::TrackSoAConstView tracks,
-        int* originalTrackIndex,
+        int* inputTrackIndices,
         int* preselectionOffsets,
-        int* nKeptTracks
+        int* nSelectedTracks
     );
 
-    void launchFeaturesExtractorKernel(
+    void launchFeaturesExtractor(
         Queue& queue,
         const int maxPreselectedTracks,
         const ::reco::TrackSoAConstView tracks,
@@ -37,39 +37,31 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         const ::reco::TrackingRecHitConstView hits,
         PixelTrackFeaturesSoA::View trackFeatures,
         RecHitFeatures::PixelRecHitFeaturesSoA::View hitFeatures,
-        const int* nKeptTracks,
+        const int* nSelectedTracks,
         int * nKeptHits,
-        int* originalTrackIndex
+        int* inputTrackIndices
     );
 
-    void launchScoreFilterKernel(
+    void launchScoreFilter(
         Queue& queue,
         const int maxPreselectedTracks,
         const double scoreThreshold,
-        int* originalTrackIndex,
-        int* nKeptTracks,
+        int* inputTrackIndices,
+        int* nSelectedTracks,
         int* nKeptHits,
         const PixelTrackScoresSoA::View trackScores
     );
 
-    void launchPixelTrackFilterKernel(
+    void launchPixelTrackFilter(
         Queue& queue,
         const int maxTracksPreselection,
         const ::reco::TrackSoAConstView tracks,
         const ::reco::TrackHitSoAConstView track_hits,
-        int* originalTrackIndex,
-        const int* nKeptTracks,
+        int* inputTrackIndices,
+        const int* nSelectedTracks,
         const int* nKeptHits,
         ::reco::TrackSoAView tracks_out,
         ::reco::TrackHitSoAView track_hits_out
-    );
-
-    void launchHitOffsetCompactKernel(
-        Queue& queue,
-        const int maxPreselectedTracks,
-        int* originalTrackIndex,
-        int* nKeptTracks,
-        int* nKeptHits
     );
 
     reco::TracksSoACollection launchProduceOutputTracks(
@@ -78,8 +70,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         const int avgHitsPerTrack,
         const ::reco::TrackSoAConstView tracks,
         const ::reco::TrackHitSoAConstView track_hits,
-        int* originalTrackIndex,
-        const int* nKeptTracks,
+        int* inputTrackIndices,
+        const int* nSelectedTracks,
         const int* nKeptHits
     );
 }
