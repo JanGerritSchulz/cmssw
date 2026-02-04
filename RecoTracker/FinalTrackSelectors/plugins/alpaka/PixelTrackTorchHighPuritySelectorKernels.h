@@ -1,5 +1,5 @@
-#ifndef PixelTrackFeaturesExtractorKernels_h
-#define PixelTrackFeaturesExtractorKernels_h
+#ifndef PixelTrackTorchHighPuritySelectorKernels_h
+#define PixelTrackTorchHighPuritySelectorKernels_h
 
 #include <alpaka/alpaka.hpp>
 
@@ -21,13 +21,12 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     void launchCAPreselectionKernel(
         Queue& queue,
         const int maxNumberOfTracks,
-        const int maxPreselectedTracks,
         const int minNumberOfHits,
         const ::pixelTrack::Quality minimumTrackQuality,
         const ::reco::TrackSoAConstView tracks,
-        int* nKeptTracks,
-        int* nKeptHits,
-        int* originalTrackIndex
+        int* originalTrackIndex,
+        int* preselectionOffsets,
+        int* nKeptTracks
     );
 
     void launchFeaturesExtractorKernel(
@@ -39,6 +38,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         PixelTrackFeaturesSoA::View trackFeatures,
         RecHitFeatures::PixelRecHitFeaturesSoA::View hitFeatures,
         const int* nKeptTracks,
+        int * nKeptHits,
         int* originalTrackIndex
     );
 
@@ -47,6 +47,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         const int maxPreselectedTracks,
         const double scoreThreshold,
         int* originalTrackIndex,
+        int* nKeptTracks,
+        int* nKeptHits,
         const PixelTrackScoresSoA::View trackScores
     );
 

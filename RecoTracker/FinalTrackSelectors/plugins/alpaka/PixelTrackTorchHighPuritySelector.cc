@@ -23,7 +23,7 @@
 #include "RecoTracker/FinalTrackSelectors/interface/PixelRecHitFeaturesSoA.h"
 #include "RecoTracker/FinalTrackSelectors/interface/PixelTrackFeaturesSoA.h"
 #include "RecoTracker/FinalTrackSelectors/plugins/alpaka/PixelTrackFeaturesDeviceCollection.h"
-#include "RecoTracker/FinalTrackSelectors/plugins/alpaka/PixelTrackFeaturesExtractorKernels.h"
+#include "RecoTracker/FinalTrackSelectors/plugins/alpaka/PixelTrackTorchHighPuritySelectorKernels.h"
 
 #include "PhysicsTools/PyTorchAlpaka/interface/TensorCollection.h"
 #include "PhysicsTools/PyTorchAlpaka/interface/alpaka/AlpakaModel.h"
@@ -34,13 +34,13 @@
 #endif
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
-  class PixelTrackFeaturesExtractor : public stream::EDProducer<> {
+  class PixelTrackTorchHighPuritySelector : public stream::EDProducer<> {
     using TkSoADevice  = reco::TracksSoACollection;
     using HitsOnDevice = reco::TrackingRecHitsSoACollection;
     using TrackHitSoA  = ::reco::TrackHitSoA;
 
   public:
-    explicit PixelTrackFeaturesExtractor(const edm::ParameterSet&);
+    explicit PixelTrackTorchHighPuritySelector(const edm::ParameterSet&);
     static void fillDescriptions(edm::ConfigurationDescriptions&);
 
   private:
@@ -61,7 +61,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     const device::EDPutToken<TkSoADevice> tokenTrackOut_;
   };
 
-  PixelTrackFeaturesExtractor::PixelTrackFeaturesExtractor(
+  PixelTrackTorchHighPuritySelector::PixelTrackTorchHighPuritySelector(
       const edm::ParameterSet& iConfig)
       : EDProducer(iConfig),
         recHitToken_(consumes(iConfig.getParameter<edm::InputTag>("pixelRecHitSrc"))),
@@ -90,7 +90,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     }
   }
 
-  void PixelTrackFeaturesExtractor::produce(
+  void PixelTrackTorchHighPuritySelector::produce(
       device::Event& iEvent,
       const device::EventSetup&) 
   {
@@ -113,6 +113,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     auto d_nKeptTracks = cms::alpakatools::make_device_buffer<int>(queue);
     auto d_nKeptHits   = cms::alpakatools::make_device_buffer<int[]>(queue, maxPreselectedTracks_);
     auto d_originalTrackIndex    = cms::alpakatools::make_device_buffer<int[]>(queue, maxPreselectedTracks_);
+    alpaka::memset(queue, d_originalTrackIndex, 0xFF);
+
+    auto d_preselectionOffsets = cms::alpakatools::make_device_buffer<int[]>(queue, maxNumberOfTracks_);
     alpaka::memset(queue, d_nKeptTracks, 0);
 
     //  - Features and scores containers
@@ -127,6 +130,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     // Optional debug definitions
 #ifdef PIXEL_TRACK_HP_DEBUG
     auto h_nKeptTracks = cms::alpakatools::make_host_buffer<int>(queue);
+    auto h_preselectionOffsets = cms::alpakatools::make_host_buffer<int[]>(queue, maxNumberOfTracks_);
     int nKeptTracks = 0;
     // Helper to copy the number of kept tracks back to host (debug only)
     auto fetchNKeptTracks = [&]() {
@@ -143,18 +147,20 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     launchCAPreselectionKernel(
       queue,
       maxNumberOfTracks_,
-      maxPreselectedTracks_,
       minNumberOfHits_,
       minimumTrackQuality_,
       tracks.view(),
-      alpaka::getPtrNative(d_nKeptTracks),
-      alpaka::getPtrNative(d_nKeptHits),
-      alpaka::getPtrNative(d_originalTrackIndex)
+      alpaka::getPtrNative(d_originalTrackIndex),
+      alpaka::getPtrNative(d_preselectionOffsets),
+      alpaka::getPtrNative(d_nKeptTracks)
     );
 
 #ifdef PIXEL_TRACK_HP_DEBUG
     nKeptTracks = fetchNKeptTracks();
-    std::cout << "PixelTrackFeaturesExtractor::Prefiltered tracks=" << nKeptTracks << "\n";
+    alpaka::memcpy(queue, h_preselectionOffsets, d_preselectionOffsets);
+    alpaka::wait(queue);
+    std::cout << "PixelTrackTorchHighPuritySelector::Prefiltered tracks=" << nKeptTracks << "\n";
+    std::cout << "PixelTrackTorchHighPuritySelector::Last preselection offset: " << h_preselectionOffsets[maxNumberOfTracks_-1] << "\n";
 #endif
 
     // 2. Feature extraction (track + hit SoA)
@@ -167,6 +173,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       trackFeatures.view(),
       hitFeatures.view(),
       alpaka::getPtrNative(d_nKeptTracks),
+      alpaka::getPtrNative(d_nKeptHits),
       alpaka::getPtrNative(d_originalTrackIndex)
     );
 
@@ -180,6 +187,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       hit_record.hits()
     );
 
+    // Order must match the TorchScript model input schema
     inputs.add<PixelTrackFeaturesSoA>("track_features",
       track_record.chi2(),
       track_record.dzError(),
@@ -208,21 +216,15 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       maxPreselectedTracks_,
       scoreThreshold_,
       alpaka::getPtrNative(d_originalTrackIndex),
+      alpaka::getPtrNative(d_nKeptTracks),
+      alpaka::getPtrNative(d_nKeptHits),
       trackScoresOnDevice.view()
     );
 
-    // 5. Track compaction and output production
-    launchHitOffsetCompactKernel(
-      queue,
-      maxPreselectedTracks_,
-      alpaka::getPtrNative(d_originalTrackIndex),
-      alpaka::getPtrNative(d_nKeptTracks),
-      alpaka::getPtrNative(d_nKeptHits)
-    );
 
 #ifdef PIXEL_TRACK_HP_DEBUG    
     nKeptTracks = fetchNKeptTracks();
-    std::cout << "PixelTrackFeaturesExtractor::Filtered tracks=" << nKeptTracks << "\n";
+    std::cout << "PixelTrackTorchHighPuritySelector::Filtered tracks=" << nKeptTracks << "\n";
 #endif
 
     auto tracks_out = launchProduceOutputTracks (
@@ -239,7 +241,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     iEvent.emplace(tokenTrackOut_, std::move(tracks_out));
   }
 
-  void PixelTrackFeaturesExtractor::fillDescriptions(
+  void PixelTrackTorchHighPuritySelector::fillDescriptions(
       edm::ConfigurationDescriptions& descriptions) 
   {
     edm::ParameterSetDescription desc;
@@ -257,4 +259,4 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 };
 
 #include "HeterogeneousCore/AlpakaCore/interface/alpaka/MakerMacros.h"
-DEFINE_FWK_ALPAKA_MODULE(PixelTrackFeaturesExtractor);
+DEFINE_FWK_ALPAKA_MODULE(PixelTrackTorchHighPuritySelector);
