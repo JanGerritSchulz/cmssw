@@ -35,11 +35,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         const ::reco::TrackSoAConstView tracks,
         const ::reco::TrackHitSoAConstView track_hits,
         const ::reco::TrackingRecHitConstView hits,
+        const int* preselectedTrackIndices,
+        const int* nPreselectedTracks,
         PixelTrackFeaturesSoA::View trackFeatures,
         RecHitFeatures::PixelRecHitFeaturesSoA::View hitFeatures,
-        const int* nPreselectedTracks,
-        int* nKeptHits,
-        int* preselectedTrackIndices
+        int* nKeptHits
     );
 
     void launchScoreFilter(

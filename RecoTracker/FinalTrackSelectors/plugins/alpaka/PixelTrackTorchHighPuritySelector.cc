@@ -230,11 +230,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       tracks.view(),
       tracks.view<TrackHitSoA>(), 
       hits.view(),
+      alpaka::getPtrNative(d_preselectedTrackIndices),
+      alpaka::getPtrNative(d_nPreselectedTracks),
       trackFeatures.view(),
       hitFeatures.view(),
-      alpaka::getPtrNative(d_nPreselectedTracks),
-      alpaka::getPtrNative(d_nKeptHits),
-      alpaka::getPtrNative(d_preselectedTrackIndices)
+      alpaka::getPtrNative(d_nKeptHits)
     );
 
     // 3. DNN inference

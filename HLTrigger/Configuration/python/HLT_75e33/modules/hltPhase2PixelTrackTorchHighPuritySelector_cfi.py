@@ -9,5 +9,5 @@ hltPhase2PixelTrackTorchHighPuritySelector = cms.EDProducer('PixelTrackTorchHigh
     avgHitsPerTrack = cms.int32(8),
     minimumTrackQuality = cms.string('tight'),
     model = cms.FileInPath('RecoTracker/FinalTrackSelectors/data/track_classifier_long_GPU.pt'),
-    scoreThreshold = cms.double(0.4)
+    scoreThreshold = cms.double(0.5)
 )

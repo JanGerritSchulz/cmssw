@@ -96,11 +96,11 @@ struct FeaturesExtractorKernel{
             const ::reco::TrackSoAConstView tracks,
             const ::reco::TrackHitSoAConstView track_hits,
             const ::reco::TrackingRecHitConstView hits,
+            const int* preselectedTrackIndices,
+            const int* nPreselectedTracks,
             PixelTrackFeaturesSoAView trackFeatures,
             PixelRecHitFeaturesSoAView hitFeatures,
-            const int* nPreselectedTracks,
-            int* nKeptHits,
-            int* preselectedTrackIndices
+            int* nKeptHits
         ) const 
         {
         /**
@@ -147,9 +147,10 @@ struct FeaturesExtractorKernel{
                     constexpr int cZip   = 14;
 
                     // Access the track
-                    const auto track    = tracks[inputTrackIdx];
-                    const auto cov      = track.covariance();
-                    const auto state    = track.state();
+                    // TODO: try to use the reference, currently I am copying!
+                    const auto& track   = tracks[inputTrackIdx];
+                    const auto& cov     = track.covariance();
+                    const auto& state   = track.state();
                     const float pt      = track.pt();
                     const int numHits   = nHits(tracks, inputTrackIdx);
                     const int ndof      = numHits * 2 - 5;
@@ -200,7 +201,7 @@ struct FeaturesExtractorKernel{
                         hitMatrix(h, HitFeaturesIDX::x) = x;
                         hitMatrix(h, HitFeaturesIDX::y) = y;
                         hitMatrix(h, HitFeaturesIDX::z) = z;
-                        hitMatrix(h, HitFeaturesIDX::r)   = r;
+                        hitMatrix(h, HitFeaturesIDX::r) = r;
 
                         hitMatrix(h, HitFeaturesIDX::eta)  =
                             (r > 0.f) ? xtd::asinh(z / r) : 0.f;
@@ -476,11 +477,12 @@ struct FeaturesExtractorKernel{
         const ::reco::TrackSoAConstView tracks,
         const ::reco::TrackHitSoAConstView track_hits,
         const ::reco::TrackingRecHitConstView hits,
+        const int* preselectedTrackIndices,
+        const int* nPreselectedTracks,
         PixelTrackFeaturesSoAView trackFeatures,
         PixelRecHitFeaturesSoAView hitFeatures,
-        const int* nPreselectedTracks,
-        int* nKeptHits,
-        int* preselectedTrackIndices)
+        int* nKeptHits
+    )
     {
         // Extract per-track and per-hit features for Torch inference
         constexpr uint32_t threadsPerBlock = 256;
@@ -495,11 +497,11 @@ struct FeaturesExtractorKernel{
             tracks,
             track_hits,
             hits,
+            preselectedTrackIndices,
+            nPreselectedTracks,
             trackFeatures,
             hitFeatures,
-            nPreselectedTracks,
-            nKeptHits,
-            preselectedTrackIndices
+            nKeptHits
         );
     }
 
