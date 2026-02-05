@@ -24,9 +24,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         const int minNumberOfHits,
         const ::pixelTrack::Quality minimumTrackQuality,
         const ::reco::TrackSoAConstView tracks,
-        int* inputTrackIndices,
+        int* preselectedTrackIndices,
         int* preselectionOffsets,
-        int* nSelectedTracks
+        int* nPreselectedTracks
     );
 
     void launchFeaturesExtractor(
@@ -37,31 +37,21 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         const ::reco::TrackingRecHitConstView hits,
         PixelTrackFeaturesSoA::View trackFeatures,
         RecHitFeatures::PixelRecHitFeaturesSoA::View hitFeatures,
-        const int* nSelectedTracks,
-        int * nKeptHits,
-        int* inputTrackIndices
+        const int* nPreselectedTracks,
+        int* nKeptHits,
+        int* preselectedTrackIndices
     );
 
     void launchScoreFilter(
         Queue& queue,
         const int maxPreselectedTracks,
         const double scoreThreshold,
-        int* inputTrackIndices,
+        const PixelTrackScoresSoA::View trackScores,
+        const int* preselectedTrackIndices,
+        const int* nPreselectedTracks,
+        int* selectedTrackIndices,
         int* nSelectedTracks,
-        int* nKeptHits,
-        const PixelTrackScoresSoA::View trackScores
-    );
-
-    void launchPixelTrackFilter(
-        Queue& queue,
-        const int maxTracksPreselection,
-        const ::reco::TrackSoAConstView tracks,
-        const ::reco::TrackHitSoAConstView track_hits,
-        int* inputTrackIndices,
-        const int* nSelectedTracks,
-        const int* nKeptHits,
-        ::reco::TrackSoAView tracks_out,
-        ::reco::TrackHitSoAView track_hits_out
+        int* nKeptHits
     );
 
     reco::TracksSoACollection launchProduceOutputTracks(
@@ -70,7 +60,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         const int avgHitsPerTrack,
         const ::reco::TrackSoAConstView tracks,
         const ::reco::TrackHitSoAConstView track_hits,
-        int* inputTrackIndices,
+        const int* selectedTrackIndices,
         const int* nSelectedTracks,
         const int* nKeptHits
     );

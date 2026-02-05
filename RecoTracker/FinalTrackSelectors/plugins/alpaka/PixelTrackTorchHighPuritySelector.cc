@@ -81,9 +81,7 @@
 #include "PhysicsTools/PyTorchAlpaka/interface/alpaka/AlpakaModel.h"
 
 
-#ifndef PIXEL_TRACK_HP_DEBUG
-#define PIXEL_TRACK_HP_DEBUG
-#endif
+//#define PIXEL_TRACK_HP_DEBUG
 
 // ------------------------------------------------------------------------------
 
@@ -164,13 +162,19 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
     // Instantiate the necessary objects in memory
     //  - Temporary storage for filtering
-    auto d_nSelectedTracks = cms::alpakatools::make_device_buffer<int>(queue);
-    auto d_nKeptHits   = cms::alpakatools::make_device_buffer<int[]>(queue, maxPreselectedTracks_);
-    auto d_inputTrackIndices    = cms::alpakatools::make_device_buffer<int[]>(queue, maxPreselectedTracks_);
-    alpaka::memset(queue, d_inputTrackIndices, 0xFF);
-
-    auto d_preselectionOffsets = cms::alpakatools::make_device_buffer<int[]>(queue, maxNumberOfTracks_);
+    auto d_nPreselectedTracks      = cms::alpakatools::make_device_buffer<int>(queue);
+    auto d_nSelectedTracks         = cms::alpakatools::make_device_buffer<int>(queue);
+    auto d_preselectedTrackIndices = cms::alpakatools::make_device_buffer<int[]>(queue, maxNumberOfTracks_);
+    auto d_selectedTrackIndices    = cms::alpakatools::make_device_buffer<int[]>(queue, maxPreselectedTracks_);
+    auto d_nKeptHits               = cms::alpakatools::make_device_buffer<int[]>(queue, maxPreselectedTracks_);
+    auto d_preselectionOffsets     = cms::alpakatools::make_device_buffer<int[]>(queue, maxNumberOfTracks_);
+    
+    alpaka::memset(queue, d_nPreselectedTracks, 0);
     alpaka::memset(queue, d_nSelectedTracks, 0);
+    alpaka::memset(queue, d_nKeptHits, 0);
+    alpaka::memset(queue, d_preselectedTrackIndices, 0xFF);
+    alpaka::memset(queue, d_selectedTrackIndices, 0xFF);
+    alpaka::memset(queue, d_preselectionOffsets, 0);
 
     //  - Features and scores containers
     PixelTrackFeaturesOnDevice  trackFeatures(maxPreselectedTracks_, queue);
@@ -183,10 +187,16 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
     // Optional debug definitions
 #ifdef PIXEL_TRACK_HP_DEBUG
-    auto h_nSelectedTracks = cms::alpakatools::make_host_buffer<int>(queue);
-    auto h_preselectionOffsets = cms::alpakatools::make_host_buffer<int[]>(queue, maxNumberOfTracks_);
-    int nSelectedTracks = 0;
+    auto h_nPreselectedTracks  = cms::alpakatools::make_host_buffer<int>(queue);
+    auto h_nSelectedTracks     = cms::alpakatools::make_host_buffer<int>(queue);
+    int nPreselectedTracks     = 0;
+    int nSelectedTracks        = 0;
     // Helper to copy the number of kept tracks back to host (debug only)
+    auto fetchnPreselectedTracks = [&]() {
+      alpaka::memcpy(queue, h_nPreselectedTracks, d_nPreselectedTracks);
+      alpaka::wait(queue);
+      return *h_nPreselectedTracks;
+    };
     auto fetchnSelectedTracks = [&]() {
       alpaka::memcpy(queue, h_nSelectedTracks, d_nSelectedTracks);
       alpaka::wait(queue);
@@ -197,24 +207,20 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     // 1. CA-based preselection of tracks
     //  Launch first kernel to look which tracks need to be filtered out
     //  based on quality criteria from the CA
-
     launchCAPreselection(
       queue,
       maxNumberOfTracks_,
       minNumberOfHits_,
       minimumTrackQuality_,
       tracks.view(),
-      alpaka::getPtrNative(d_inputTrackIndices),
+      alpaka::getPtrNative(d_preselectedTrackIndices),
       alpaka::getPtrNative(d_preselectionOffsets),
-      alpaka::getPtrNative(d_nSelectedTracks)
+      alpaka::getPtrNative(d_nPreselectedTracks)
     );
 
 #ifdef PIXEL_TRACK_HP_DEBUG
-    nSelectedTracks = fetchnSelectedTracks();
-    alpaka::memcpy(queue, h_preselectionOffsets, d_preselectionOffsets);
-    alpaka::wait(queue);
-    std::cout << "PixelTrackTorchHighPuritySelector::Prefiltered tracks=" << nSelectedTracks << "\n";
-    std::cout << "PixelTrackTorchHighPuritySelector::Last preselection offset: " << h_preselectionOffsets[maxNumberOfTracks_-1] << "\n";
+    nPreselectedTracks = fetchnPreselectedTracks();
+    std::cout << "PixelTrackTorchHighPuritySelector::Prefiltered tracks=" << nPreselectedTracks << "\n";
 #endif
 
     // 2. Feature extraction (track + hit SoA)
@@ -226,9 +232,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       hits.view(),
       trackFeatures.view(),
       hitFeatures.view(),
-      alpaka::getPtrNative(d_nSelectedTracks),
+      alpaka::getPtrNative(d_nPreselectedTracks),
       alpaka::getPtrNative(d_nKeptHits),
-      alpaka::getPtrNative(d_inputTrackIndices)
+      alpaka::getPtrNative(d_preselectedTrackIndices)
     );
 
     // 3. DNN inference
@@ -269,10 +275,12 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       queue,
       maxPreselectedTracks_,
       scoreThreshold_,
-      alpaka::getPtrNative(d_inputTrackIndices),
+      trackScoresOnDevice.view(),
+      alpaka::getPtrNative(d_preselectedTrackIndices),
+      alpaka::getPtrNative(d_nPreselectedTracks),
+      alpaka::getPtrNative(d_selectedTrackIndices),
       alpaka::getPtrNative(d_nSelectedTracks),
-      alpaka::getPtrNative(d_nKeptHits),
-      trackScoresOnDevice.view()
+      alpaka::getPtrNative(d_nKeptHits)
     );
 
 
@@ -287,7 +295,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         avgHitsPerTrack_,
         tracks.view(),
         tracks.view<TrackHitSoA>(), 
-        alpaka::getPtrNative(d_inputTrackIndices),
+        alpaka::getPtrNative(d_selectedTrackIndices),
         alpaka::getPtrNative(d_nSelectedTracks),
         alpaka::getPtrNative(d_nKeptHits)
       );
