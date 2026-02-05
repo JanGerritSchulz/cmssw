@@ -91,6 +91,7 @@ public:
     //Constructor from ParameterSet
     CAGeometryParams(edm::ParameterSet const& iConfig, double const ptmin, std::vector<int> const& isBarrel)
         : caDCACuts_(iConfig.getParameter<std::vector<double>>("caDCACuts")),
+          maxInnerRStart_(iConfig.getParameter<std::vector<double>>("startingPairMaxInnerR")),
           phiCuts_(iConfig.getParameter<std::vector<int>>("phiCuts")),
           ptCuts_(iConfig.getParameter<std::vector<double>>("ptCuts")),
           minInner_(iConfig.getParameter<std::vector<double>>("minInner")),
@@ -112,6 +113,7 @@ public:
     std::vector<bool> isBarrel_;
     std::vector<double> caThetaCuts_over_ptmin_;
     const std::vector<double> caDCACuts_;
+    const std::vector<double> maxInnerRStart_;
 
     // Cells params
     const std::vector<int> phiCuts_;
@@ -555,6 +557,7 @@ private:
   CoupledMonitorElement h_bestNtuplet_firstLayerVsEta_;
   CoupledMonitorElement h_bestNtuplet_lastLayerVsEta_;
   CoupledMonitorElement h_bestNtuplet_numSkippedLayersVsNumLayers_;
+  CoupledMonitorElement h_bestNtuplet_numLostLayersVsEta_;
   MonitorElement* h_aliveNtuplet_fracNumRecHits_eta_;
   MonitorElement* h_aliveNtuplet_fracNumRecHits_pt_;
   // histograms of the longest Ntuplet per TP
