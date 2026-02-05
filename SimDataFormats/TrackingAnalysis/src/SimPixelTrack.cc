@@ -245,7 +245,6 @@ void SimPixelTrack::buildSimNtuplets(SimPixelTrack::Doublet const& doublet,
                                      size_t const lastLayerId,
                                      uint8_t const status,
                                      uint8_t const numSkippedLayers,
-                                     std::set<int> const& startingPairs,
                                      size_t const minNumDoubletsToPass) const {
   // update the number of SimDoublets once before looping over the actual neighbors to be added
   numSimDoublets++;
@@ -282,9 +281,9 @@ void SimPixelTrack::buildSimNtuplets(SimPixelTrack::Doublet const& doublet,
       ntuplets_.back().setTooShort();
     }
 
-    // change the status "firstDoubletNotInStartingLayerPairs" of the newly created SimNtuplet if this is indeed the case
-    if (!startingPairs.contains(neighborDoublet.layerPairId())) {
-      ntuplets_.back().setFirstDoubletNotInStartingLayerPairs();
+    // change the status "invalidStart" of the newly created SimNtuplet if this is indeed the case
+    if (!(neighborDoublet.isValidStart())) {
+      ntuplets_.back().setInvalidStart();
     }
 
     // check if the new SimNtuplet qualifies as longest SimNtuplet
@@ -351,7 +350,6 @@ void SimPixelTrack::buildSimNtuplets(SimPixelTrack::Doublet const& doublet,
                      lastLayerId,
                      updatedStatus,
                      updatedNumSkippedLayers,
-                     startingPairs,
                      minNumDoubletsToPass);
 
     i++;
@@ -360,7 +358,7 @@ void SimPixelTrack::buildSimNtuplets(SimPixelTrack::Doublet const& doublet,
 
 // method to produce the SimNtuplets
 // (collection of all possible Ntuplets you can build from the SimDoublets)
-void SimPixelTrack::buildSimNtuplets(std::set<int> const& startingPairs, size_t const minNumDoubletsToPass) const {
+void SimPixelTrack::buildSimNtuplets(size_t const minNumDoubletsToPass) const {
   // clear the Ntuplet collection and reset longest Ntuplet indices
   ntuplets_.clear();
   longestNtupletIndex_.reset();
@@ -387,7 +385,6 @@ void SimPixelTrack::buildSimNtuplets(std::set<int> const& startingPairs, size_t 
     // initialize number of skipped layers
     uint8_t numSkippedLayers = doublet.numSkippedLayers();
     // build the Ntuplets recursively
-    buildSimNtuplets(
-        doublet, {}, 1, doublet.outerLayerId(), status, numSkippedLayers, startingPairs, minNumDoubletsToPass);
+    buildSimNtuplets(doublet, {}, 1, doublet.outerLayerId(), status, numSkippedLayers, minNumDoubletsToPass);
   }
 }

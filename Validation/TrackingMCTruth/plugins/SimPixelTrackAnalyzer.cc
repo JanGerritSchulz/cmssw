@@ -638,6 +638,14 @@ void SimPixelTrackAnalyzer<TrackerTraits>::applyCuts(
 #endif
 
   // -------------------------------------------------------------------------
+  //  apply cuts for starting doublets
+  // -------------------------------------------------------------------------
+  auto innerLayerId = doublet.innerLayerId();
+  auto layerPairId = doublet.layerPairId();
+  if ((cellCutVariables.inner_r() < cellCuts_.maxInnerRStart_[innerLayerId]) && (startingPairs_.contains(layerPairId)))
+    doublet.setValidStart();
+
+  // -------------------------------------------------------------------------
   //  apply cuts for doublet and triplet connections
   // -------------------------------------------------------------------------
   if (hasValidNeighbors) {
@@ -889,7 +897,7 @@ void SimPixelTrackAnalyzer<TrackerTraits>::fillSimNtupletHistograms(SimPixelTrac
     h_longNtuplet_.killedTripletConnections_.fill(trackTruth);
   }
   // F) the Ntuplet starts with a layer pair not considered for starting
-  else if (longNtuplet.firstDoubletNotInStartingLayerPairs()) {
+  else if (longNtuplet.invalidStart()) {
     h_longNtuplet_.notStartingPair_.fill(trackTruth);
   }
   // G) if we arrive here something's wrong
@@ -916,6 +924,7 @@ void SimPixelTrackAnalyzer<TrackerTraits>::fillSimNtupletHistograms(SimPixelTrac
   h_bestNtuplet_firstLayerVsEta_.fill(isAlive, trackTruth.eta, bestNtuplet.firstLayerId());
   h_bestNtuplet_lastLayerVsEta_.fill(isAlive, trackTruth.eta, bestNtuplet.lastLayerId());
   h_bestNtuplet_numSkippedLayersVsNumLayers_.fill(isAlive, bestNtuplet.numRecHits(), bestNtuplet.numSkippedLayers());
+  h_bestNtuplet_numLostLayersVsEta_.fill(isAlive, trackTruth.eta, longNtuplet.numRecHits() - bestNtuplet.numRecHits());
 
   // fill the respective histogram
   // 1. check if alive
@@ -944,7 +953,7 @@ void SimPixelTrackAnalyzer<TrackerTraits>::fillSimNtupletHistograms(SimPixelTrac
     h_bestNtuplet_.killedTripletConnections_.fill(trackTruth);
   }
   // F) the Ntuplet starts with a layer pair not considered for starting
-  else if (bestNtuplet.firstDoubletNotInStartingLayerPairs()) {
+  else if (bestNtuplet.invalidStart()) {
     h_bestNtuplet_.notStartingPair_.fill(trackTruth);
   }
   // G) if we arrive here something's wrong
@@ -1200,7 +1209,7 @@ void SimPixelTrackAnalyzer<TrackerTraits>::analyze(const edm::Event& iEvent, con
     }  // end loop over those doublets
 
     // build the SimNtuplets based on the SimDoublets
-    simPixelTrack.buildSimNtuplets(startingPairs_, minNumDoubletsPerNtuplet_);
+    simPixelTrack.buildSimNtuplets(minNumDoubletsPerNtuplet_);
 
     // -----------------------------------------------------------------------------
     //  plots related to SimNtuplets (SimNtuplets folder)
@@ -2064,6 +2073,17 @@ void SimPixelTrackAnalyzer<TrackerTraits>::bookHistograms(DQMStore::IBooker& ibo
                           0,
                           1,
                           " ");
+    h_bestNtuplet_numLostLayersVsEta_.book2D(ibook,
+                                             "numLostHits_vs_eta",
+                                             "Number of lost layers by most alive SimNtuplet vs #eta",
+                                             "True pseudorapidity #eta",
+                                             "Number of lost layers",
+                                             etaNBins,
+                                             etamin,
+                                             etamax,
+                                             16,
+                                             -0.5,
+                                             14.5);
     h_bestNtuplet_firstLayerVsEta_.book2D(ibook,
                                           "firstLayer_vs_eta",
                                           "First layer of most alive SimNtuplet per TrackingParticle",
