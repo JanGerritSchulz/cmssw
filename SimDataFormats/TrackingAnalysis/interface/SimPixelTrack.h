@@ -113,6 +113,7 @@ public:
     void setAlive() { status_ = Status::alive; }
     void setKilledByCuts() { status_ = Status::killedByCuts; }
     void setKilledByMissingLayerPair() { status_ = Status::killedByMissingLayerPair; }
+    void setValidStart() { validStart_ = true; }
 
     // methods to check if status is undef, alive or killed
     bool isUndef() const { return status_ == Status::undef; }
@@ -120,6 +121,7 @@ public:
     bool isKilledByCuts() const { return status_ == Status::killedByCuts; }
     bool isKilledByMissingLayerPair() const { return status_ == Status::killedByMissingLayerPair; }
     bool isKilled() const { return isKilledByCuts() || isKilledByMissingLayerPair(); }
+    bool isValidStart() const { return validStart_; }
 
     // methods to get the vector of inner neighboring doublets
     std::vector<Neighbor>& innerNeighbors() { return innerNeighbors_; }
@@ -137,6 +139,7 @@ public:
     std::pair<uint8_t, uint8_t> layerIds_;                 // pair of layer IDs corresponding to the RecHits
     std::pair<int16_t, int16_t> clusterYSizes_;            // pair of cluster sizes corresponding to the RecHits
     Status status_;                                        // status of the doublet
+    bool validStart_{false};                               // doublet passes cuts for starting Ntuplets
     int8_t numSkippedLayers_;                              // number of layers skipped by the Doublet
     int16_t layerPairId_;                     // ID of the layer pair as defined in the reconstruction for the doublets
     std::vector<Neighbor> innerNeighbors_{};  // indices of inner neighboring doublets and the status of the connection
@@ -162,7 +165,7 @@ public:
       hasUndefDoubletConnectionCuts = 1 << 4,
       hasKilledDoubletConnections = 1 << 5,
       hasKilledTripletConnections = 1 << 6,
-      firstDoubletNotInStartingLayerPairs = 1 << 7
+      invalidStart = 1 << 7
     };
 
     // default constructor
@@ -199,16 +202,15 @@ public:
                                 bool const hasKilledDoubletConnections,
                                 bool const hasKilledTripletConnections,
                                 bool const isTooShort = false,
-                                bool const firstDoubletNotInStartingLayerPairs = false) {
-      return status |
-             (uint8_t(hasUndefDoubletCuts) * uint8_t(StatusBit::hasUndefDoubletCuts) +
-              uint8_t(hasMissingLayerPair) * uint8_t(StatusBit::hasMissingLayerPair) +
-              uint8_t(hasKilledDoublets) * uint8_t(StatusBit::hasKilledDoublets) +
-              uint8_t(hasUndefDoubletConnectionCuts) * uint8_t(StatusBit::hasUndefDoubletConnectionCuts) +
-              uint8_t(hasKilledDoubletConnections) * uint8_t(StatusBit::hasKilledDoubletConnections) +
-              uint8_t(hasKilledTripletConnections) * uint8_t(StatusBit::hasKilledTripletConnections) +
-              uint8_t(isTooShort) * uint8_t(StatusBit::isTooShort) +
-              uint8_t(firstDoubletNotInStartingLayerPairs) * uint8_t(StatusBit::firstDoubletNotInStartingLayerPairs));
+                                bool const invalidStart = false) {
+      return status | (uint8_t(hasUndefDoubletCuts) * uint8_t(StatusBit::hasUndefDoubletCuts) +
+                       uint8_t(hasMissingLayerPair) * uint8_t(StatusBit::hasMissingLayerPair) +
+                       uint8_t(hasKilledDoublets) * uint8_t(StatusBit::hasKilledDoublets) +
+                       uint8_t(hasUndefDoubletConnectionCuts) * uint8_t(StatusBit::hasUndefDoubletConnectionCuts) +
+                       uint8_t(hasKilledDoubletConnections) * uint8_t(StatusBit::hasKilledDoubletConnections) +
+                       uint8_t(hasKilledTripletConnections) * uint8_t(StatusBit::hasKilledTripletConnections) +
+                       uint8_t(isTooShort) * uint8_t(StatusBit::isTooShort) +
+                       uint8_t(invalidStart) * uint8_t(StatusBit::invalidStart));
     }
 
     // methods to set status to alive, undef or killed
@@ -219,9 +221,7 @@ public:
     void setKilledDoubletConnections() { status_ |= uint8_t(StatusBit::hasKilledDoubletConnections); }
     void setKilledTripletConnections() { status_ |= uint8_t(StatusBit::hasKilledTripletConnections); }
     void setTooShort() { status_ |= uint8_t(StatusBit::isTooShort); }
-    void setFirstDoubletNotInStartingLayerPairs() {
-      status_ |= uint8_t(StatusBit::firstDoubletNotInStartingLayerPairs);
-    }
+    void setInvalidStart() { status_ |= uint8_t(StatusBit::invalidStart); }
 
     // methods to check if status is undef, alive or killed
     bool hasUndefDoubletCuts() const { return status_ & uint8_t(StatusBit::hasUndefDoubletCuts); }
@@ -236,9 +236,7 @@ public:
              hasKilledTripletConnections();
     }
     bool isTooShort() const { return status_ & uint8_t(StatusBit::isTooShort); }
-    bool firstDoubletNotInStartingLayerPairs() const {
-      return status_ & uint8_t(StatusBit::firstDoubletNotInStartingLayerPairs);
-    }
+    bool invalidStart() const { return status_ & uint8_t(StatusBit::invalidStart); }
     bool isAlive() const { return !(status_); }  // if nothing is set (no undef and no kills) the tuplet is alive
 
     // method to get the leading digit of the status (first non-zero one),
@@ -345,14 +343,13 @@ public:
 
   // method to build the SimNtuplets
   // minNumDoubletsToPass = the number of doublets required for the Ntuplet to not be considered too short
-  void buildSimNtuplets(std::set<int> const& startingPairs, size_t const minNumDoubletsToPass = 0) const;
+  void buildSimNtuplets(size_t const minNumDoubletsToPass = 0) const;
   // method to access the SimNtuplets
   std::vector<Ntuplet>& getSimNtuplets() const { return ntuplets_; };
   // method to build and access the SimNtuplets in one go
   // minNumDoubletsToPass = the number of doublets required for the Ntuplet to not be considered too short
-  std::vector<Ntuplet>& buildAndGetSimNtuplets(std::set<int> const& startingPairs,
-                                               size_t const minNumDoubletsToPass = 0) const {
-    buildSimNtuplets(startingPairs, minNumDoubletsToPass);
+  std::vector<Ntuplet>& buildAndGetSimNtuplets(size_t const minNumDoubletsToPass = 0) const {
+    buildSimNtuplets(minNumDoubletsToPass);
     return ntuplets_;
   };
 
@@ -385,7 +382,6 @@ private:
                         size_t const lastLayerId,
                         uint8_t const status,
                         uint8_t const numSkippedLayers,
-                        std::set<int> const& startingPairs,
                         size_t const minNumDoubletsToPass) const;
 
   // class members
