@@ -69,14 +69,13 @@ struct PreselectionMaskingKernel
 
             const int trackLimit = alpaka::math::min(acc, maxNumberOfTracks, tracks.nTracks());
 #ifdef KERNELS_DEBUG
-            auto worker = alpaka::getIdx<alpaka::Grid, alpaka::Threads>(acc)[0];
-            if(worker==0){
+            if(cms::alpakatools::once_per_block(acc)){
                 printf("nTracks=%d\n", tracks.nTracks());
                 if(tracks.nTracks() >= maxNumberOfTracks)
                     printf("PixelTrackTorchHighPuritySelectorKernels Warning: nTracks (%d) >= maxNumberOfTracks (%d)\n", tracks.nTracks(), maxNumberOfTracks);
             }
 #endif
-            for (auto i : alpaka::uniformElements(acc, trackLimit)){
+            for (auto i : cms::alpakatools::uniform_elements(acc, trackLimit)){
                 tmpPreselectedTrackIndices[i] = i;
                 bool isGoodQuality = 
                     tracks[i].quality() >= minimumTrackQuality && 
@@ -127,7 +126,7 @@ struct FeaturesExtractorKernel{
             constexpr float NaN = std::numeric_limits<float>::quiet_NaN();
             const uint32_t nPreselectedTracksBound = alpaka::math::min(acc, *nPreselectedTracks, maxPreselectedTracks);
 
-            for (auto i : alpaka::uniformElements(acc, maxPreselectedTracks)) { 
+            for (auto i : cms::alpakatools::uniform_elements(acc, maxPreselectedTracks)) { 
                 // Case 1: valid preselected track --> extract features
                 if (i < nPreselectedTracksBound){
                     int inputTrackIdx = preselectedTrackIndices[i];
@@ -190,8 +189,8 @@ struct FeaturesExtractorKernel{
                     nHitsTrack = alpaka::math::min(acc, nHitsTrack, uint32_t(RecHitFeatures::MaxHitsPerTrack));
 
                     for (uint32_t h = 0; h < nHitsTrack; ++h) {
-                        auto hit_id    = track_hits[hitBegin + h].id();
-                        const auto hit = hits[hit_id];
+                        auto hit_id     = track_hits[hitBegin + h].id();
+                        const auto& hit = hits[hit_id];
 
                         const float x  = hit.xGlobal();
                         const float y  = hit.yGlobal();
@@ -275,14 +274,14 @@ struct FeaturesExtractorKernel{
         */
 
             const int nTracks = alpaka::math::min(acc, *nSelectedTracks, maxPreselectedTracks);
-            if (alpaka::getIdx<alpaka::Grid, alpaka::Threads>(acc)[0] == 0) 
+            if (cms::alpakatools::once_per_block(acc)) 
                 tracks_out.nTracks() = nTracks;
-
-            for (auto i : alpaka::uniformElements(acc, nTracks)) { 
+            
+            for (auto i : cms::alpakatools::uniform_elements(acc, nTracks)) { 
                 const int inputTrackIdx = selectedTrackIndices[i];
                 if(inputTrackIdx >= 0){
-                    const auto track = tracks[inputTrackIdx];
-                    tracks_out[i]    = track;
+                    const auto& track = tracks[inputTrackIdx];
+                    tracks_out[i]     = track;
                     tracks_out[i].hitOffsets() = nKeptHits[i];
 
                     //Access the hits associated to the track:
@@ -337,14 +336,11 @@ struct FeaturesExtractorKernel{
             *  - No compaction is performed in this kernel
         */
             const uint32_t nValid = alpaka::math::min(acc, *nPreselectedTracks, maxPreselectedTracks);
-            for (auto i : alpaka::uniformElements(acc, maxPreselectedTracks)) {  
+            for (auto i : cms::alpakatools::uniform_elements(acc, nValid)) {  
                 nKeptHits_copy[i] = nKeptHits[i];
                 if(i < nValid){
                     const float score = trackScores[i].score();  
                     selectionMask[i] = (score >= scoreThreshold) ? 1 : 0;
-                }
-                else{
-                    selectionMask[i] = 0;
                 }
             }
         }
@@ -379,13 +375,12 @@ struct FeaturesExtractorKernel{
             *  - offsets[last] defines the size of the compacted array
             *  - Only the first occurrence of each offset value writes to new_array
         */
-
-            auto worker = alpaka::getIdx<alpaka::Grid, alpaka::Threads>(acc)[0];
-            const uint32_t new_size_local = offsets[old_size-1];
-            if (worker == 0){
+            if (cms::alpakatools::once_per_block(acc)) {
+                const uint32_t new_size_local = offsets[old_size-1];
                 *new_size = new_size_local;
             }
-            for (auto i : alpaka::uniformElements(acc, old_size)){
+
+            for (auto i : cms::alpakatools::uniform_elements(acc, old_size)){
                 bool is_first = 
                     offsets[i] > 0 &&
                     ((i == 0) || (offsets[i] != offsets[i-1]));
