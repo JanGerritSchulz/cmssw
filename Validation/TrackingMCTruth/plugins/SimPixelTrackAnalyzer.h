@@ -91,6 +91,8 @@ public:
     //Constructor from ParameterSet
     CAGeometryParams(edm::ParameterSet const& iConfig, double const ptmin, std::vector<int> const& isBarrel)
         : caDCACuts_(iConfig.getParameter<std::vector<double>>("caDCACuts")),
+          caDCurvCuts_(iConfig.getParameter<std::vector<double>>("caDCurvCuts")),
+          caDCurv0_(iConfig.getParameter<std::vector<double>>("caDCurv0")),
           maxInnerRStart_(iConfig.getParameter<std::vector<double>>("startingPairMaxInnerR")),
           phiCuts_(iConfig.getParameter<std::vector<int>>("phiCuts")),
           ptCuts_(iConfig.getParameter<std::vector<double>>("ptCuts")),
@@ -113,6 +115,8 @@ public:
     std::vector<bool> isBarrel_;
     std::vector<double> caThetaCuts_over_ptmin_;
     const std::vector<double> caDCACuts_;
+    const std::vector<double> caDCurvCuts_;
+    const std::vector<double> caDCurv0_;
     const std::vector<double> maxInnerRStart_;
 
     // Cells params
@@ -540,10 +544,9 @@ private:
   std::vector<CoupledCutMonitorElement> hVector_Ysize_;
   std::vector<CoupledCutMonitorElement> hVector_DYsize_;
   std::vector<CoupledCutMonitorElement> hVector_DYPred_;
-  // histograms of doublet/triplet connections
+  std::vector<CoupledCutMonitorElement> hVector_dCurvCut_;
+  // histograms of doublet connections
   CoupledCutMonitorElement h_hardCurvCut_;
-  CoupledCutMonitorElement h_dCurvCut_;
-  CoupledCutMonitorElement h_curvRatioCut_;
   // vectors of histograms (one per layer)
   std::vector<CoupledCutMonitorElement> hVector_caThetaCut_;
   std::vector<CoupledCutMonitorElement> hVector_caDCACut_;
