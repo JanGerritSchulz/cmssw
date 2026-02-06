@@ -76,7 +76,6 @@ namespace simdoublets {
       dcaCut_.clear();
       hardCurvCut_.clear();
       dCurvCut_.clear();
-      curvRatioCut_.clear();
       tripletConnectionPassed_.clear();
       // then, refill
       for (auto& neighbor : doublet.innerNeighbors()) {
@@ -124,13 +123,13 @@ namespace simdoublets {
     std::vector<double> const& dcaCut() const { return dcaCut_; }
     std::vector<double> const& hardCurvCut() const { return hardCurvCut_; }
     std::vector<double>& dCurvCut() const { return dCurvCut_; }
-    std::vector<double>& curvRatioCut() const { return curvRatioCut_; }
+    std::vector<double>& sumCurv() const { return sumCurv_; }
     std::vector<bool>& tripletConnectionPassed() const { return tripletConnectionPassed_; }
     double CAThetaCut(int i) const { return CAThetaCut_.at(i); }
     double dcaCut(int i) const { return dcaCut_.at(i); }
     double hardCurvCut(int i) const { return hardCurvCut_.at(i); }
     double dCurvCut(int i) const { return dCurvCut_.at(i); }
-    double curvRatioCut(int i) const { return curvRatioCut_.at(i); }
+    double sumCurv(int i) const { return sumCurv_.at(i); }
     bool tripletConnectionPassed(int i) const { return tripletConnectionPassed_.at(i); }
 
   private:
@@ -138,7 +137,7 @@ namespace simdoublets {
     double dphi_, z0_, curvature_, pT_;                      // double-valued variables
     int idphi_, Ysize_, DYsize_, DYPred_;                    // integer-valued variables
     std::vector<double> CAThetaCut_, dcaCut_, hardCurvCut_;  // doublet connection cut variables
-    mutable std::vector<double> dCurvCut_, curvRatioCut_;    // triplet connection cut variables
+    mutable std::vector<double> dCurvCut_, sumCurv_;         // triplet connection cut variables
     mutable std::vector<bool> tripletConnectionPassed_;
   };
 
@@ -386,6 +385,15 @@ namespace simdoublets {
         ->setComment(
             "The maximum allowed r coordinate of the inner hit of a doublet to use it as a starting point for "
             "ntuplet building.");
+    /*
+    Cut on quadruplets (two triplets sharing a doublet) using the curvatures Ci, Co of the triplets:
+    |Co - Ci| < (|Co| + |Ci|)/2 * caDCurvCut + caDCurv0
+    */
+    geometryParams
+        .add<std::vector<double>>("caDCurvCuts", std::vector<double>(TrackerTraits::nPairsForQuadruplets, 99.))
+        ->setComment("Cut on curvature difference between two consecutive triplets.");
+    geometryParams.add<std::vector<double>>("caDCurv0", std::vector<double>(TrackerTraits::nPairsForQuadruplets, 99.))
+        ->setComment("Offset for the cut on curvature difference between two consecutive triplets.");
     // cells params
     geometryParams
         .add<std::vector<unsigned int>>(
@@ -649,6 +657,7 @@ void SimPixelTrackAnalyzer<TrackerTraits>::applyCuts(
   //  apply cuts for doublet and triplet connections
   // -------------------------------------------------------------------------
   if (hasValidNeighbors) {
+    auto outerLayerId = doublet.outerLayerId();
     // loop over the inner neighboring doublets of the doublet
     for (int i{0}; auto& neighbor : doublet.innerNeighbors()) {
       bool passCATheta{true}, passHardCurv{true}, passDca{true};
@@ -680,10 +689,11 @@ void SimPixelTrackAnalyzer<TrackerTraits>::applyCuts(
           /* DCurv cut*/
           double dCurv = std::abs(tripletNeighbor.curvature() - neighbor.curvature());
           cellCutVariables.dCurvCut().push_back(dCurv);
-          /* curvRatio cut*/
-          double curvRatio = tripletNeighbor.curvature() / neighbor.curvature();
-          cellCutVariables.curvRatioCut().push_back(curvRatio);
-          if (dCurv > 100000.) {
+          /* sumCurv for dCurvCut*/
+          double sumCurv = std::abs(tripletNeighbor.curvature() + neighbor.curvature());
+          cellCutVariables.sumCurv().push_back(sumCurv);
+          // apply caDCurvCut
+          if (dCurv > cellCuts_.caDCurvCuts_[outerLayerId] * sumCurv + cellCuts_.caDCurv0_[outerLayerId]) {
             neighbor.setKilledTripletConnection(j);
             cellCutVariables.tripletConnectionPassed().push_back(false);
           } else
@@ -774,6 +784,7 @@ void SimPixelTrackAnalyzer<TrackerTraits>::fillCutHistograms(
   // -------------------------------------------------------------------------
   //  connection cuts (connectionCuts folder)
   // -------------------------------------------------------------------------
+  auto outerLayerId = doublet.outerLayerId();
   // check if connection cut histograms should be filled
   if (hasValidNeighbors) {
     bool passedConnect;
@@ -803,9 +814,8 @@ void SimPixelTrackAnalyzer<TrackerTraits>::fillCutHistograms(
       if (hasValidTripletNeighbors) {
         for (size_t j{0}; bool const passedTripletConnect : cellCutVariables.tripletConnectionPassed()) {
           // DCurv cut
-          h_dCurvCut_.fill(passedTripletConnect, cellCutVariables.dCurvCut(j));
-          // curvRatioCut
-          h_curvRatioCut_.fill(passedTripletConnect, cellCutVariables.curvRatioCut(j));
+          hVector_dCurvCut_.at(outerLayerId)
+              .fill(passedTripletConnect, cellCutVariables.sumCurv(j), cellCutVariables.dCurvCut(j));
 
           j++;
         }
@@ -1278,6 +1288,8 @@ void SimPixelTrackAnalyzer<TrackerTraits>::bookHistograms(DQMStore::IBooker& ibo
   double vertPosmax = log10(100);
   std::string trackingObject = inputIsRecoTracks_ ? "PixelTrack" : "Tracking Particle";
   std::string doublet = inputIsRecoTracks_ ? "Doublet" : "SimDoublet";
+  std::string triplet = inputIsRecoTracks_ ? "Triplet" : "SimTriplet";
+  std::string quadruplet = inputIsRecoTracks_ ? "Quadruplet" : "SimQuadruplet";
   std::string ntuplet = inputIsRecoTracks_ ? "Ntuplet" : "SimNtuplet";
 
   // ----------------------------------------------------------
@@ -1890,40 +1902,20 @@ void SimPixelTrackAnalyzer<TrackerTraits>::bookHistograms(DQMStore::IBooker& ibo
   }
 
   // -----------------------------------------------------------------
-  // booking connection cut histograms (connectionCuts folder)
+  // booking triplet cut histograms (tripletCuts folder)
   // -----------------------------------------------------------------
 
-  ibook.setCurrentFolder(folder_ + "/CAParameters/connectionCuts");
+  ibook.setCurrentFolder(folder_ + "/CAParameters/tripletCuts");
 
   // histogram for dcaCut (x-y alignement)
   h_hardCurvCut_.book1D(ibook,
                         "hardCurvCut",
-                        "Curvature of a pair of neighboring " + doublet + "s",
+                        "Curvature of a " + triplet + "s",
                         "Curvature [1/cm]",
-                        "Number of " + doublet + " connections",
+                        "Number of " + triplet + "s",
                         50,
                         0,
                         0.04);
-
-  // histogram for dCurvCut (x-y alignement of triplet connections)
-  h_dCurvCut_.book1D(ibook,
-                     "dCurvCut",
-                     "Curvature difference of a pair of neighboring triplets",
-                     "Absolute curvature difference [1/cm]",
-                     "Number of triplet connections",
-                     50,
-                     0,
-                     0.02);
-
-  // histogram for curvRatioCut (x-y alignement of triplet connections)
-  h_curvRatioCut_.book1D(ibook,
-                         "curvRatioCut",
-                         "Curvature ratio of a pair of neighboring triplets",
-                         "Ratio of curvatures",
-                         "Number of triplet connections",
-                         200,
-                         -3,
-                         3);
 
   // loop through layer ids
   for (auto id{0}; id < numLayers_; ++id) {
@@ -1931,35 +1923,56 @@ void SimPixelTrackAnalyzer<TrackerTraits>::bookHistograms(DQMStore::IBooker& ibo
     std::string idStr = std::to_string(id);
 
     // set folder to the sub-folder for the layer pair
-    ibook.setCurrentFolder(folder_ + "/CAParameters/connectionCuts/layer_" + idStr);
+    ibook.setCurrentFolder(folder_ + "/CAParameters/tripletCuts/layer_" + idStr);
 
     // histogram for areAlignedRZ
-    hVector_caThetaCut_.at(id).book1DLogX(
-        ibook,
-        "caThetaCut_over_ptmin",
-        "CATheta cut variable based on the area spaned by 3 RecHits of a pair of neighboring "
-        "" + doublet +
-            "s in R-z with the shared RecHit in layer " + idStr,
-        "CATheta cut variable",
-        "Number of " + doublet + " connections",
-        51,
-        -6,
-        1);
+    hVector_caThetaCut_.at(id).book1DLogX(ibook,
+                                          "caThetaCut_over_ptmin",
+                                          "CATheta cut variable based on the area spaned by 3 RecHits of a "
+                                          "" + triplet +
+                                              "s in R-z with the shared RecHit in layer " + idStr,
+                                          "CATheta cut variable",
+                                          "Number of " + triplet + "s",
+                                          51,
+                                          -6,
+                                          1);
     // histogram for dcaCut (x-y alignement)
     hVector_caDCACut_.at(id).book1DLogX(ibook,
                                         "caDCACut",
-                                        "Closest transverse distance to beamspot based on the 3 RecHits of a pair of "
-                                        "neighboring " +
-                                            doublet + "s with the most inner RecHit on layer " + idStr,
+                                        "Closest transverse distance to beamspot based on the 3 RecHits of a " +
+                                            triplet + "s with the most inner RecHit on layer " + idStr,
                                         "Transverse distance [cm]",
-                                        "Number of " + doublet + " connections",
+                                        "Number of " + triplet + "s",
                                         51,
                                         -6,
                                         1);
   }
 
   // -----------------------------------------------------------------
-  // booking connection cut histograms (startingCuts folder)
+  // booking triplet cut histograms (tripletCuts folder)
+  // -----------------------------------------------------------------
+  // loop through layer ids
+  for (auto id{0}; id < numLayers_; ++id) {
+    // layer as string
+    std::string idStr = std::to_string(id);
+    ibook.setCurrentFolder(folder_ + "/CAParameters/quadrupletCuts");
+    // histogram for dCurvCut (x-y alignement of quadruplets)
+    hVector_dCurvCut_.at(id).book2D(
+        ibook,
+        "dCurvCut",
+        "Curvature difference of a pair of neighboring " + triplet + "s with the outest hit on layer " + idStr,
+        "Absolute curvature sum [1/cm]",
+        "Absolute curvature difference [1/cm]",
+        50,
+        0,
+        0.02,
+        100,
+        0,
+        0.01);
+  }
+
+  // -----------------------------------------------------------------
+  // booking starting cut histograms (startingCuts folder)
   // -----------------------------------------------------------------
 
   // loop through layer ids
