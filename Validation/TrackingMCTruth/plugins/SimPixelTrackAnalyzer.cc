@@ -1244,6 +1244,14 @@ void SimPixelTrackAnalyzer<TrackerTraits>::analyze(const edm::Event& iEvent, con
         pass_numSimDoublets++;
     }  // end loop over those doublets
 
+    // ---------------------------------------------------------------------------
+    //  fishbone plots related to SimDoublets (CAParameters/fishbone folder)
+    // ---------------------------------------------------------------------------
+    for (auto fishbone : simPixelTrack.fishboneScores()) {
+      auto isMerged = fishbone.second > 0.99999;
+      hVector_fishbones_.at(fishbone.first).fill(isMerged, fishbone.second);
+    }
+
     // build the SimNtuplets based on the SimDoublets
     simPixelTrack.buildSimNtuplets(minNumDoubletsPerNtuplet_);
 
@@ -1926,6 +1934,30 @@ void SimPixelTrackAnalyzer<TrackerTraits>::bookHistograms(DQMStore::IBooker& ibo
                 51,
                 -1,
                 50);
+  }
+
+  // -----------------------------------------------------------------
+  // booking fishbone histograms (fishbone folder)
+  // -----------------------------------------------------------------
+
+  // loop through layer ids
+  for (auto id{0}; id < numLayers_; ++id) {
+    // layer as string
+    std::string idStr = std::to_string(id);
+
+    // set folder to the sub-folder for the layer pair
+    ibook.setCurrentFolder(folder_ + "/CAParameters/fishbone/layer_" + idStr);
+
+    // histogram for areAlignedRZ
+    hVector_fishbones_.at(id).book1DLogX(
+        ibook,
+        "fishbones",
+        "Fishbone alignment score for doublets sharing the outer RecHit in layer " + idStr,
+        "Fishbone score",
+        "Number of " + doublet + "s",
+        51,
+        -6,
+        1);
   }
 
   // -----------------------------------------------------------------

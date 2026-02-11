@@ -555,6 +555,7 @@ private:
   std::vector<CoupledCutMonitorElement> hVector_DYsize_;
   std::vector<CoupledCutMonitorElement> hVector_DYPred_;
   std::vector<CoupledCutMonitorElement> hVector_dCurvCut_;
+  std::vector<CoupledMonitorElement> hVector_fishbones_;
   // histograms of doublet connections
   CoupledCutMonitorElement h_hardCurvCut_;
   // vectors of histograms (one per layer)
