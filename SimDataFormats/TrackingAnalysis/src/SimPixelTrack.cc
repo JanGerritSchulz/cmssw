@@ -88,16 +88,16 @@ SimPixelTrack::Doublet::Doublet(SimPixelTrack const& simPixelTrack,
   // determine Id of the layer pair
   layerPairId_ = simpixeltracks::getLayerPairId(layerIds_);
 
-  // fill the inner neighbors
+  // fill the inner Triplets
   for (size_t const index : innerNeighborsIndices) {
-    innerNeighbors_.emplace_back(
-        SimPixelTrack::Doublet::Neighbor(index, simPixelTrack.getSimDoublet(index).numInnerNeighbors()));
+    innerTriplets_.emplace_back(
+        SimPixelTrack::Doublet::Triplet(index, simPixelTrack.getSimDoublet(index).numInnerTriplets()));
   }
 
-  // if there are neighbors, get their inner layerId
+  // if there are Triplets, get their inner layerId
   if (!innerNeighborsIndices.empty()) {
     size_t index = innerNeighborsIndices.at(0);
-    innerNeighborsInnerLayerId_ = simPixelTrack.getSimDoublet(index).innerLayerId();
+    innerTripletsInnerLayerId_ = simPixelTrack.getSimDoublet(index).innerLayerId();
   }
 }
 
@@ -240,7 +240,7 @@ void SimPixelTrack::buildSimDoublets(const TrackerTopology* trackerTopology) con
 // (the building starts from the outside and ends inside)
 // at each addition of a SimDoublet, a new SimNtuplet is stored
 void SimPixelTrack::buildSimNtuplets(SimPixelTrack::Doublet const& doublet,
-                                     std::vector<bool> const& tripletConnections,
+                                     std::vector<bool> const& quadruplets,
                                      size_t numSimDoublets,
                                      size_t const lastLayerId,
                                      uint8_t const status,
@@ -250,19 +250,19 @@ void SimPixelTrack::buildSimNtuplets(SimPixelTrack::Doublet const& doublet,
   numSimDoublets++;
 
   // loop over the inner neighboring doublets of the current doublet
-  for (size_t i{0}; auto const& neighbor : doublet.innerNeighborsView()) {
+  for (size_t i{0}; auto const& triplet : doublet.innerTripletsView()) {
     // get the inner neighboring doublet and the status of this connection
-    auto const& neighborDoublet = doublets_.at(neighbor.index());
+    auto const& neighborDoublet = doublets_.at(triplet.innerDoubletIndex());
 
     // update the status of the current SimNtuplet by adding the information from the new doublet
     uint8_t updatedStatus = SimPixelTrack::Ntuplet::updateStatus(
-        status,                                                  // current status
-        neighborDoublet.isUndef(),                               // doublet has undefined cuts
-        neighborDoublet.isKilledByMissingLayerPair(),            // doublet is not built due to missing layer pair
-        neighborDoublet.isKilledByCuts(),                        // doublet is killed by cuts
-        neighbor.isUndef(),                                      // doublet connection has undefined cuts
-        neighbor.isKilled(),                                     // doublet connection is killed by cuts
-        (numSimDoublets > 2) ? tripletConnections.at(i) : false  // triplet connection is killed by cuts
+        status,                                           // current status
+        neighborDoublet.isUndef(),                        // doublet has undefined cuts
+        neighborDoublet.isKilledByMissingLayerPair(),     // doublet is not built due to missing layer pair
+        neighborDoublet.isKilledByCuts(),                 // doublet is killed by cuts
+        triplet.isUndef(),                               // doublet connection has undefined cuts
+        triplet.isKilled(),                              // doublet connection is killed by cuts
+        (numSimDoublets > 2) ? quadruplets.at(i) : false  // triplet connection is killed by cuts
     );
 
     // update number of skipped layers
@@ -345,7 +345,7 @@ void SimPixelTrack::buildSimNtuplets(SimPixelTrack::Doublet const& doublet,
     // call this function recursively
     // this will get the further neighboring doublets and build the next Ntuplet
     buildSimNtuplets(neighborDoublet,
-                     neighbor.tripletConnections(),
+                     triplet.quadruplets(),
                      numSimDoublets,
                      lastLayerId,
                      updatedStatus,

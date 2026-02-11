@@ -6,6 +6,7 @@
 
 // #define DOUBLETCUTS_PRINTOUTS
 // #define TRIPLETCURVATURES_PRINTOUTS
+// #define QUADRUPLETCUTS_PRINTOUTS
 // #define LOSTNTUPLETS_PRINTOUTS
 
 // user include files
@@ -70,41 +71,48 @@ namespace simdoublets {
       DYsize_ = std::abs(Ysize_ - doublet.outerClusterYSize());
       DYPred_ = std::abs(Ysize_ - int(std::abs(dz_ / dr_) * pixelTopology::Phase2::dzdrFact + 0.5f));
 
-      // cuts on doublet connections (loop over all inner neighboring doublets)
+      // cuts on doublet connections (loop over all inner triplets)
       // reset them first
       CAThetaCut_.clear();
       dcaCut_.clear();
       hardCurvCut_.clear();
+      sumCurv_.clear();
       dCurvCut_.clear();
-      tripletConnectionPassed_.clear();
+      quadrupletPassed_.clear();
       // then, refill
-      for (auto& neighbor : doublet.innerNeighbors()) {
-        // get the inner RecHit of the inner neighbor
-        GlobalPoint neighbor_globalPosition = simPixelTrack.getSimDoublet(neighbor.index()).innerGlobalPos();
-        double neighbor_z = neighbor_globalPosition.z();
-        double neighbor_r = neighbor_globalPosition.perp();
-        double neighbor_x = neighbor_globalPosition.x();
-        double neighbor_y = neighbor_globalPosition.y();
+      for (auto& triplet : doublet.innerTriplets()) {
+        // get the inner RecHit of the inner triplet
+        GlobalPoint triplet_globalPosition = simPixelTrack.getSimDoublet(triplet.innerDoubletIndex()).innerGlobalPos();
+        double triplet_z = triplet_globalPosition.z();
+        double triplet_r = triplet_globalPosition.perp();
+        double triplet_x = triplet_globalPosition.x();
+        double triplet_y = triplet_globalPosition.y();
 
         // alignement cut variable in R-Z assuming ptmin = 1 GeV
-        double radius_diff = std::abs(neighbor_r - outer_r_);
-        double distance_13_squared = radius_diff * radius_diff + (neighbor_z - outer_z_) * (neighbor_z - outer_z_);
-        double tan_12_13_half_mul_distance_13_squared =
-            fabs(neighbor_z * (inner_r_ - outer_r_) + inner_z_ * (outer_r_ - neighbor_r) +
-                 outer_z_ * (neighbor_r - inner_r_));
+        double radius_diff = std::abs(triplet_r - outer_r_);
+        double distance_13_squared = radius_diff * radius_diff + (triplet_z - outer_z_) * (triplet_z - outer_z_);
+        double tan_12_13_half_mul_distance_13_squared = fabs(
+            triplet_z * (inner_r_ - outer_r_) + inner_z_ * (outer_r_ - triplet_r) + outer_z_ * (triplet_r - inner_r_));
         double denominator = std::sqrt(distance_13_squared) * radius_diff;
         CAThetaCut_.push_back(tan_12_13_half_mul_distance_13_squared / denominator);
 
         // alignement cut variables in x-y
-        CircleEq<double> eq(neighbor_x, neighbor_y, inner_x, inner_y, outer_x, outer_y);
+        CircleEq<double> eq(triplet_x, triplet_y, inner_x, inner_y, outer_x, outer_y);
         double tripletCurvature = eq.curvature();
-        neighbor.setCurvature(tripletCurvature);
+        triplet.setCurvature(tripletCurvature);
         hardCurvCut_.push_back(std::abs(tripletCurvature));
         dcaCut_.push_back(std::abs(eq.dca0() / std::abs(tripletCurvature)));
+
+        // create the quadruplet indices
+        dCurvCut_.push_back({});
+        sumCurv_.push_back({});
+        quadrupletPassed_.push_back({});
       }
     }
 
     // methods to get the cut variables
+    // t = index of triplet
+    // q = index of quadruplet given the triplet index
     double inner_z() const { return inner_z_; }
     double inner_r() const { return inner_r_; }
     double outer_z() const { return outer_z_; }
@@ -122,23 +130,23 @@ namespace simdoublets {
     std::vector<double> const& CAThetaCut() const { return CAThetaCut_; }
     std::vector<double> const& dcaCut() const { return dcaCut_; }
     std::vector<double> const& hardCurvCut() const { return hardCurvCut_; }
-    std::vector<double>& dCurvCut() const { return dCurvCut_; }
-    std::vector<double>& sumCurv() const { return sumCurv_; }
-    std::vector<bool>& tripletConnectionPassed() const { return tripletConnectionPassed_; }
-    double CAThetaCut(int i) const { return CAThetaCut_.at(i); }
-    double dcaCut(int i) const { return dcaCut_.at(i); }
-    double hardCurvCut(int i) const { return hardCurvCut_.at(i); }
-    double dCurvCut(int i) const { return dCurvCut_.at(i); }
-    double sumCurv(int i) const { return sumCurv_.at(i); }
-    bool tripletConnectionPassed(int i) const { return tripletConnectionPassed_.at(i); }
+    std::vector<double>& dCurvCuts(int t) const { return dCurvCut_.at(t); }
+    std::vector<double>& sumCurvs(int t) const { return sumCurv_.at(t); }
+    std::vector<bool>& quadrupletsPassed(int t) const { return quadrupletPassed_.at(t); }
+    double CAThetaCut(int t) const { return CAThetaCut_.at(t); }
+    double dcaCut(int t) const { return dcaCut_.at(t); }
+    double hardCurvCut(int t) const { return hardCurvCut_.at(t); }
+    double dCurvCut(int t, int q) const { return dCurvCut_.at(t).at(q); }
+    double sumCurv(int t, int q) const { return sumCurv_.at(t).at(q); }
+    bool quadrupletPassed(int t, int q) const { return quadrupletPassed_.at(t).at(q); }
 
   private:
     double inner_z_, inner_r_, outer_z_, outer_r_, dz_, dr_;
-    double dphi_, z0_, curvature_, pT_;                      // double-valued variables
-    int idphi_, Ysize_, DYsize_, DYPred_;                    // integer-valued variables
-    std::vector<double> CAThetaCut_, dcaCut_, hardCurvCut_;  // doublet connection cut variables
-    mutable std::vector<double> dCurvCut_, sumCurv_;         // triplet connection cut variables
-    mutable std::vector<bool> tripletConnectionPassed_;
+    double dphi_, z0_, curvature_, pT_;                            // double-valued variables
+    int idphi_, Ysize_, DYsize_, DYPred_;                          // integer-valued variables
+    std::vector<double> CAThetaCut_, dcaCut_, hardCurvCut_;        // triplet cut variables
+    mutable std::vector<std::vector<double>> dCurvCut_, sumCurv_;  // quadruplet cut variables
+    mutable std::vector<std::vector<bool>> quadrupletPassed_;      // bool if quadruplet passed
   };
 
   template <typename TrackerTraits>
@@ -380,8 +388,7 @@ namespace simdoublets {
             std::vector<unsigned int>(TrackerTraits::startingPairs,
                                       TrackerTraits::startingPairs + TrackerTraits::nStartingPairs))
         ->setComment("The list of the ids of pairs from which the CA ntuplets building may start.");
-    geometryParams
-        .add<std::vector<double>>("startingPairMaxInnerR", std::vector<double>(TrackerTraits::nStartingPairs, 99.0))
+    geometryParams.add<std::vector<double>>("startMaxInnerR", std::vector<double>(TrackerTraits::numberOfLayers, 99.0))
         ->setComment(
             "The maximum allowed r coordinate of the inner hit of a doublet to use it as a starting point for "
             "ntuplet building.");
@@ -389,10 +396,9 @@ namespace simdoublets {
     Cut on quadruplets (two triplets sharing a doublet) using the curvatures Ci, Co of the triplets:
     |Co - Ci| < (|Co| + |Ci|)/2 * caDCurvCut + caDCurv0
     */
-    geometryParams
-        .add<std::vector<double>>("caDCurvCuts", std::vector<double>(TrackerTraits::nPairsForQuadruplets, 99.))
+    geometryParams.add<std::vector<double>>("caDCurvCuts", std::vector<double>(TrackerTraits::numberOfLayers, 99.))
         ->setComment("Cut on curvature difference between two consecutive triplets.");
-    geometryParams.add<std::vector<double>>("caDCurv0", std::vector<double>(TrackerTraits::nPairsForQuadruplets, 99.))
+    geometryParams.add<std::vector<double>>("caDCurv0", std::vector<double>(TrackerTraits::numberOfLayers, 99.))
         ->setComment("Offset for the cut on curvature difference between two consecutive triplets.");
     // cells params
     geometryParams
@@ -534,6 +540,7 @@ SimPixelTrackAnalyzer<TrackerTraits>::SimPixelTrackAnalyzer(const edm::Parameter
   numLayers_ = TrackerTraits::numberOfLayers + 2 * numLayersOTDisks + numLayersOTBarrel;
   hVector_caThetaCut_.resize(numLayers_);
   hVector_caDCACut_.resize(numLayers_);
+  hVector_dCurvCut_.resize(numLayers_);
   hVector_firstHitR_.resize(numLayers_);
 }
 
@@ -552,8 +559,8 @@ template <typename TrackerTraits>
 void SimPixelTrackAnalyzer<TrackerTraits>::applyCuts(
     SimPixelTrack::Doublet& doublet,
     SimPixelTrack const& simPixelTrack,
-    bool const hasValidNeighbors,
-    bool const hasValidTripletNeighbors,
+    bool const hasValidTriplets,
+    bool const hasValidQuadruplets,
     int const layerPairIdIndex,
     simdoublets::CellCutVariables const& cellCutVariables,
     simdoublets::ClusterSizeCutManager<TrackerTraits> const& clusterSizeCutManager) {
@@ -650,60 +657,71 @@ void SimPixelTrackAnalyzer<TrackerTraits>::applyCuts(
   // -------------------------------------------------------------------------
   auto innerLayerId = doublet.innerLayerId();
   auto layerPairId = doublet.layerPairId();
-  if ((cellCutVariables.inner_r() < cellCuts_.maxInnerRStart_[innerLayerId]) && (startingPairs_.contains(layerPairId)))
+  if ((cellCutVariables.inner_r() < cellCuts_.startMaxInnerR_[innerLayerId]) && (startingPairs_.contains(layerPairId)))
     doublet.setValidStart();
 
   // -------------------------------------------------------------------------
   //  apply cuts for doublet and triplet connections
   // -------------------------------------------------------------------------
-  if (hasValidNeighbors) {
+  if (hasValidTriplets) {
     auto outerLayerId = doublet.outerLayerId();
     // loop over the inner neighboring doublets of the doublet
-    for (int i{0}; auto& neighbor : doublet.innerNeighbors()) {
+    for (int t{0}; auto& triplet : doublet.innerTriplets()) {
       bool passCATheta{true}, passHardCurv{true}, passDca{true};
 
       // apply CAThetaCut
-      if (cellCutVariables.CAThetaCut(i) > cellCuts_.caThetaCuts_over_ptmin_.at(doublet.innerLayerId()))
+      if (cellCutVariables.CAThetaCut(t) > cellCuts_.caThetaCuts_over_ptmin_.at(doublet.innerLayerId()))
         passCATheta = false;
       // apply hardCurvCut
-      if (cellCutVariables.hardCurvCut(i) > hardCurvCut_)
+      if (cellCutVariables.hardCurvCut(t) > hardCurvCut_)
         passHardCurv = false;
       // apply dcaCut
-      if (cellCutVariables.dcaCut(i) > cellCuts_.caDCACuts_.at(doublet.innerNeighborsInnerLayerId()))
+      if (cellCutVariables.dcaCut(t) > cellCuts_.caDCACuts_.at(doublet.innerTripletsInnerLayerId()))
         passDca = false;
 
       h_hardCurvCut_.fillPassThisCut(passHardCurv);
       hVector_caThetaCut_[doublet.innerLayerId()].fillPassThisCut(passCATheta);
-      hVector_caDCACut_[doublet.innerNeighborsInnerLayerId()].fillPassThisCut(passDca);
+      hVector_caDCACut_[doublet.innerTripletsInnerLayerId()].fillPassThisCut(passDca);
 
       if (!(passCATheta && passHardCurv && passDca)) {
-        neighbor.setKilled();
+        triplet.setKilled();
       } else {
-        neighbor.setAlive();
+        triplet.setAlive();
       }
 
       // loop over the neighbors of the neighbors to apply cuts on triplet connections
-      if (hasValidTripletNeighbors) {
-        auto const& neighborDoublet = simPixelTrack.getSimDoublet(neighbor.index());
-        for (int j{0}; auto const& tripletNeighbor : neighborDoublet.innerNeighborsView()) {
-          /* DCurv cut*/
-          double dCurv = std::abs(tripletNeighbor.curvature() - neighbor.curvature());
-          cellCutVariables.dCurvCut().push_back(dCurv);
-          /* sumCurv for dCurvCut*/
-          double sumCurv = std::abs(tripletNeighbor.curvature() + neighbor.curvature());
-          cellCutVariables.sumCurv().push_back(sumCurv);
-          // apply caDCurvCut
-          if (dCurv > cellCuts_.caDCurvCuts_[outerLayerId] * sumCurv + cellCuts_.caDCurv0_[outerLayerId]) {
-            neighbor.setKilledTripletConnection(j);
-            cellCutVariables.tripletConnectionPassed().push_back(false);
-          } else
-            cellCutVariables.tripletConnectionPassed().push_back(true);
+      if (hasValidQuadruplets) {
+        auto const& neighborDoublet = simPixelTrack.getSimDoublet(triplet.innerDoubletIndex());
+        auto& dCurvCuts = cellCutVariables.dCurvCuts(t);
+        auto& sumCurvs = cellCutVariables.sumCurvs(t);
+        auto& quadrupletsPassed = cellCutVariables.quadrupletsPassed(t);
 
-          j++;
+        for (int q{0}; auto const& innerTriplet : neighborDoublet.innerTripletsView()) {
+          /* DCurv cut*/
+          double dCurv = std::abs(innerTriplet.curvature() - triplet.curvature());
+          dCurvCuts.push_back(dCurv);
+          /* sumCurv for dCurvCut*/
+          double sumCurv = std::abs(innerTriplet.curvature() + triplet.curvature());
+          sumCurvs.push_back(sumCurv);
+          // apply caDCurvCut
+          if (dCurv > (cellCuts_.caDCurvCuts_[outerLayerId] * sumCurv + cellCuts_.caDCurv0_[outerLayerId])) {
+            triplet.setKilledQuadruplet(q);
+            quadrupletsPassed.push_back(false);
+          } else
+            quadrupletsPassed.push_back(true);
+
+#ifdef QUADRUPLETCUTS_PRINTOUTS
+          printf("calculated lid=%d with pass=%d sum=%f and diff=%f\n",
+                 outerLayerId,
+                 !(triplet.isKilledQuadruplet(q)),
+                 sumCurv,
+                 dCurv);
+#endif
+          q++;
         }
       }
 
-      i++;
+      t++;
     }
   }
 }
@@ -712,8 +730,8 @@ void SimPixelTrackAnalyzer<TrackerTraits>::applyCuts(
 template <typename TrackerTraits>
 void SimPixelTrackAnalyzer<TrackerTraits>::fillCutHistograms(
     SimPixelTrack::Doublet const& doublet,
-    bool hasValidNeighbors,
-    bool hasValidTripletNeighbors,
+    bool hasValidTriplets,
+    bool hasValidQuadruplets,
     int const layerPairIdIndex,
     simdoublets::CellCutVariables const& cellCutVariables,
     simdoublets::ClusterSizeCutManager<TrackerTraits> const& clusterSizeCutManager,
@@ -786,42 +804,50 @@ void SimPixelTrackAnalyzer<TrackerTraits>::fillCutHistograms(
   // -------------------------------------------------------------------------
   auto outerLayerId = doublet.outerLayerId();
   // check if connection cut histograms should be filled
-  if (hasValidNeighbors) {
+  if (hasValidTriplets) {
     bool passedConnect;
     // loop over the inner neighboring doublets of the doublet
-    for (int i{0}; auto const& neighbor : doublet.innerNeighborsView()) {
+    for (int t{0}; auto const& triplet : doublet.innerTripletsView()) {
       // get the status of the connection
-      passedConnect = neighbor.isAlive();
+      passedConnect = triplet.isAlive();
 
       // fill the histograms
       // hard curvature cut
-      h_hardCurvCut_.fill(passedConnect, cellCutVariables.hardCurvCut(i));
+      h_hardCurvCut_.fill(passedConnect, cellCutVariables.hardCurvCut(t));
       // dca cut
-      hVector_caDCACut_.at(doublet.innerNeighborsInnerLayerId()).fill(passedConnect, cellCutVariables.dcaCut(i));
+      hVector_caDCACut_.at(doublet.innerTripletsInnerLayerId()).fill(passedConnect, cellCutVariables.dcaCut(t));
       // CATheta cut
-      hVector_caThetaCut_.at(doublet.innerLayerId()).fill(passedConnect, cellCutVariables.CAThetaCut(i));
+      hVector_caThetaCut_.at(doublet.innerLayerId()).fill(passedConnect, cellCutVariables.CAThetaCut(t));
 
 #ifdef TRIPLETCURVATURES_PRINTOUTS
       printf("%d %d %d %f %f\n",
-             doublet.innerNeighborsInnerLayerId(),
+             doublet.innerTripletsInnerLayerId(),
              doublet.innerLayerId(),
              doublet.outerLayerId(),
              trackTruth.curvature,
-             neighbor.curvature());
+             triplet.curvature());
 #endif
 
-      // loop over the neighbors of the neighbors to fill histograms on triplet connections
-      if (hasValidTripletNeighbors) {
-        for (size_t j{0}; bool const passedTripletConnect : cellCutVariables.tripletConnectionPassed()) {
+      // loop over the triplets of the neighbors to fill histograms on triplet connections
+      if (hasValidQuadruplets) {
+        auto const& sumCurvs = cellCutVariables.sumCurvs(t);
+        auto const& dCurvCuts = cellCutVariables.dCurvCuts(t);
+        for (size_t q{0}; bool const passedQuadruplet : cellCutVariables.quadrupletsPassed(t)) {
           // DCurv cut
-          hVector_dCurvCut_.at(outerLayerId)
-              .fill(passedTripletConnect, cellCutVariables.sumCurv(j), cellCutVariables.dCurvCut(j));
+          hVector_dCurvCut_.at(outerLayerId).fill(passedQuadruplet, sumCurvs.at(q), dCurvCuts.at(q));
 
-          j++;
+#ifdef QUADRUPLETCUTS_PRINTOUTS
+          printf("filling lid=%d with pass=%d sum=%f and diff=%f\n",
+                 outerLayerId,
+                 passedQuadruplet,
+                 sumCurvs.at(q),
+                 dCurvCuts.at(q));
+#endif
+          q++;
         }
       }
 
-      i++;
+      t++;
     }
   }
 }
@@ -899,24 +925,24 @@ void SimPixelTrackAnalyzer<TrackerTraits>::fillSimNtupletHistograms(SimPixelTrac
     h_longNtuplet_.killedDoublets_.fill(trackTruth);
   }
   // D) one of connections between the doublets got cut
-  else if (longNtuplet.hasKilledDoubletConnections()) {
-    h_longNtuplet_.killedDoubletConnections_.fill(trackTruth);
+  else if (longNtuplet.hasKilledTriplets()) {
+    h_longNtuplet_.killedTriplets_.fill(trackTruth);
   }
   // E) one of connections between the triplets got cut
-  else if (longNtuplet.hasKilledTripletConnections()) {
-    h_longNtuplet_.killedTripletConnections_.fill(trackTruth);
+  else if (longNtuplet.hasKilledQuadruplets()) {
+    h_longNtuplet_.killedQuadruplets_.fill(trackTruth);
   }
   // F) the Ntuplet starts with a layer pair not considered for starting
   else if (longNtuplet.invalidStart()) {
-    h_longNtuplet_.notStartingPair_.fill(trackTruth);
+    h_longNtuplet_.invalidStart_.fill(trackTruth);
   }
   // G) if we arrive here something's wrong
   else if (longNtuplet.hasUndefDoubletCuts()) {
     h_longNtuplet_.undefDoubletCuts_.fill(trackTruth);
   }
   // H) or even wronger...
-  else if (longNtuplet.hasUndefDoubletConnectionCuts()) {
-    h_longNtuplet_.undefConnectionCuts_.fill(trackTruth);
+  else if (longNtuplet.hasUndefTripletCuts()) {
+    h_longNtuplet_.undefTripletCuts_.fill(trackTruth);
   }
 
   // -------------------------------------------------------------------------------------
@@ -955,24 +981,24 @@ void SimPixelTrackAnalyzer<TrackerTraits>::fillSimNtupletHistograms(SimPixelTrac
     h_bestNtuplet_.killedDoublets_.fill(trackTruth);
   }
   // D) one of connections between the doublets got cut
-  else if (bestNtuplet.hasKilledDoubletConnections()) {
-    h_bestNtuplet_.killedDoubletConnections_.fill(trackTruth);
+  else if (bestNtuplet.hasKilledTriplets()) {
+    h_bestNtuplet_.killedTriplets_.fill(trackTruth);
   }
   // E) one of connections between the triplets got cut
-  else if (bestNtuplet.hasKilledTripletConnections()) {
-    h_bestNtuplet_.killedTripletConnections_.fill(trackTruth);
+  else if (bestNtuplet.hasKilledQuadruplets()) {
+    h_bestNtuplet_.killedQuadruplets_.fill(trackTruth);
   }
   // F) the Ntuplet starts with a layer pair not considered for starting
   else if (bestNtuplet.invalidStart()) {
-    h_bestNtuplet_.notStartingPair_.fill(trackTruth);
+    h_bestNtuplet_.invalidStart_.fill(trackTruth);
   }
   // G) if we arrive here something's wrong
   else if (bestNtuplet.hasUndefDoubletCuts()) {
     h_bestNtuplet_.undefDoubletCuts_.fill(trackTruth);
   }
   // H) or even wronger...
-  else if (bestNtuplet.hasUndefDoubletConnectionCuts()) {
-    h_bestNtuplet_.undefConnectionCuts_.fill(trackTruth);
+  else if (bestNtuplet.hasUndefTripletCuts()) {
+    h_bestNtuplet_.undefTripletCuts_.fill(trackTruth);
   }
   // -------------------------------------------------------------------------------------
   if (simPixelTrack.hasAliveSimNtuplet()) {
@@ -1103,7 +1129,7 @@ void SimPixelTrackAnalyzer<TrackerTraits>::analyze(const edm::Event& iEvent, con
 
   // initialize a bunch of variables that we will use in the coming for loops
   int numSimDoublets, pass_numSimDoublets, layerPairId, layerPairIdIndex, numSkippedLayers;
-  bool hasValidNeighbors, hasValidTripletNeighbors;
+  bool hasValidTriplets, hasValidQuadruplets;
 
   // initialize the manager for keeping track of which cluster cuts are applied to the inidividual doublets
   simdoublets::ClusterSizeCutManager<TrackerTraits> clusterSizeCutManager;
@@ -1168,26 +1194,26 @@ void SimPixelTrackAnalyzer<TrackerTraits>::analyze(const edm::Event& iEvent, con
         layerPairIdIndex = layerPairId2Index_.at(layerPairId);
 
         // function to check if a doublet has inner neighbors from a considered layer pair
-        auto checkValidNeighbors = [&](SimPixelTrack::Doublet const& d) {
-          return (d.numInnerNeighbors() > 0 &&
+        auto checkValidTriplets = [&](SimPixelTrack::Doublet const& d) {
+          return (d.numInnerTriplets() > 0 &&
                   !(simPixelTrack.getSimDoublet(d.innerNeighborIndex(0)).isKilledByMissingLayerPair()));
         };
 
         // check if the SimDoublet's inner neighbors also are from a considered layer pair
-        hasValidNeighbors = checkValidNeighbors(doublet);
+        hasValidTriplets = checkValidTriplets(doublet);
 
         // check if the inner neighbors' neighbors also are from a considered layer pair
-        hasValidTripletNeighbors =
-            hasValidNeighbors && checkValidNeighbors(simPixelTrack.getSimDoublet(doublet.innerNeighborIndex(0)));
+        hasValidQuadruplets =
+            hasValidTriplets && checkValidTriplets(simPixelTrack.getSimDoublet(doublet.innerNeighborIndex(0)));
 
         // determine which cluster size cuts the doublet is subject to
         clusterSizeCutManager.setSubjectsToCuts(doublet);
 
-        // apply the cuts for doublet building according to the set cut values
+        // apply the cuts for doublet, triplet and quadruplet building according to the set cut values
         applyCuts(doublet,
                   simPixelTrack,
-                  hasValidNeighbors,
-                  hasValidTripletNeighbors,
+                  hasValidTriplets,
+                  hasValidQuadruplets,
                   layerPairIdIndex,
                   cellCutVariables,
                   clusterSizeCutManager);
@@ -1196,8 +1222,8 @@ void SimPixelTrackAnalyzer<TrackerTraits>::analyze(const edm::Event& iEvent, con
         //  cut histograms for SimDoublets (CAParameters folder)
         // -------------------------------------------------------------------------
         fillCutHistograms(doublet,
-                          hasValidNeighbors,
-                          hasValidTripletNeighbors,
+                          hasValidTriplets,
+                          hasValidQuadruplets,
                           layerPairIdIndex,
                           cellCutVariables,
                           clusterSizeCutManager,
@@ -1248,8 +1274,9 @@ void SimPixelTrackAnalyzer<TrackerTraits>::analyze(const edm::Event& iEvent, con
                doublet.innerLayerId(),
                doublet.outerLayerId(),
                doublet.isAlive() ? "alive" : "killed");
-        for (auto const& neighbor : doublet.innerNeighborsView()) {
-          printf("   - connection to %ld is %s \n", neighbor.index(), neighbor.isAlive() ? "alive" : "killed");
+        for (auto const& triplet : doublet.innerTripletsView()) {
+          printf(
+              "   - connection to %ld is %s \n", triplet.innerDoubletIndex(), triplet.isAlive() ? "alive" : "killed");
         }
       }
     }
@@ -1955,7 +1982,7 @@ void SimPixelTrackAnalyzer<TrackerTraits>::bookHistograms(DQMStore::IBooker& ibo
   for (auto id{0}; id < numLayers_; ++id) {
     // layer as string
     std::string idStr = std::to_string(id);
-    ibook.setCurrentFolder(folder_ + "/CAParameters/quadrupletCuts");
+    ibook.setCurrentFolder(folder_ + "/CAParameters/quadrupletCuts/layer_" + idStr);
     // histogram for dCurvCut (x-y alignement of quadruplets)
     hVector_dCurvCut_.at(id).book2D(
         ibook,
@@ -1963,12 +1990,12 @@ void SimPixelTrackAnalyzer<TrackerTraits>::bookHistograms(DQMStore::IBooker& ibo
         "Curvature difference of a pair of neighboring " + triplet + "s with the outest hit on layer " + idStr,
         "Absolute curvature sum [1/cm]",
         "Absolute curvature difference [1/cm]",
-        50,
+        200,
         0,
         0.02,
         100,
         0,
-        0.01);
+        0.02);
   }
 
   // -----------------------------------------------------------------
