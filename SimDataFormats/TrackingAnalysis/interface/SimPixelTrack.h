@@ -48,11 +48,11 @@ public:
     // possible states of the doublet (could be set by an analyzer according to doublet cuts)
     enum class Status : uint8_t { undef, alive, killedByCuts, killedByMissingLayerPair };
 
-    struct Neighbor {
-      Neighbor(size_t index, size_t nInnerNeighbors)
-          : index_(index), status_(Status::undef), tripletConnectionIsKilled_(nInnerNeighbors, false) {}
+    struct Triplet {
+      Triplet(size_t innerDoubletIndex, size_t nInnerTriplets)
+          : index_(innerDoubletIndex), status_(Status::undef), quadrupletIsKilled_(nInnerTriplets, false) {}
 
-      size_t index() const { return index_; }
+      size_t innerDoubletIndex() const { return index_; }
 
       // methods to set status to undef, alive or killed
       void setUndef() { status_ = Status::undef; }
@@ -67,14 +67,14 @@ public:
       void setCurvature(double const curvature) { curvature_ = curvature; }
       double curvature() const { return curvature_; }
 
-      void setKilledTripletConnection(int i) { tripletConnectionIsKilled_.at(i) = true; }
-      bool isKilledTripletConnection(int i) { return tripletConnectionIsKilled_.at(i); }
-      std::vector<bool> const& tripletConnections() const { return tripletConnectionIsKilled_; }
+      void setKilledQuadruplet(int i) { quadrupletIsKilled_.at(i) = true; }
+      bool isKilledQuadruplet(int i) { return quadrupletIsKilled_.at(i); }
+      std::vector<bool> const& quadruplets() const { return quadrupletIsKilled_; }
 
-      size_t index_;                                   // index of the neighboring doublet
-      Status status_;                                  // status of the connection to the neighboring doublet
-      double curvature_{-99999};                       // curvature of the neighboring pair of doublets (=triplet)
-      std::vector<bool> tripletConnectionIsKilled_{};  // status of the triplet connection to the neighbor's neighbors
+      size_t index_;                            // index of the inner doublet of the triplet
+      Status status_;                           // status of the triplet
+      double curvature_{-99999};                // curvature of the triplet
+      std::vector<bool> quadrupletIsKilled_{};  // status of the quadruplets with this triplet as the the outer triplet
     };
 
     // default constructor
@@ -123,14 +123,14 @@ public:
     bool isKilled() const { return isKilledByCuts() || isKilledByMissingLayerPair(); }
     bool isValidStart() const { return validStart_; }
 
-    // methods to get the vector of inner neighboring doublets
-    std::vector<Neighbor>& innerNeighbors() { return innerNeighbors_; }
-    std::vector<Neighbor> const& innerNeighborsView() const { return innerNeighbors_; }
-    int innerNeighborIndex(int i) const { return innerNeighbors_.at(i).index(); }
-    // method to get the number of neighbors
-    int numInnerNeighbors() const { return innerNeighbors_.size(); }
-    // method to get the inner layer ID of the neighbors
-    uint8_t innerNeighborsInnerLayerId() const { return innerNeighborsInnerLayerId_; }
+    // methods to get the vector of inner triplets
+    std::vector<Triplet>& innerTriplets() { return innerTriplets_; }
+    std::vector<Triplet> const& innerTripletsView() const { return innerTriplets_; }
+    int innerNeighborIndex(int i) const { return innerTriplets_.at(i).innerDoubletIndex(); }
+    // method to get the number of Triplets
+    int numInnerTriplets() const { return innerTriplets_.size(); }
+    // method to get the inner layer ID of the Triplets
+    uint8_t innerTripletsInnerLayerId() const { return innerTripletsInnerLayerId_; }
 
   private:
     std::pair<int, int> moduleIds_;                        // module Ids of the RecHits of the Doublet
@@ -141,9 +141,9 @@ public:
     Status status_;                                        // status of the doublet
     bool validStart_{false};                               // doublet passes cuts for starting Ntuplets
     int8_t numSkippedLayers_;                              // number of layers skipped by the Doublet
-    int16_t layerPairId_;                     // ID of the layer pair as defined in the reconstruction for the doublets
-    std::vector<Neighbor> innerNeighbors_{};  // indices of inner neighboring doublets and the status of the connection
-    uint8_t innerNeighborsInnerLayerId_{99};  // layer ID of the inner RecHit of the inner neighboring doublets
+    int16_t layerPairId_;                    // ID of the layer pair as defined in the reconstruction for the doublets
+    std::vector<Triplet> innerTriplets_{};   // indices of inner triplets and its status
+    uint8_t innerTripletsInnerLayerId_{99};  // layer ID of the inner RecHit of the triplets
   };
 
   /**
@@ -162,9 +162,9 @@ public:
       hasMissingLayerPair = 1 << 1,
       hasUndefDoubletCuts = 1 << 2,
       hasKilledDoublets = 1 << 3,
-      hasUndefDoubletConnectionCuts = 1 << 4,
-      hasKilledDoubletConnections = 1 << 5,
-      hasKilledTripletConnections = 1 << 6,
+      hasUndefTripletCuts = 1 << 4,
+      hasKilledTriplets = 1 << 5,
+      hasKilledQuadruplets = 1 << 6,
       invalidStart = 1 << 7
     };
 
@@ -183,7 +183,7 @@ public:
           firstLayerId_(firstLayerId),
           secondLayerId_(secondLayerId),
           lastLayerId_(lastLayerId),
-          numSkippedLayers_(numSkippedLayers){};
+          numSkippedLayers_(numSkippedLayers) {};
 
     // accessing the different members
     uint8_t numDoublets() const { return numDoublets_; }
@@ -198,42 +198,41 @@ public:
                                 bool const hasUndefDoubletCuts,
                                 bool const hasMissingLayerPair,
                                 bool const hasKilledDoublets,
-                                bool const hasUndefDoubletConnectionCuts,
-                                bool const hasKilledDoubletConnections,
-                                bool const hasKilledTripletConnections,
+                                bool const hasUndefTripletCuts,
+                                bool const hasKilledTriplets,
+                                bool const hasKilledQuadruplets,
                                 bool const isTooShort = false,
                                 bool const invalidStart = false) {
       return status | (uint8_t(hasUndefDoubletCuts) * uint8_t(StatusBit::hasUndefDoubletCuts) +
                        uint8_t(hasMissingLayerPair) * uint8_t(StatusBit::hasMissingLayerPair) +
                        uint8_t(hasKilledDoublets) * uint8_t(StatusBit::hasKilledDoublets) +
-                       uint8_t(hasUndefDoubletConnectionCuts) * uint8_t(StatusBit::hasUndefDoubletConnectionCuts) +
-                       uint8_t(hasKilledDoubletConnections) * uint8_t(StatusBit::hasKilledDoubletConnections) +
-                       uint8_t(hasKilledTripletConnections) * uint8_t(StatusBit::hasKilledTripletConnections) +
+                       uint8_t(hasUndefTripletCuts) * uint8_t(StatusBit::hasUndefTripletCuts) +
+                       uint8_t(hasKilledTriplets) * uint8_t(StatusBit::hasKilledTriplets) +
+                       uint8_t(hasKilledQuadruplets) * uint8_t(StatusBit::hasKilledQuadruplets) +
                        uint8_t(isTooShort) * uint8_t(StatusBit::isTooShort) +
                        uint8_t(invalidStart) * uint8_t(StatusBit::invalidStart));
     }
 
     // methods to set status to alive, undef or killed
     void setUndefDoubletCuts() { status_ |= uint8_t(StatusBit::hasUndefDoubletCuts); }
-    void setUndefDoubletConnectionCuts() { status_ |= uint8_t(StatusBit::hasUndefDoubletConnectionCuts); }
+    void setUndefTripletCuts() { status_ |= uint8_t(StatusBit::hasUndefTripletCuts); }
     void setMissingLayerPair() { status_ |= uint8_t(StatusBit::hasMissingLayerPair); }
     void setKilledDoublets() { status_ |= uint8_t(StatusBit::hasKilledDoublets); }
-    void setKilledDoubletConnections() { status_ |= uint8_t(StatusBit::hasKilledDoubletConnections); }
-    void setKilledTripletConnections() { status_ |= uint8_t(StatusBit::hasKilledTripletConnections); }
+    void setKilledTriplet() { status_ |= uint8_t(StatusBit::hasKilledTriplets); }
+    void setKilledQuadruplet() { status_ |= uint8_t(StatusBit::hasKilledQuadruplets); }
     void setTooShort() { status_ |= uint8_t(StatusBit::isTooShort); }
     void setInvalidStart() { status_ |= uint8_t(StatusBit::invalidStart); }
 
     // methods to check if status is undef, alive or killed
     bool hasUndefDoubletCuts() const { return status_ & uint8_t(StatusBit::hasUndefDoubletCuts); }
-    bool hasUndefDoubletConnectionCuts() const { return status_ & uint8_t(StatusBit::hasUndefDoubletConnectionCuts); }
-    bool hasUndef() const { return hasUndefDoubletCuts() || hasUndefDoubletConnectionCuts(); }
+    bool hasUndefTripletCuts() const { return status_ & uint8_t(StatusBit::hasUndefTripletCuts); }
+    bool hasUndef() const { return hasUndefDoubletCuts() || hasUndefTripletCuts(); }
     bool hasMissingLayerPair() const { return status_ & uint8_t(StatusBit::hasMissingLayerPair); }
     bool hasKilledDoublets() const { return status_ & uint8_t(StatusBit::hasKilledDoublets); }
-    bool hasKilledDoubletConnections() const { return status_ & uint8_t(StatusBit::hasKilledDoubletConnections); }
-    bool hasKilledTripletConnections() const { return status_ & uint8_t(StatusBit::hasKilledTripletConnections); }
+    bool hasKilledTriplets() const { return status_ & uint8_t(StatusBit::hasKilledTriplets); }
+    bool hasKilledQuadruplets() const { return status_ & uint8_t(StatusBit::hasKilledQuadruplets); }
     bool isKilled() const {
-      return hasMissingLayerPair() || hasKilledDoublets() || hasKilledDoubletConnections() ||
-             hasKilledTripletConnections();
+      return hasMissingLayerPair() || hasKilledDoublets() || hasKilledTriplets() || hasKilledQuadruplets();
     }
     bool isTooShort() const { return status_ & uint8_t(StatusBit::isTooShort); }
     bool invalidStart() const { return status_ & uint8_t(StatusBit::invalidStart); }
@@ -377,7 +376,7 @@ public:
 private:
   // function for recursive building of Ntuplets
   void buildSimNtuplets(Doublet const& doublet,
-                        std::vector<bool> const& tripletConnections,
+                        std::vector<bool> const& quadruplets,
                         size_t numSimDoublets,
                         size_t const lastLayerId,
                         uint8_t const status,
