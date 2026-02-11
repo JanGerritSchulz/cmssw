@@ -184,7 +184,7 @@ void SimPixelTrack::sortRecHits(float const x, float const y, float const z) {
 }
 
 // method to get fishbone alignments
-std::vector<std::pair<uint8_t, double>> SimPixelTrack::fishboneAlignments() const {
+std::vector<std::pair<uint8_t, double>> SimPixelTrack::fishboneScores() const {
   // confirm that the RecHits are sorted
   assert(recHitsAreSorted_);
 
