@@ -93,7 +93,7 @@ public:
         : caDCACuts_(iConfig.getParameter<std::vector<double>>("caDCACuts")),
           caDCurvCuts_(iConfig.getParameter<std::vector<double>>("caDCurvCuts")),
           caDCurv0_(iConfig.getParameter<std::vector<double>>("caDCurv0")),
-          maxInnerRStart_(iConfig.getParameter<std::vector<double>>("startingPairMaxInnerR")),
+          startMaxInnerR_(iConfig.getParameter<std::vector<double>>("startMaxInnerR")),
           phiCuts_(iConfig.getParameter<std::vector<int>>("phiCuts")),
           ptCuts_(iConfig.getParameter<std::vector<double>>("ptCuts")),
           minInner_(iConfig.getParameter<std::vector<double>>("minInner")),
@@ -109,6 +109,21 @@ public:
       for (double const isBar : isBarrel) {
         isBarrel_.push_back((bool)isBar);
       }
+      auto nLayerPairs = phiCuts_.size();
+      auto nLayers = caDCACuts_.size();
+      assert(caDCACuts_.size() == nLayers);
+      assert(caDCurvCuts_.size() == nLayers);
+      assert(caDCurv0_.size() == nLayers);
+      assert(startMaxInnerR_.size() == nLayers);
+      assert(phiCuts_.size() == nLayerPairs);
+      assert(ptCuts_.size() == nLayerPairs);
+      assert(minInner_.size() == nLayerPairs);
+      assert(maxInner_.size() == nLayerPairs);
+      assert(minOuter_.size() == nLayerPairs);
+      assert(maxOuter_.size() == nLayerPairs);
+      assert(maxDZ_.size() == nLayerPairs);
+      assert(minDZ_.size() == nLayerPairs);
+      assert(maxDR_.size() == nLayerPairs);
     }
 
     // Layers params
@@ -117,7 +132,7 @@ public:
     const std::vector<double> caDCACuts_;
     const std::vector<double> caDCurvCuts_;
     const std::vector<double> caDCurv0_;
-    const std::vector<double> maxInnerRStart_;
+    const std::vector<double> startMaxInnerR_;
 
     // Cells params
     const std::vector<int> phiCuts_;
@@ -385,29 +400,24 @@ public:
     void bookHistograms(DQMStore::IBooker& ibook, const std::string& simNtupletName) {
       alive_.book(ibook, simNtupletName, "Alive", " (alive)");
       undefDoubletCuts_.book(ibook, simNtupletName, "UndefDoubletCuts", " (with undef doublet cuts)");
-      undefConnectionCuts_.book(ibook, simNtupletName, "UndefConnectionCuts", " (with undef connection cuts)");
+      undefTripletCuts_.book(ibook, simNtupletName, "UndefTripletCuts", " (with undef connection cuts)");
       missingLayerPair_.book(ibook, simNtupletName, "MissingLayerPair", " (with missing layer pair)");
       killedDoublets_.book(ibook, simNtupletName, "KilledDoublets", " (killed by doublet cuts)");
-      killedDoubletConnections_.book(
-          ibook, simNtupletName, "KilledConnections", " (killed by doublet connection cuts)");
-      killedTripletConnections_.book(
-          ibook, simNtupletName, "KilledTripletConnections", " (killed by triplet connection cuts)");
+      killedTriplets_.book(ibook, simNtupletName, "KilledTriplets", " (killed by triplet cuts)");
+      killedQuadruplets_.book(ibook, simNtupletName, "KilledQuadruplets", " (killed by quadruplet cuts)");
       tooShort_.book(ibook, simNtupletName, "TooShort", " (3 RecHits but still shorter than the threshold)");
-      notStartingPair_.book(ibook,
-                            simNtupletName,
-                            "NotStartingPair",
-                            " (has first doublet in layer pair not considered for starting Ntuplets)");
+      invalidStart_.book(ibook, simNtupletName, "InvalidStart", " (has first doublet not being a valid start)");
     }
 
     histogramBlock alive_;
     histogramBlock undefDoubletCuts_;
-    histogramBlock undefConnectionCuts_;
+    histogramBlock undefTripletCuts_;
     histogramBlock missingLayerPair_;
     histogramBlock killedDoublets_;
-    histogramBlock killedDoubletConnections_;
-    histogramBlock killedTripletConnections_;
+    histogramBlock killedTriplets_;
+    histogramBlock killedQuadruplets_;
     histogramBlock tooShort_;
-    histogramBlock notStartingPair_;
+    histogramBlock invalidStart_;
   };
 
 private:
