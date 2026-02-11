@@ -875,6 +875,15 @@ void SimPixelTrackAnalyzer<TrackerTraits>::fillSimDoubletHistograms(SimPixelTrac
   h_num_vs_vertpos_.fill(passed, trackTruth.vertpos);
 }
 
+// function that fills all histograms of fishbone cleaning (in folder CAParameters/fishbone)
+void fillFishboneHistograms(SimPixelTrack const& simPixelTrack) {
+  for (auto fishbone : simPixelTrack.fishboneScores()) {
+    auto isMerged = fishbone.second > 0.99999;
+    hVector_fishbones_.at(fishbone.first).fill(isMerged, 1 - fishbone.second);
+    hVector_fishbones_.at(fishbone.first).fillPassThisCut(isMerged);
+  }
+}
+
 //  function that fills all histograms of SimNtuplets (in folder SimNtuplets)
 template <typename TrackerTraits>
 void SimPixelTrackAnalyzer<TrackerTraits>::fillSimNtupletHistograms(SimPixelTrack const& simPixelTrack,
@@ -1248,10 +1257,7 @@ void SimPixelTrackAnalyzer<TrackerTraits>::analyze(const edm::Event& iEvent, con
     // ---------------------------------------------------------------------------
     //  fishbone plots related to SimDoublets (CAParameters/fishbone folder)
     // ---------------------------------------------------------------------------
-    for (auto fishbone : simPixelTrack.fishboneScores()) {
-      auto isMerged = fishbone.second > 0.99999;
-      hVector_fishbones_.at(fishbone.first).fill(isMerged, fishbone.second);
-    }
+    fillFishboneHistograms(simPixelTrack);
 
     // build the SimNtuplets based on the SimDoublets
     simPixelTrack.buildSimNtuplets(minNumDoubletsPerNtuplet_);
@@ -1952,13 +1958,13 @@ void SimPixelTrackAnalyzer<TrackerTraits>::bookHistograms(DQMStore::IBooker& ibo
     // histogram for areAlignedRZ
     hVector_fishbones_.at(id).book1DLogX(
         ibook,
-        "fishbones",
+        "fishboneScore",
         "Fishbone alignment score for doublets sharing the outer RecHit in layer " + idStr,
-        "Fishbone score",
-        "Number of " + doublet + "s",
-        51,
-        -6,
-        1);
+        "1 - (fishbone score)",
+        "Number of " + doublet + " pairs",
+        101,
+        -10,
+        0);
   }
 
   // -----------------------------------------------------------------
@@ -2009,7 +2015,7 @@ void SimPixelTrackAnalyzer<TrackerTraits>::bookHistograms(DQMStore::IBooker& ibo
   }
 
   // -----------------------------------------------------------------
-  // booking triplet cut histograms (tripletCuts folder)
+  // booking quadruplet cut histograms (quadrupletCuts folder)
   // -----------------------------------------------------------------
   // loop through layer ids
   for (auto id{0}; id < numLayers_; ++id) {
