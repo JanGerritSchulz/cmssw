@@ -542,6 +542,7 @@ SimPixelTrackAnalyzer<TrackerTraits>::SimPixelTrackAnalyzer(const edm::Parameter
   hVector_caDCACut_.resize(numLayers_);
   hVector_dCurvCut_.resize(numLayers_);
   hVector_firstHitR_.resize(numLayers_);
+  hVector_fishbones_.resize(numLayers_);
 }
 
 template <typename TrackerTraits>
