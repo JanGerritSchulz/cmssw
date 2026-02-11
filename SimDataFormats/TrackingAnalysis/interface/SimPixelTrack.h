@@ -364,6 +364,9 @@ public:
   // method to access the best SimNtuplet
   Ntuplet const& bestSimNtuplet() const { return ntuplets_.at(*bestNtupletIndex_); }
 
+  // method to get fishbone alignments
+  std::vector<std::pair<uint8_t, double>> fishboneAlignments() const;
+
   // method to clear the mutable vectors once you finished using them
   void clearMutables() const {
     doublets_.clear();
@@ -407,6 +410,9 @@ private:
   mutable std::optional<size_t> longestAliveNtupletIndex_{-1};
   // index of the SimNtuplet that gets the farthest in the reco chain
   mutable std::optional<size_t> bestNtupletIndex_{-1};
+  // vector of length NrecHits that holds for each RecHit references to all the
+  // doublets that have this hit as an outer hit
+  mutable std::vector<std::vector<size_t>> innerDoubletsOfRecHit_{};
 };
 
 // collection of SimPixelTrack
