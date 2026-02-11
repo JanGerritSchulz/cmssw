@@ -183,6 +183,48 @@ void SimPixelTrack::sortRecHits(float const x, float const y, float const z) {
   recHitsAreSorted_ = true;
 }
 
+// method to get fishbone alignments
+std::vector<std::pair<uint8_t, double>> SimPixelTrack::fishboneAlignments() const {
+  // confirm that the RecHits are sorted
+  assert(recHitsAreSorted_);
+
+  std::vector<std::pair<uint8_t, double>> fishbones{};
+
+  if (numRecHits() < 3) {
+    return fishbones;
+  }
+
+  // loop over outer hits
+  for (size_t o{0}; int(o) < numRecHits(); o++) {
+    auto outerLayerId = layerIds(o);
+    auto outerPos = globalPositions(o);
+    auto nInnerDoublets = innerDoubletsOfRecHit_.at(o).size();
+
+    // loop over first inner doublets of that outer hit
+    for (size_t d1{0}; d1 < nInnerDoublets; d1++) {
+      auto innerPos1 = getSimDoublet(d1).innerGlobalPos();
+      double x1 = (innerPos1.x() - outerPos.x());
+      double y1 = (innerPos1.y() - outerPos.y());
+      double z1 = (innerPos1.z() - outerPos.z());
+      double n1 = x1 * x1 + y1 * y1 + z1 * z1;
+      // loop over first inner doublets of that outer hit
+      for (size_t d2{d1 + 1}; d2 < nInnerDoublets; d2++) {
+        auto innerPos2 = getSimDoublet(d2).innerGlobalPos();
+        double x2 = (innerPos2.x() - outerPos.x());
+        double y2 = (innerPos2.y() - outerPos.y());
+        double z2 = (innerPos2.z() - outerPos.z());
+        double n2 = x2 * x2 + y2 * y2 + z2 * z2;
+        auto cos12 = x1 * x2 + y1 * y2 + z1 * z2;
+
+        auto fishboneCut = cos12 * cos12 / (n1 * n2);
+
+        fishbones.emplace_back(std::pair<uint8_t, double>(outerLayerId, fishboneCut));
+      }
+    }
+  }
+  return fishbones;
+}
+
 // method to produce the true doublets
 void SimPixelTrack::buildSimDoublets(const TrackerTopology* trackerTopology) const {
   // confirm that the RecHits are sorted
@@ -193,11 +235,8 @@ void SimPixelTrack::buildSimDoublets(const TrackerTopology* trackerTopology) con
     return;
   }
 
-  // vector of length NrecHits that holds for each RecHit references to all the
-  // doublets that have this hit as an outer hit
-  std::vector<std::vector<size_t>> innerDoubletsOfRecHit{};
-  // resize vector innerDoubletsOfRecHit to actual number of RecHits
-  innerDoubletsOfRecHit.resize(numRecHits());
+  // resize vector innerDoubletsOfRecHit_ to actual number of RecHits
+  innerDoubletsOfRecHit_.resize(numRecHits());
 
   // updatable current number of doublets
   size_t nDoublets{0};
@@ -225,10 +264,10 @@ void SimPixelTrack::buildSimDoublets(const TrackerTopology* trackerTopology) con
       }
 
       // create and append new doublet
-      doublets_.emplace_back(SimPixelTrack::Doublet(*this, i, j, trackerTopology, innerDoubletsOfRecHit.at(i)));
+      doublets_.emplace_back(SimPixelTrack::Doublet(*this, i, j, trackerTopology, innerDoubletsOfRecHit_.at(i)));
 
-      // save the index of the new doublet in the outer RecHit's innerDoubletsOfRecHit
-      innerDoubletsOfRecHit.at(j).push_back(nDoublets);
+      // save the index of the new doublet in the outer RecHit's innerDoubletsOfRecHit_
+      innerDoubletsOfRecHit_.at(j).push_back(nDoublets);
 
       // update the number of doublets
       nDoublets++;
@@ -260,8 +299,8 @@ void SimPixelTrack::buildSimNtuplets(SimPixelTrack::Doublet const& doublet,
         neighborDoublet.isUndef(),                        // doublet has undefined cuts
         neighborDoublet.isKilledByMissingLayerPair(),     // doublet is not built due to missing layer pair
         neighborDoublet.isKilledByCuts(),                 // doublet is killed by cuts
-        triplet.isUndef(),                               // doublet connection has undefined cuts
-        triplet.isKilled(),                              // doublet connection is killed by cuts
+        triplet.isUndef(),                                // doublet connection has undefined cuts
+        triplet.isKilled(),                               // doublet connection is killed by cuts
         (numSimDoublets > 2) ? quadruplets.at(i) : false  // triplet connection is killed by cuts
     );
 
