@@ -446,6 +446,9 @@ private:
   // function that fills all histograms of SimDoublets (in folder SimDoublets)
   void fillSimDoubletHistograms(SimPixelTrack::Doublet const&, simdoublets::TrackTruth const&);
 
+  // function that fills all histograms of fishbone cleaning (in folder CAParameters/fishbone)
+  void fillFishboneHistograms(SimPixelTrack const&, simdoublets::TrackTruth const&);
+
   // function that fills all histograms of SimNtuplets (in folder SimNtuplets)
   void fillSimNtupletHistograms(SimPixelTrack const&, simdoublets::TrackTruth const&);
 
@@ -555,7 +558,7 @@ private:
   std::vector<CoupledCutMonitorElement> hVector_DYsize_;
   std::vector<CoupledCutMonitorElement> hVector_DYPred_;
   std::vector<CoupledCutMonitorElement> hVector_dCurvCut_;
-  std::vector<CoupledMonitorElement> hVector_fishbones_;
+  std::vector<CoupledCutMonitorElement> hVector_fishbones_;
   // histograms of doublet connections
   CoupledCutMonitorElement h_hardCurvCut_;
   // vectors of histograms (one per layer)
