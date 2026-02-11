@@ -365,7 +365,7 @@ public:
   Ntuplet const& bestSimNtuplet() const { return ntuplets_.at(*bestNtupletIndex_); }
 
   // method to get fishbone alignments
-  std::vector<std::pair<uint8_t, double>> fishboneAlignments() const;
+  std::vector<std::pair<uint8_t, double>> fishboneScores() const;
 
   // method to clear the mutable vectors once you finished using them
   void clearMutables() const {
