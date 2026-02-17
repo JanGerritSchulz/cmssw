@@ -91,13 +91,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::caHitNtupletGeneratorKernels {
                                   uint32_t const *__restrict__ nCellTracks) const {
       if (cms::alpakatools::once_per_grid(acc))
         printf("nSizes:%d;%d;%d;%d;%d;%d;%d\n",
-               hh.metadata().size(),
-               hh.metadata().size() - hh.offsetBPIX2(),
-               *nCells,
-               *nTrips,
-               *nCellTracks,
-               tt.nTracks(),
-               tt.metadata().size());
+            hh.metadata().size(),
+            hh.metadata().size() - hh.offsetBPIX2(),
+            *nCells,
+            *nTrips,
+            *nCellTracks,
+            tt.nTracks(),
+            tt.metadata().size());
     }
   };
 
@@ -399,41 +399,41 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::caHitNtupletGeneratorKernels {
           auto dcaCut = ll[oc.innerLayer()].caDCACut();
           bool aligned = Cell::areAlignedRZ(r1, z1, ri, zi, ro, zo, params.ptmin_, thetaCut);
           if (aligned && thisCell.dcaCut(hh, oc, dcaCut, params.hardCurvCut_)) {
-            auto t_ind = alpaka::atomicAdd(acc, nTrips, 1u, alpaka::hierarchy::Blocks{});
+              auto t_ind = alpaka::atomicAdd(acc, nTrips, 1u, alpaka::hierarchy::Blocks{});
 #ifdef CA_DEBUG
-            printf("Triplet no. %d %.5f %.5f (%d %d) - %d %d -> (%d, %d, %d, %d) \n",
-                   t_ind,
-                   thetaCut,
-                   dcaCut,
-                   thisCell.layerPairId(),
-                   oc.layerPairId(),
-                   otherCell,
-                   cellIndex,
-                   thisCell.inner_hit_id(),
-                   thisCell.outer_hit_id(),
-                   oc.inner_hit_id(),
-                   oc.outer_hit_id());
+              printf("Triplet no. %d %.5f %.5f (%d %d) - %d %d -> (%d, %d, %d, %d) \n",
+                     t_ind,
+                     thetaCut,
+                     dcaCut,
+                     thisCell.layerPairId(),
+                     oc.layerPairId(),
+                     otherCell,
+                     cellIndex,
+                     thisCell.inner_hit_id(),
+                     thisCell.outer_hit_id(),
+                     oc.inner_hit_id(),
+                     oc.outer_hit_id());
 #endif
 
 #ifdef CA_DEBUG
-            printf("filling cell no. %d %d: %d -> %d\n", t_ind, cellNeighborsHisto->size(), otherCell, cellIndex);
+              printf("filling cell no. %d %d: %d -> %d\n", t_ind, cellNeighborsHisto->size(), otherCell, cellIndex);
 #endif
 
-            if (t_ind >= maxTriplets) {
+              if (t_ind >= maxTriplets) {
 #ifdef CA_WARNINGS
-              printf("Warning!!!! Too many cell->cell (triplets) associations (limit = %d)!\n", cn.metadata().size());
+                printf("Warning!!!! Too many cell->cell (triplets) associations (limit = %d)!\n", cn.metadata().size());
 #endif
-              alpaka::atomicSub(acc, nTrips, 1u, alpaka::hierarchy::Blocks{});
-              break;
-            }
+                alpaka::atomicSub(acc, nTrips, 1u, alpaka::hierarchy::Blocks{});
+                break;
+              }
 
-            cellNeighborsHisto->count(acc, otherCell);
+              cellNeighborsHisto->count(acc, otherCell);
 
-            cn[t_ind].inner() = otherCell;
+              cn[t_ind].inner() = otherCell;
             cn[t_ind].outer() = cellIndex;
-            thisCell.setStatusBits(Cell::StatusBit::kUsed);
-            oc.setStatusBits(Cell::StatusBit::kUsed);
-          }
+              thisCell.setStatusBits(Cell::StatusBit::kUsed);
+              oc.setStatusBits(Cell::StatusBit::kUsed);
+            }
 
         }  // loop on inner cells
       }  // loop on outer cells
@@ -473,6 +473,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::caHitNtupletGeneratorKernels {
   class Kernel_find_ntuplets {
   public:
     ALPAKA_FN_ACC void operator()(Acc1D const &acc,
+                                  const ::reco::CALayersSoAConstView &ll,
                                   const ::reco::CAGraphSoAConstView &cc,
                                   TkSoAView tracks_view,
                                   HitContainer *foundNtuplets,
@@ -503,16 +504,27 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::caHitNtupletGeneratorKernels {
         if (cellNeighborsHisto->size(idx) == 0)
           continue;
 
+        // check if the layer pair of the cell is among the set of starting pairs
         auto pid = thisCell.layerPairId();
         bool doit = cc[pid].startingPair();
 
+        // check if the most inner hit does not fulfill the starting requirement
+        auto lid = thisCell.innerLayer();
+        if (thisCell.inner_r() > ll[lid].startMaxInnerR())
+          doit = false;
+
         constexpr uint32_t maxDepth = TrackerTraits::maxDepth;
 #ifdef CA_DEBUG
-        printf("LayerPairId %d doit ? %d From cell %d with nNeighbors = %d \n",
-               pid,
-               doit,
-               idx,
-               cellNeighborsHisto->size(idx));
+        printf(
+            "LayerPairId %d and inner layer %d doit ? %d From cell %d with nNeighbors = %d and innerR=%f < "
+            "maxInnerR=%f ?\n",
+            pid,
+            lid,
+            doit,
+            idx,
+            cellNeighborsHisto->size(idx),
+            thisCell.inner_r(),
+            ll[lid].startMaxInnerR());
 #endif
 
         if (doit) {

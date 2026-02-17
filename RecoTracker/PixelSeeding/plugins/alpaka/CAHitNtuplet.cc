@@ -46,6 +46,7 @@ namespace reco {
     CAGeometryParams(edm::ParameterSet const& iConfig)
         : caThetaCuts_(iConfig.getParameter<std::vector<double>>("caThetaCuts")),
           caDCACuts_(iConfig.getParameter<std::vector<double>>("caDCACuts")),
+          startMaxInnerR_(iConfig.getParameter<std::vector<double>>("startMaxInnerR")),
           pairGraph_(iConfig.getParameter<std::vector<unsigned int>>("pairGraph")),
           startingPairs_(iConfig.getParameter<std::vector<unsigned int>>("startingPairs")),
           phiCuts_(iConfig.getParameter<std::vector<int>>("phiCuts")),
@@ -69,6 +70,7 @@ namespace reco {
     // Layers params
     const std::vector<double> caThetaCuts_;
     const std::vector<double> caDCACuts_;
+    const std::vector<double> startMaxInnerR_;
     const std::vector<int> isBarrel_;
 
     // Cells params
@@ -137,6 +139,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       assert(iCache->maxDR_.size() == iCache->ptCuts_.size());
 
       assert(iCache->caThetaCuts_.size() == iCache->caDCACuts_.size());
+      assert(iCache->caThetaCuts_.size() == iCache->startMaxInnerR_.size());
 
       int n_layers = iCache->caThetaCuts_.size();
       int n_pairs = iCache->pairGraph_.size() / 2;
@@ -291,6 +294,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
       for (int i = 0; i < n_layers; ++i) {
         layerSoA.layerStarts()[i] = layerStarts[i];
+        layerSoA.startMaxInnerR()[i] = iCache->startMaxInnerR_[i];
         layerSoA.caThetaCut()[i] = iCache->caThetaCuts_[i];
         layerSoA.caDCACut()[i] = iCache->caDCACuts_[i];
         layerSoA.isBarrel()[i] = layerIsBarrel[i];
