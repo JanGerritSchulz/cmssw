@@ -79,13 +79,13 @@ namespace cms::alpakatools {
     }
 
     template <alpaka::concepts::Acc TAcc>
-    ALPAKA_FN_ACC ALPAKA_FN_INLINE void count(const TAcc &acc, I b) {
+    ALPAKA_FN_ACC ALPAKA_FN_INLINE void count(const TAcc &acc, uint32_t b) {
       ALPAKA_ASSERT_ACC(b < static_cast<uint32_t>(nOnes()));
       atomicIncrement(acc, off[b]);
     }
 
     template <alpaka::concepts::Acc TAcc>
-    ALPAKA_FN_ACC ALPAKA_FN_INLINE void fill(const TAcc &acc, I b, index_type j) {
+    ALPAKA_FN_ACC ALPAKA_FN_INLINE void fill(const TAcc &acc, uint32_t b, index_type j) {
       ALPAKA_ASSERT_ACC(b < static_cast<uint32_t>(nOnes()));
       auto w = atomicDecrement(acc, off[b]);
       ALPAKA_ASSERT_ACC(w > 0);
