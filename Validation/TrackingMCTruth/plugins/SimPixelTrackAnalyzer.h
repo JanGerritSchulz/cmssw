@@ -447,7 +447,7 @@ private:
   void fillSimDoubletHistograms(SimPixelTrack::Doublet const&, simdoublets::TrackTruth const&);
 
   // function that fills all histograms of fishbone cleaning (in folder CAParameters/fishbone)
-  void fillFishboneHistograms(SimPixelTrack const&, simdoublets::TrackTruth const&);
+  void fillFishboneHistograms(SimPixelTrack const&);
 
   // function that fills all histograms of SimNtuplets (in folder SimNtuplets)
   void fillSimNtupletHistograms(SimPixelTrack const&, simdoublets::TrackTruth const&);

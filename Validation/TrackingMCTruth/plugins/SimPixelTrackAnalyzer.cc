@@ -876,7 +876,8 @@ void SimPixelTrackAnalyzer<TrackerTraits>::fillSimDoubletHistograms(SimPixelTrac
 }
 
 // function that fills all histograms of fishbone cleaning (in folder CAParameters/fishbone)
-void fillFishboneHistograms(SimPixelTrack const& simPixelTrack) {
+template <typename TrackerTraits>
+void SimPixelTrackAnalyzer<TrackerTraits>::fillFishboneHistograms(SimPixelTrack const& simPixelTrack) {
   for (auto fishbone : simPixelTrack.fishboneScores()) {
     auto isMerged = fishbone.second > 0.99999;
     hVector_fishbones_.at(fishbone.first).fill(isMerged, 1 - fishbone.second);
