@@ -4,6 +4,7 @@
 #include "HeterogeneousCore/AlpakaInterface/interface/SimpleVector.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/VecArray.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/HistoContainer.h"
+#include "RecoTracker/PixelSeeding/interface/NeighborCell.h"
 
 namespace caStructures {
 
@@ -57,6 +58,11 @@ namespace caStructures {
   using hindex_type = uint32_t;
   using tindex_type = uint32_t;
   using cindex_type = uint32_t;
+
+  using NeighborCellContainer = cms::alpakatools::OneToManyAssocRandomAccess<NeighborCell, -1, -1>;
+  using NeighborCellContainerStorage = typename NeighborCellContainer::index_type;
+  using NeighborCellContainerOffsets = typename NeighborCellContainer::Counter;
+  using NeighborCellContainerView = typename NeighborCellContainer::View;
 
   using GenericContainer = cms::alpakatools::OneToManyAssocRandomAccess<hindex_type, -1, -1>;
   using GenericContainerStorage = typename GenericContainer::index_type;
