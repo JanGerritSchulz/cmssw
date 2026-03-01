@@ -93,6 +93,7 @@ public:
         : caDCACuts_(iConfig.getParameter<std::vector<double>>("caDCACuts")),
           caDCurvCuts_(iConfig.getParameter<std::vector<double>>("caDCurvCuts")),
           caDCurv0_(iConfig.getParameter<std::vector<double>>("caDCurv0")),
+          fishboneCuts_(iConfig.getParameter<std::vector<double>>("fishboneCuts")),
           startMaxInnerR_(iConfig.getParameter<std::vector<double>>("startMaxInnerR")),
           phiCuts_(iConfig.getParameter<std::vector<int>>("phiCuts")),
           ptCuts_(iConfig.getParameter<std::vector<double>>("ptCuts")),
@@ -114,6 +115,7 @@ public:
       assert(caDCACuts_.size() == nLayers);
       assert(caDCurvCuts_.size() == nLayers);
       assert(caDCurv0_.size() == nLayers);
+      assert(fishboneCuts_.size() == nLayers);
       assert(startMaxInnerR_.size() == nLayers);
       assert(phiCuts_.size() == nLayerPairs);
       assert(ptCuts_.size() == nLayerPairs);
@@ -132,6 +134,7 @@ public:
     const std::vector<double> caDCACuts_;
     const std::vector<double> caDCurvCuts_;
     const std::vector<double> caDCurv0_;
+    const std::vector<double> fishboneCuts_;
     const std::vector<double> startMaxInnerR_;
 
     // Cells params
