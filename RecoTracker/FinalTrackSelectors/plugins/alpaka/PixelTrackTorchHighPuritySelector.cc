@@ -81,19 +81,25 @@
 #include "PhysicsTools/PyTorchAlpaka/interface/alpaka/AlpakaModel.h"
 
 
-//#define PIXEL_TRACK_HP_DEBUG
+#define PIXEL_TRACK_HP_DEBUG
 
 // ------------------------------------------------------------------------------
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
-  class PixelTrackTorchHighPuritySelector : public stream::EDProducer<> {
+  struct TorchCache {
+    std::vector<std::unique_ptr<torch::AlpakaModel>> models_;
+  };
+
+  class PixelTrackTorchHighPuritySelector : public stream::EDProducer<edm::GlobalCache<TorchCache>> {
     using TkSoADevice  = reco::TracksSoACollection;
     using HitsOnDevice = reco::TrackingRecHitsSoACollection;
     using TrackHitSoA  = ::reco::TrackHitSoA;
 
   public:
-    explicit PixelTrackTorchHighPuritySelector(const edm::ParameterSet&);
+    explicit PixelTrackTorchHighPuritySelector(const edm::ParameterSet&, const TorchCache*);
     static void fillDescriptions(edm::ConfigurationDescriptions&);
+    static std::unique_ptr<TorchCache> initializeGlobalCache(const edm::ParameterSet &iConfig);
+    static void globalEndJob(const TorchCache*);
 
   private:
     void produce(device::Event&, const device::EventSetup&) override;
@@ -107,14 +113,37 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     const int32_t avgHitsPerTrack_;
     const pixelTrack::Quality minimumTrackQuality_;
 
-    torch::AlpakaModel model_;
     const double scoreThreshold_;
 
     const device::EDPutToken<TkSoADevice> tokenTrackOut_;
   };
 
+  std::unique_ptr<TorchCache> PixelTrackTorchHighPuritySelector::initializeGlobalCache(const edm::ParameterSet &iConfig) {
+    auto cache = std::make_unique<TorchCache>();
+    
+    constexpr unsigned int kNumModels = 4;
+    cache->models_.reserve(kNumModels);
+
+    for (unsigned int i = 0; i < kNumModels; ++i) {
+      // NOTE:
+      // We pass a default-constructed device here.
+      // torch::AlpakaModel will bind lazily on first use.
+      cache->models_.emplace_back(
+        std::make_unique<torch::AlpakaModel>(
+          iConfig.getParameter<edm::FileInPath>("model").fullPath()
+        )
+      );
+    }
+
+    return cache;
+  
+      //return std::make_unique<torch::AlpakaModel>(iConfig.getParameter<edm::FileInPath>("model").fullPath());
+  }
+
+  void PixelTrackTorchHighPuritySelector::globalEndJob(const TorchCache* cache) {}
+
   PixelTrackTorchHighPuritySelector::PixelTrackTorchHighPuritySelector(
-      const edm::ParameterSet& iConfig)
+      const edm::ParameterSet& iConfig, const TorchCache* models_)
       : EDProducer(iConfig),
         recHitToken_(consumes(iConfig.getParameter<edm::InputTag>("pixelRecHitSrc"))),
         pixelTrackToken_(consumes(iConfig.getParameter<edm::InputTag>("pixelTrackSrc"))),
@@ -124,7 +153,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         minNumberOfHits_(iConfig.getParameter<int>("minNumberOfHits")),
         avgHitsPerTrack_(iConfig.getParameter<int>("avgHitsPerTrack")),
         minimumTrackQuality_(pixelTrack::qualityByName(iConfig.getParameter<std::string>("minimumTrackQuality"))),
-        model_(iConfig.getParameter<edm::FileInPath>("model").fullPath()),
         scoreThreshold_(iConfig.getParameter<double>("scoreThreshold")),
         tokenTrackOut_(produces())
   {
@@ -159,6 +187,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     auto&       queue  = iEvent.queue();
     const auto& hits   = iEvent.get(recHitToken_);
     const auto& tracks = iEvent.get(pixelTrackToken_);
+
+    // Load the model from the global cache
+    auto const& dev = alpaka::getDev(queue);
+    auto dev_idx = alpaka::getNativeHandle(dev);
+    auto* model = globalCache()->models_[dev_idx].get();
 
     // Instantiate the necessary objects in memory
     //  - Temporary storage for filtering
@@ -268,7 +301,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     );
 
     //  Launch inference
-    model_.forward(queue, inputs, outputs);
+    //auto* model = const_cast<torch::AlpakaModel*>(globalCache());
+    model->forward(queue, inputs, outputs);
 
     // 4. Score-based filtering
     launchScoreFilter(
