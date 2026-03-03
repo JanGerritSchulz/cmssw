@@ -43,7 +43,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::torch {
 #else
       inputs.copy(queue, cms::torch::alpakatools::detail::MemcpyKind::DeviceToDevice);
 #endif  // ALPAKA_ACC_GPU_HIP_ENABLED
-      cms::torch::alpakatools::QueueGuard<Queue> guard(queue);
+      //cms::torch::alpakatools::QueueGuard<Queue> guard(queue);
       if (cms::torch::alpakatools::getDevice(queue) != this->Model::device()) {
         to(queue);
       }

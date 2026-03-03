@@ -58,7 +58,13 @@
 #include "HeterogeneousCore/AlpakaCore/interface/alpaka/EventSetup.h"
 #include "HeterogeneousCore/AlpakaCore/interface/alpaka/stream/EDProducer.h"
 
+#include <deque>
 #include <memory>
+#include <mutex>
+
+#ifdef ALPAKA_ACC_GPU_CUDA_ENABLED
+#include <c10/cuda/CUDAStream.h>
+#endif
 
 #include "FWCore/Framework/interface/Frameworkfwd.h"
 #include "FWCore/ParameterSet/interface/ConfigurationDescriptions.h"
@@ -84,10 +90,33 @@
 #define PIXEL_TRACK_HP_DEBUG
 
 // ------------------------------------------------------------------------------
+/*
 
-namespace ALPAKA_ACCELERATOR_NAMESPACE {
   struct TorchCache {
     std::vector<std::unique_ptr<torch::AlpakaModel>> models_;
+    mutable std::deque<std::mutex> model_mutexes_;
+  };
+*/
+namespace ALPAKA_ACCELERATOR_NAMESPACE {
+  struct TorchGPUContext {
+    std::unique_ptr<torch::AlpakaModel> model;
+
+  #ifdef ALPAKA_ACC_GPU_CUDA_ENABLED
+    c10::cuda::CUDAStream torchStream;
+  #endif
+
+    mutable std::mutex mutex;
+
+#ifdef ALPAKA_ACC_GPU_CUDA_ENABLED
+  TorchGPUContext(c10::cuda::CUDAStream s)
+      : torchStream(s) {}
+#else
+  TorchGPUContext() = default;
+#endif
+  };
+
+  struct TorchCache {
+    std::vector<std::unique_ptr<TorchGPUContext>> perGPU;
   };
 
   class PixelTrackTorchHighPuritySelector : public stream::EDProducer<edm::GlobalCache<TorchCache>> {
@@ -117,14 +146,15 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
     const device::EDPutToken<TkSoADevice> tokenTrackOut_;
   };
-
+/*
   std::unique_ptr<TorchCache> PixelTrackTorchHighPuritySelector::initializeGlobalCache(const edm::ParameterSet &iConfig) {
     auto cache = std::make_unique<TorchCache>();
     
-    constexpr unsigned int kNumModels = 4;
+    constexpr unsigned int kNumModels = 4u;
     cache->models_.reserve(kNumModels);
+    //cache->model_mutexes_.resize(kNumModels);
 
-    for (unsigned int i = 0; i < kNumModels; ++i) {
+    for (auto i = 0u; i < kNumModels; ++i) {
       // NOTE:
       // We pass a default-constructed device here.
       // torch::AlpakaModel will bind lazily on first use.
@@ -133,12 +163,52 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
           iConfig.getParameter<edm::FileInPath>("model").fullPath()
         )
       );
+      cache->model_mutexes_.emplace_back(); 
     }
 
     return cache;
   
       //return std::make_unique<torch::AlpakaModel>(iConfig.getParameter<edm::FileInPath>("model").fullPath());
   }
+*/
+ std::unique_ptr<TorchCache>
+PixelTrackTorchHighPuritySelector::initializeGlobalCache(
+    const edm::ParameterSet& iConfig)
+{
+  auto cache = std::make_unique<TorchCache>();
+
+#ifdef ALPAKA_ACC_GPU_CUDA_ENABLED
+  const int nDevices = alpaka::getDevs(Platform{}).size();
+  std::cout << "PixelTrackTorchHighPuritySelector: Detected " << nDevices << " CUDA devices. Initializing one model per GPU.\n";
+#else
+  const int nDevices = 1;  // CPU / serial backend
+#endif
+
+  cache->perGPU.reserve(nDevices);
+
+  for (int i = 0; i < nDevices; ++i) {
+
+//#ifdef ALPAKA_ACC_GPU_CUDA_ENABLED
+//    at::cuda::setDevice(i);
+//#endif
+
+#ifdef ALPAKA_ACC_GPU_CUDA_ENABLED
+  //at::cuda::setDevice(i);
+  auto stream = c10::cuda::getStreamFromPool(false, i);
+  auto ctx = std::make_unique<TorchGPUContext>(stream);
+#else
+  auto ctx = std::make_unique<TorchGPUContext>();
+#endif
+    // Construct the model
+    ctx->model = std::make_unique<torch::AlpakaModel>(
+        iConfig.getParameter<edm::FileInPath>("model").fullPath()
+    );
+
+    cache->perGPU.emplace_back(std::move(ctx));
+  }
+
+  return cache;
+}
 
   void PixelTrackTorchHighPuritySelector::globalEndJob(const TorchCache* cache) {}
 
@@ -191,7 +261,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     // Load the model from the global cache
     auto const& dev = alpaka::getDev(queue);
     auto dev_idx = alpaka::getNativeHandle(dev);
-    auto* model = globalCache()->models_[dev_idx].get();
+    auto &ctx = *globalCache()->perGPU[dev_idx];
+
+    //auto* model = globalCache()->models_[dev_idx].get();
+    //auto &model_mutex = globalCache()->model_mutexes_[dev_idx];
 
     // Instantiate the necessary objects in memory
     //  - Temporary storage for filtering
@@ -299,10 +372,21 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     outputs.add<PixelTrackScoresSoA>("track_scores",
       score_record.score()
     );
-
+    alpaka::wait(queue);
     //  Launch inference
-    //auto* model = const_cast<torch::AlpakaModel*>(globalCache());
-    model->forward(queue, inputs, outputs);
+    {
+      //std::lock_guard<std::mutex> lock(model_mutex);
+      std::lock_guard<std::mutex> lock(ctx.mutex);
+#ifdef ALPAKA_ACC_GPU_CUDA_ENABLED
+      c10::cuda::setCurrentCUDAStream(ctx.torchStream);
+#endif
+      std::cout << "Running inference on device: " << dev_idx << std::endl;
+      //model->forward(queue, inputs, outputs);
+      ctx.model->forward(queue, inputs, outputs);
+#ifdef ALPAKA_ACC_GPU_CUDA_ENABLED
+      ctx.torchStream.synchronize();
+#endif
+    }
 
     // 4. Score-based filtering
     launchScoreFilter(
