@@ -86,18 +86,8 @@
 #include "PhysicsTools/PyTorchAlpaka/interface/TensorCollection.h"
 #include "PhysicsTools/PyTorchAlpaka/interface/alpaka/AlpakaModel.h"
 
-
-#define PIXEL_TRACK_HP_DEBUG
-
-// ------------------------------------------------------------------------------
-/*
-
-  struct TorchCache {
-    std::vector<std::unique_ptr<torch::AlpakaModel>> models_;
-    mutable std::deque<std::mutex> model_mutexes_;
-  };
-*/
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
+  
   struct TorchGPUContext {
     std::unique_ptr<torch::AlpakaModel> model;
 
@@ -107,12 +97,12 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
     mutable std::mutex mutex;
 
-#ifdef ALPAKA_ACC_GPU_CUDA_ENABLED
-  TorchGPUContext(c10::cuda::CUDAStream s)
+  #ifdef ALPAKA_ACC_GPU_CUDA_ENABLED
+    TorchGPUContext(c10::cuda::CUDAStream s)
       : torchStream(s) {}
-#else
-  TorchGPUContext() = default;
-#endif
+  #else
+    TorchGPUContext() = default;
+  #endif
   };
 
   struct TorchCache {
@@ -146,31 +136,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
     const device::EDPutToken<TkSoADevice> tokenTrackOut_;
   };
-/*
-  std::unique_ptr<TorchCache> PixelTrackTorchHighPuritySelector::initializeGlobalCache(const edm::ParameterSet &iConfig) {
-    auto cache = std::make_unique<TorchCache>();
-    
-    constexpr unsigned int kNumModels = 4u;
-    cache->models_.reserve(kNumModels);
-    //cache->model_mutexes_.resize(kNumModels);
 
-    for (auto i = 0u; i < kNumModels; ++i) {
-      // NOTE:
-      // We pass a default-constructed device here.
-      // torch::AlpakaModel will bind lazily on first use.
-      cache->models_.emplace_back(
-        std::make_unique<torch::AlpakaModel>(
-          iConfig.getParameter<edm::FileInPath>("model").fullPath()
-        )
-      );
-      cache->model_mutexes_.emplace_back(); 
-    }
-
-    return cache;
-  
-      //return std::make_unique<torch::AlpakaModel>(iConfig.getParameter<edm::FileInPath>("model").fullPath());
-  }
-*/
  std::unique_ptr<TorchCache>
 PixelTrackTorchHighPuritySelector::initializeGlobalCache(
     const edm::ParameterSet& iConfig)
@@ -178,8 +144,9 @@ PixelTrackTorchHighPuritySelector::initializeGlobalCache(
   auto cache = std::make_unique<TorchCache>();
 
 #ifdef ALPAKA_ACC_GPU_CUDA_ENABLED
+  auto devices = alpaka::getDevs(Platform{});
   const int nDevices = alpaka::getDevs(Platform{}).size();
-  std::cout << "PixelTrackTorchHighPuritySelector: Detected " << nDevices << " CUDA devices. Initializing one model per GPU.\n";
+  //std::cout << "PixelTrackTorchHighPuritySelector: Detected " << nDevices << " CUDA devices. Initializing one model per GPU.\n";
 #else
   const int nDevices = 1;  // CPU / serial backend
 #endif
@@ -188,21 +155,21 @@ PixelTrackTorchHighPuritySelector::initializeGlobalCache(
 
   for (int i = 0; i < nDevices; ++i) {
 
-//#ifdef ALPAKA_ACC_GPU_CUDA_ENABLED
-//    at::cuda::setDevice(i);
-//#endif
-
-#ifdef ALPAKA_ACC_GPU_CUDA_ENABLED
-  //at::cuda::setDevice(i);
-  auto stream = c10::cuda::getStreamFromPool(false, i);
-  auto ctx = std::make_unique<TorchGPUContext>(stream);
-#else
-  auto ctx = std::make_unique<TorchGPUContext>();
-#endif
+  #ifdef ALPAKA_ACC_GPU_CUDA_ENABLED
+    auto stream = c10::cuda::getStreamFromPool(false, i);
+    auto ctx = std::make_unique<TorchGPUContext>(stream);
     // Construct the model
     ctx->model = std::make_unique<torch::AlpakaModel>(
         iConfig.getParameter<edm::FileInPath>("model").fullPath()
     );
+    ::torch::Device torchDev(::torch::kCUDA, i);
+    ctx->model->to(torchDev, /*non_blocking=*/false, /*freeze=*/true);
+  #else
+    auto ctx = std::make_unique<TorchGPUContext>();
+    ctx->model = std::make_unique<torch::AlpakaModel>(
+        iConfig.getParameter<edm::FileInPath>("model").fullPath()
+    );
+  #endif
 
     cache->perGPU.emplace_back(std::move(ctx));
   }
@@ -359,33 +326,66 @@ PixelTrackTorchHighPuritySelector::initializeGlobalCache(
       track_record.dzError(),
       track_record.dxyError(),
       track_record.eta(),
-      track_record.ndof(),
+      track_record.nHits(),
       track_record.phi(),
       track_record.phiError(),
       track_record.pt(),
-      track_record.ptError(),
-      track_record.qoverp(),
+      track_record.qOverPtError(),
       track_record.dzBS(),
-      track_record.dxyBS()
+      track_record.dxyBS(),
+      track_record.nLayers(),
+      track_record.cotThetaError(),
+      track_record.covCotThetaDz(),   
+      track_record.covDxyQOverPt(),
+      track_record.covPhiDxy(),
+      track_record.covPhiQOverPt()
     );
 
     outputs.add<PixelTrackScoresSoA>("track_scores",
       score_record.score()
     );
-    alpaka::wait(queue);
+    //
     //  Launch inference
+    // 
     {
-      //std::lock_guard<std::mutex> lock(model_mutex);
+      
+#ifdef ALPAKA_ACC_GPU_CUDA_ENABLED
+      // Create CUDA events for synchronization between Alpaka and Torch streams
       std::lock_guard<std::mutex> lock(ctx.mutex);
-#ifdef ALPAKA_ACC_GPU_CUDA_ENABLED
-      c10::cuda::setCurrentCUDAStream(ctx.torchStream);
-#endif
-      std::cout << "Running inference on device: " << dev_idx << std::endl;
-      //model->forward(queue, inputs, outputs);
+      /*
+      cudaEvent_t featuresReady, inferenceDone;
+      cudaEventCreateWithFlags(&featuresReady, cudaEventDisableTiming);
+      cudaEventCreateWithFlags(&inferenceDone, cudaEventDisableTiming);
+      auto alpakaStream = c10::cuda::getStreamFromExternal(queue.getNativeHandle(), cms::torch::alpakatools::getDevice(queue).index());
+
+      // Record that features are ready on the Alpaka stream
+      cudaEventRecord(featuresReady, alpakaStream);
+      // Make the Torch stream wait until features are ready
+      cudaStreamWaitEvent(torchStream.stream(), featuresReady, 0);
+      */
+      // Run inference on the Torch stream
+      alpaka::wait(queue);
+      auto torchStream = ctx.torchStream;
+      c10::cuda::setCurrentCUDAStream(torchStream);
       ctx.model->forward(queue, inputs, outputs);
-#ifdef ALPAKA_ACC_GPU_CUDA_ENABLED
       ctx.torchStream.synchronize();
+      /*
+      // Record that inference is done on the Torch stream
+      cudaEventRecord(inferenceDone, torchStream.stream());
+      // Make the Alpaka stream wait until inference is done
+      cudaStreamWaitEvent(alpakaStream, inferenceDone, 0);
+      
+      // Cleanup events
+      cudaEventDestroy(featuresReady);
+      cudaEventDestroy(inferenceDone);
+      */
+#else      
+      ctx.model->forward(queue, inputs, outputs);
 #endif
+
+//#ifdef ALPAKA_ACC_GPU_CUDA_ENABLED
+//      ctx.torchStream.synchronize();
+//#endif
     }
 
     // 4. Score-based filtering

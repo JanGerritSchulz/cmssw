@@ -20,16 +20,16 @@ namespace cms::torch {
       : model_(cms::torch::load(model_path, dev)), device_(dev) {}
 
     // Move model to specified device memory space. Async load by specifying `non_blocking` (in default stream if not overridden by the caller)
-    void to(::torch::Device dev, const bool non_blocking = false) {
+    void to(::torch::Device dev, const bool non_blocking = false, const bool freeze = false) {
       if (dev == device_)
         return;
-      std::lock_guard<std::mutex> lock(migration_mutex_);
+      //std::lock_guard<std::mutex> lock(migration_mutex_);
 
       std::cout << "Moving model from device: " << device_ << " to device: " << dev << "\n";
       model_.to(dev, non_blocking);
 
       // Lazy freeze: only do once
-      if (!is_frozen_) {
+      if (!is_frozen_ && freeze) {
         std::cout << "Freezing model on device: " << dev << "\n";
         model_.eval();               // set model to eval mode
         model_ = ::torch::jit::freeze(model_);  // freeze constants on this device

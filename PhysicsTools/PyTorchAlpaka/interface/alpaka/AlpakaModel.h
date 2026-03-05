@@ -43,10 +43,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::torch {
 #else
       inputs.copy(queue, cms::torch::alpakatools::detail::MemcpyKind::DeviceToDevice);
 #endif  // ALPAKA_ACC_GPU_HIP_ENABLED
-      //cms::torch::alpakatools::QueueGuard<Queue> guard(queue);
-      if (cms::torch::alpakatools::getDevice(queue) != this->Model::device()) {
-        to(queue);
-      }
+      // cms::torch::alpakatools::QueueGuard<Queue> guard(queue);
+      //if (cms::torch::alpakatools::getDevice(queue) != this->Model::device()) {
+      //  to(queue);
+      //}
 
       auto input_tensor = cms::torch::alpakatools::detail::convertInput(inputs, device_);
       if (outputs.size() > 1) {
