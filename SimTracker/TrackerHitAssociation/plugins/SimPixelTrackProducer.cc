@@ -305,7 +305,7 @@ void SimPixelTrackProducer<TrackerTraits>::produce(edm::Event& event, const edm:
   }
 
   // initialize a couple of counters
-  int count_associatedRecHits{0}, count_RecHitsInSimPixelTrack{0};
+  int count_recHits{0}, count_associatedRecHits{0}, count_generalAssociatedRecHits{0}, count_RecHitsInSimPixelTrack{0};
 
   // initialize a couple of variables used in the following loop
   unsigned int detId, layerId, maxCol;
@@ -340,11 +340,13 @@ void SimPixelTrackProducer<TrackerTraits>::produce(edm::Event& event, const edm:
 
     // loop over RecHits
     for (auto const& hit : detSet) {
+      count_recHits++;
       // find associated TrackingParticles
       auto range = clusterTPAssociation.equal_range(OmniClusterRef(hit.cluster()));
 
       // if the RecHit has associated TrackingParticles
       if (range.first != range.second) {
+        count_generalAssociatedRecHits++;
         for (auto assocTrackingParticleIter = range.first; assocTrackingParticleIter != range.second;
              assocTrackingParticleIter++) {
           const TrackingParticleRef assocTrackingParticle = (assocTrackingParticleIter->second);
@@ -442,8 +444,10 @@ void SimPixelTrackProducer<TrackerTraits>::produce(edm::Event& event, const edm:
     simPixelTrack.sortRecHits();
   }
 
-  LogDebug("SimPixelTrackProducer") << "Size of SiPixelRecHitCollection : " << hits->size() << std::endl;
-  LogDebug("SimPixelTrackProducer") << count_associatedRecHits << " of " << hits->size()
+  LogDebug("SimPixelTrackProducer") << "Size of SiPixelRecHitCollection : " << count_recHits << std::endl;
+  LogDebug("SimPixelTrackProducer") << count_generalAssociatedRecHits << " of " << count_recHits
+                                    << " RecHits are generally associated to a TrackingParticles." << std::endl;
+  LogDebug("SimPixelTrackProducer") << count_associatedRecHits << " of " << count_recHits
                                     << " RecHits are associated to selected TrackingParticles ("
                                     << count_RecHitsInSimPixelTrack - count_associatedRecHits
                                     << " of them were associated multiple times)." << std::endl;
