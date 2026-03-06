@@ -1,0 +1,8 @@
+import FWCore.ParameterSet.Config as cms
+
+hltTrackOnlineDnnSelector = cms.EDProducer("TrackOnlineDnnSelector",
+    maxRecHits = cms.uint32(16),
+    probThreshold = cms.double(0.095), 
+    tracksSrc = cms.InputTag("hltPhase2PixelTracksCAExtension"),
+    beamSpot = cms.InputTag("hltOnlineBeamSpot")
+)

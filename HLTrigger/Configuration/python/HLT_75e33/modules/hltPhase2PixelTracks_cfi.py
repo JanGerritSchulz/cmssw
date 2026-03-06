@@ -16,8 +16,8 @@ _hltPhase2PixelTracksCAExtensionSelectionHighPurity = cms.EDProducer("TrackColle
     copyExtras = cms.untracked.bool(True),
     copyTrajectories = cms.untracked.bool(False),
     minQuality = cms.string('highPurity'),
-    originalMVAVals = cms.InputTag("hltPhase2PixelTracksCutClassifier","MVAValues"),
-    originalQualVals = cms.InputTag("hltPhase2PixelTracksCutClassifier","QualityMasks"),
+    originalMVAVals = cms.InputTag("hltTrackOnlineDnnSelector","MVAValues"),
+    originalQualVals = cms.InputTag("hltTrackOnlineDnnSelector","QualityMasks"),
     originalSource = cms.InputTag("hltPhase2PixelTracksCAExtension")
 )
 phase2CAExtension.toReplaceWith(hltPhase2PixelTracks, _hltPhase2PixelTracksCAExtensionSelectionHighPurity)
