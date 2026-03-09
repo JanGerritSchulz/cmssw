@@ -114,7 +114,7 @@ TrackOnlineDnnSelector::~TrackOnlineDnnSelector() {
 void TrackOnlineDnnSelector::produce(edm::Event& iEvent, const edm::EventSetup& iSetup) {
   using namespace edm;
 
-  edm::LogWarning("TrackOnlineDnnSelector") << "Hello world! Let's produce";
+  // edm::LogWarning("TrackOnlineDnnSelector") << "Hello world! Let's produce";
   
   //retrieve tokens
   auto tracksIn = iEvent.getHandle(tracks_);
@@ -175,12 +175,12 @@ void TrackOnlineDnnSelector::produce(edm::Event& iEvent, const edm::EventSetup& 
       auto const& globalPoint = hit->globalPosition();
       auto const& globalError = hit->globalPositionError();
       auto hitIndex = std::distance(track.recHitsBegin(), it);
-      if (hitIndex >= maxRecHits_) {
-        edm::LogWarning("TrackOnlineDnnSelector")
-            << " Track " << tkIndex << " has more (" << track.recHitsSize() << ") than " << maxRecHits_
-            << " recHits, skipping the rest.";
-        break;
-      }
+      // if (hitIndex >= maxRecHits_) {
+      //   edm::LogWarning("TrackOnlineDnnSelector")
+      //       << " Track " << tkIndex << " has more (" << track.recHitsSize() << ") than " << maxRecHits_
+      //       << " recHits, skipping the rest.";
+      //   break;
+      // }
 
       auto base = tkIndex * maxRecHits_ * nHitFeatures + hitIndex * nHitFeatures;
       hits_input[base + 0] = globalPoint.x();
