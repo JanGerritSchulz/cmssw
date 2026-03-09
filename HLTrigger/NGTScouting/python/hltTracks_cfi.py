@@ -27,7 +27,6 @@ pixelTrackAssoc = trackingAssocValueMapsProducer.clone(
     trackingParticles = cms.InputTag("mix", "MergedTrackTruth"),
     tpSelectorPSet = tpSelectorPixelTracks,
     storeTPKinematics = cms.bool(True),
-    useMuonAssociators = cms.bool(False)
 )
 
 from Configuration.ProcessModifiers.phase2CAExtension_cff import phase2CAExtension
@@ -105,8 +104,32 @@ hltPixelTrackRecHitsTable = cms.EDProducer("HLTTracksRecHitsTableProducer",
                                             tableName = cms.string("hltPixelTrackRecHits"),
                                             skipNonExistingSrc = cms.bool(True),
                                             tracksSrc = cms.InputTag("hltPhase2PixelTracks"),
-                                            maxRecHits = cms.uint32(16),
                                             precision = cms.int32(7)
+)
+
+hltPixelTrackSoATable = cms.EDProducer(
+    "SimplePixelTrackSoATabFlatTableProducer",
+    src = cms.InputTag("hltPhase2PixelTrackSoATableProducer"),
+    name = cms.string("PixelTrackSoA"),
+    doc  = cms.string("Pixel tracks from TrackSoA"),
+    singleton = cms.bool(False),
+    extension = cms.bool(False),
+
+    variables = cms.PSet(
+        pt        = Var("pt()",        "float"),
+        eta       = Var("eta()",       "float"),
+        phi       = Var("phi()",       "float"),
+        charge    = Var("charge()",    "int16"),
+        dxy       = Var("dxy()",       "float"),
+        dz        = Var("dz()",        "float"),
+        dxyError  = Var("dxyError()",  "float"),
+        dzError   = Var("dzError()",   "float"),
+        ptError   = Var("ptError()",   "float"),
+        phiError  = Var("phiError()",  "float"),
+        chi2      = Var("chi2()",      "float"),
+        ndof      = Var("ndof()",      "int16"),
+        nHits     = Var("nHits()",     "int16"),
+    )
 )
 
 
