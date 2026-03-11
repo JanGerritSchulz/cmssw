@@ -8,6 +8,8 @@ from ..modules.hltPhase2PixelTracksAndHighPtStepTrackingRegions_cfi import hltPh
 from ..modules.hltPhase2PixelTracksHitDoublets_cfi import hltPhase2PixelTracksHitDoublets
 from ..modules.hltPhase2PixelTracksHitSeeds_cfi import hltPhase2PixelTracksHitSeeds
 from ..modules.hltPhase2PixelTracksSeedLayers_cfi import hltPhase2PixelTracksSeedLayers
+from ..modules.hltPhase2PixelTracksCutClassifier_cfi import hltPhase2PixelTracksCutClassifier
+from ..modules.hltPhase2PixelTrackTorchHighPuritySelector_cfi import hltPhase2PixelTrackTorchHighPuritySelector
 from ..modules.hltPhase2PixelVertices_cfi import *
 from ..sequences.HLTPhase2PixelVertexingSequence_cfi import HLTPhase2PixelVertexingSequence
 from ..sequences.HLTBeamSpotSequence_cfi import HLTBeamSpotSequence
@@ -18,6 +20,7 @@ HLTPhase2PixelTracksAndVerticesSequence = cms.Sequence(
   +hltPhase2PixelFitterByHelixProjections # needed by tracker muons
   +hltPhase2PixelTrackFilterByKinematics  # needed by tracker muons
   +hltPhase2PixelTracksSoA
+  +hltPhase2PixelTrackTorchHighPuritySelector
   +hltPhase2PixelTracks
   +HLTPhase2PixelVertexingSequence
 )
@@ -42,8 +45,6 @@ phase2_hlt_vertexTrimming.toReplaceWith(
 
 from ..modules.hltPhase2PixelRecHitsExtendedSoA_cfi import hltPhase2PixelRecHitsExtendedSoA
 from ..modules.hltPhase2OtRecHitsSoA_cfi import hltPhase2OtRecHitsSoA
-from ..modules.hltPhase2PixelTracksCutClassifier_cfi import hltPhase2PixelTracksCutClassifier
-from ..modules.hltPhase2PixelTrackTorchHighPuritySelector_cfi import hltPhase2PixelTrackTorchHighPuritySelector
 from ..modules.hltPhase2PixelTrackSoATableProducer_cfi import hltPhase2PixelTrackSoATableProducer
 
 _HLTPhase2PixelTracksAndVerticesSequenceCAExtension = cms.Sequence(

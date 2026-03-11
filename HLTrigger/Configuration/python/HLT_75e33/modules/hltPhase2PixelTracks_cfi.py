@@ -1,14 +1,23 @@
 import FWCore.ParameterSet.Config as cms
 
+# hltPhase2PixelTracks = cms.EDProducer("PixelTrackProducerFromSoAAlpaka",
+#     beamSpot = cms.InputTag("hltOnlineBeamSpot"),
+#     minNumberOfHits = cms.int32(0),
+#     minQuality = cms.string('tight'),
+#     pixelRecHitLegacySrc = cms.InputTag("hltSiPixelRecHits"),
+#     trackSrc = cms.InputTag("hltPhase2PixelTracksSoA"),
+#     outerTrackerRecHitSrc = cms.InputTag(""),
+#     useOTExtension = cms.bool(False),
+#     requireQuadsFromConsecutiveLayers = cms.bool(True)
+# )
 hltPhase2PixelTracks = cms.EDProducer("PixelTrackProducerFromSoAAlpaka",
     beamSpot = cms.InputTag("hltOnlineBeamSpot"),
     minNumberOfHits = cms.int32(0),
     minQuality = cms.string('tight'),
     pixelRecHitLegacySrc = cms.InputTag("hltSiPixelRecHits"),
-    trackSrc = cms.InputTag("hltPhase2PixelTracksSoA"),
-    outerTrackerRecHitSrc = cms.InputTag(""),
+    trackSrc = cms.InputTag("hltPhase2PixelTrackTorchHighPuritySelector"),
     useOTExtension = cms.bool(False),
-    requireQuadsFromConsecutiveLayers = cms.bool(True)
+    requireQuadsFromConsecutiveLayers = cms.bool(False)
 )
 
 from Configuration.ProcessModifiers.phase2CAExtension_cff import phase2CAExtension
