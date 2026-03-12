@@ -669,6 +669,7 @@ RecoDisplacedMuonValidator::RecoDisplacedMuonValidator(const edm::ParameterSet& 
                                          tpset.getParameter<double>("tip"),
                                          tpset.getParameter<double>("lip"),
                                          tpset.getParameter<int>("minHit"),
+                                         tpset.getParameter<int>("minLayer"),
                                          tpset.getParameter<bool>("signalOnly"),
                                          tpset.getParameter<bool>("intimeOnly"),
                                          tpset.getParameter<bool>("chargedOnly"),

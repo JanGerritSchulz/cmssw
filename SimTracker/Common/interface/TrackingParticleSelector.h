@@ -24,6 +24,7 @@ public:
                            double tip,
                            double lip,
                            int minHit,
+                           int minLayer,
                            bool signalOnly,
                            bool intimeOnly,
                            bool chargedOnly,
@@ -41,6 +42,7 @@ public:
         tip2_(tip * tip),
         lip_(lip),
         minHit_(minHit),
+        minLayer_(minLayer),
         signalOnly_(signalOnly),
         intimeOnly_(intimeOnly),
         chargedOnly_(chargedOnly),
@@ -134,7 +136,8 @@ public:
       double pt2 = tp->p4().perp2();
       return pt2 >= ptMin2_ && pt2 <= ptMax2_;
     };
-    return (tp->numberOfTrackerLayers() >= minHit_ && ptOk(tp) && etaOk(tp) && phiOk(tp) &&
+    return (tp->numberOfTrackerHits() >= minHit_ && tp->numberOfTrackerLayers() >= minLayer_ && 
+            ptOk(tp) && etaOk(tp) && phiOk(tp) &&
             std::abs(tp->vertex().z()) <= lip_ &&  // vertex last to avoid to load it if not striclty
                                                    // necessary...
             tp->vertex().perp2() <= tip2_);
@@ -170,6 +173,7 @@ private:
   double tip2_;
   double lip_;
   int minHit_;
+  int minLayer_;
   bool signalOnly_;
   bool intimeOnly_;
   bool chargedOnly_;
@@ -198,6 +202,7 @@ namespace reco {
                                         cfg.getParameter<double>("tip"),
                                         cfg.getParameter<double>("lip"),
                                         cfg.getParameter<int>("minHit"),
+                                        cfg.getParameter<int>("minLayer"),
                                         cfg.getParameter<bool>("signalOnly"),
                                         cfg.getParameter<bool>("intimeOnly"),
                                         cfg.getParameter<bool>("chargedOnly"),
@@ -216,6 +221,7 @@ namespace reco {
         desc.add<double>("tip", 3.5);
         desc.add<double>("lip", 30.0);
         desc.add<int>("minHit", 0);
+        desc.add<int>("minLayer", 0);
         desc.add<bool>("signalOnly", true);
         desc.add<bool>("intimeOnly", false);
         desc.add<bool>("chargedOnly", true);

@@ -9,7 +9,8 @@ cosmictrackingParticleSelector = cms.EDFilter("CosmicTrackingParticleSelector",
     lip = cms.double(100.0),
     ptMin = cms.double(0.9),
     maxRapidity = cms.double(2.4),
-    minHit = cms.int32(0)
+    minHit = cms.int32(0),
+    minLayer = cms.int32(0),
    )
 
 

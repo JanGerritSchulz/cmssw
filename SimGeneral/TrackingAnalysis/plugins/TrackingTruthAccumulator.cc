@@ -296,6 +296,7 @@ TrackingTruthAccumulator::TrackingTruthAccumulator(const edm::ParameterSet &conf
                                          param.getParameter<double>("tipTP"),
                                          param.getParameter<double>("lipTP"),
                                          param.getParameter<int>("minHitTP"),
+                                         param.getParameter<int>("minLayerTP"),
                                          param.getParameter<bool>("signalOnlyTP"),
                                          param.getParameter<bool>("intimeOnlyTP"),
                                          param.getParameter<bool>("chargedOnlyTP"),

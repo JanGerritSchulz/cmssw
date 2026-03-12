@@ -131,6 +131,7 @@ SimDoubletsProducer<TrackerTraits>::SimDoubletsProducer(const edm::ParameterSet&
                                                       pSetTPSel.getParameter<double>("tip"),
                                                       pSetTPSel.getParameter<double>("lip"),
                                                       pSetTPSel.getParameter<int>("minHit"),
+                                                      pSetTPSel.getParameter<int>("minLayer"),
                                                       pSetTPSel.getParameter<bool>("signalOnly"),
                                                       pSetTPSel.getParameter<bool>("intimeOnly"),
                                                       pSetTPSel.getParameter<bool>("chargedOnly"),
@@ -165,6 +166,7 @@ void SimDoubletsProducer<pixelTopology::Phase1>::fillDescriptions(edm::Configura
   descTPSelector.add<double>("tip", 60.);
   descTPSelector.add<double>("lip", 30.);
   descTPSelector.add<int>("minHit", 0);
+  descTPSelector.add<int>("minLayer", 0);
   descTPSelector.add<bool>("signalOnly", true);
   descTPSelector.add<bool>("intimeOnly", false);
   descTPSelector.add<bool>("chargedOnly", true);
@@ -198,6 +200,7 @@ void SimDoubletsProducer<pixelTopology::Phase2>::fillDescriptions(edm::Configura
   descTPSelector.add<double>("tip", 2.);  // NOTE: differs from HLT MultiTrackValidator
   descTPSelector.add<double>("lip", 30.);
   descTPSelector.add<int>("minHit", 0);
+  descTPSelector.add<int>("minLayer", 0);
   descTPSelector.add<bool>("signalOnly", true);
   descTPSelector.add<bool>("intimeOnly", false);
   descTPSelector.add<bool>("chargedOnly", true);

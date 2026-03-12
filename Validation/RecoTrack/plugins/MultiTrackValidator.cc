@@ -168,6 +168,7 @@ MultiTrackValidator::MultiTrackValidator(const edm::ParameterSet& pset)
                                         pset.getParameter<double>("tipTP"),
                                         pset.getParameter<double>("lipTP"),
                                         pset.getParameter<int>("minHitTP"),
+                                        pset.getParameter<int>("minLayerTP"),
                                         pset.getParameter<bool>("signalOnlyTP"),
                                         pset.getParameter<bool>("intimeOnlyTP"),
                                         pset.getParameter<bool>("chargedOnlyTP"),
@@ -183,6 +184,7 @@ MultiTrackValidator::MultiTrackValidator(const edm::ParameterSet& pset)
                                                     pset.getParameter<double>("tipTP"),
                                                     pset.getParameter<double>("lipTP"),
                                                     pset.getParameter<int>("minHitTP"),
+                                                    pset.getParameter<int>("minLayerTP"),
                                                     pset.getParameter<bool>("chargedOnlyTP"),
                                                     pset.getParameter<std::vector<int>>("pdgIdTP"));
 
@@ -194,6 +196,7 @@ MultiTrackValidator::MultiTrackValidator(const edm::ParameterSet& pset)
                                           psetVsPhi.getParameter<double>("tip"),
                                           psetVsPhi.getParameter<double>("lip"),
                                           psetVsPhi.getParameter<int>("minHit"),
+                                          psetVsPhi.getParameter<int>("minLayer"),
                                           psetVsPhi.getParameter<bool>("signalOnly"),
                                           psetVsPhi.getParameter<bool>("intimeOnly"),
                                           psetVsPhi.getParameter<bool>("chargedOnly"),
