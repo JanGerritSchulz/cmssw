@@ -11,6 +11,7 @@ generalTpSelectorBlock = cms.PSet(
     stableOnly = cms.bool(False),
     minRapidity = cms.double(-2.5),
     minHit = cms.int32(0),
+    minLayer = cms.int32(0),
     ptMin = cms.double(0.9),
     ptMax = cms.double(1e100),
     maxRapidity = cms.double(2.5),

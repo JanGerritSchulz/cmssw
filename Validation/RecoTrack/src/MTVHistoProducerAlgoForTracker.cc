@@ -372,6 +372,7 @@ std::unique_ptr<RecoTrackSelectorBase> MTVHistoProducerAlgoForTracker::makeRecoT
   edm::ParameterSet psetTrack;
   psetTrack.copyForModify(pset);
   psetTrack.eraseSimpleParameter("minHit");
+  psetTrack.eraseSimpleParameter("minLayer");
   psetTrack.eraseSimpleParameter("signalOnly");
   psetTrack.eraseSimpleParameter("intimeOnly");
   psetTrack.eraseSimpleParameter("chargedOnly");

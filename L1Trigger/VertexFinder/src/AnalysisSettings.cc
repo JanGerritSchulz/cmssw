@@ -50,6 +50,7 @@ namespace l1tVertexFinder {
                                                         genMaxVertR(),
                                                         genMaxVertZ(),
                                                         0,
+                                                        0,
                                                         true,  //useOnlyTPfromPhysicsCollision
                                                         true,  //useOnlyInTimeParticles
                                                         true,
@@ -65,6 +66,7 @@ namespace l1tVertexFinder {
                                               std::max(10.0, genMaxVertR()),
                                               std::max(35.0, genMaxVertZ()),
                                               0,
+                                              0,
                                               false,  //useOnlyTPfromPhysicsCollisionFalse
                                               false,  //useOnlyInTimeParticles
                                               true,
@@ -76,6 +78,7 @@ namespace l1tVertexFinder {
                                                     genMaxAbsEta(),
                                                     genMaxVertR(),
                                                     genMaxVertZ(),
+                                                    0,
                                                     0,
                                                     true,  //useOnlyTPfromPhysicsCollision
                                                     true,  //useOnlyInTimeParticles

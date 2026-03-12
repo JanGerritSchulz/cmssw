@@ -87,6 +87,7 @@ SimpleTrackValidation::SimpleTrackValidation(const edm::ParameterSet& iConfig)
                                         iConfig.getParameter<double>("tipTP"),
                                         iConfig.getParameter<double>("lipTP"),
                                         iConfig.getParameter<int>("minHitTP"),
+                                        iConfig.getParameter<int>("minLayerTP"),
                                         iConfig.getParameter<bool>("signalOnlyTP"),
                                         iConfig.getParameter<bool>("intimeOnlyTP"),
                                         iConfig.getParameter<bool>("chargedOnlyTP"),
@@ -245,6 +246,7 @@ void SimpleTrackValidation::fillDescriptions(edm::ConfigurationDescriptions& des
   desc.add<double>("tipTP", 3.5);
   desc.add<double>("lipTP", 30.0);
   desc.add<int>("minHitTP", 0);
+  desc.add<int>("minLayerTP", 0);
   desc.add<bool>("signalOnlyTP", true);
   desc.add<bool>("intimeOnlyTP", false);
   desc.add<bool>("chargedOnlyTP", true);

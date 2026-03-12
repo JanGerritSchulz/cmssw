@@ -10,7 +10,8 @@ tpSelection = PhysicsTools.RecoAlgos.trackingParticleSelector_cfi.trackingPartic
     minRapidity = -2.5,
     ptMin = 1.0,
     maxRapidity = 2.5,
-    minHit = 0
+    minHit = 0,
+    minLayer = 0,
 
 )
 

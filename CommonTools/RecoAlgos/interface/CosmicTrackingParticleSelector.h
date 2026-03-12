@@ -51,6 +51,7 @@ public:
                                  double tip,
                                  double lip,
                                  int minHit,
+                                 int minLayer,
                                  bool chargedOnly,
                                  const std::vector<int>& pdgId = std::vector<int>())
       : ptMin_(ptMin),
@@ -59,6 +60,7 @@ public:
         tip_(tip),
         lip_(lip),
         minHit_(minHit),
+        minLayer_(minLayer),
         chargedOnly_(chargedOnly),
         pdgId_(pdgId) {}
 
@@ -69,6 +71,7 @@ public:
         tip_(cfg.getParameter<double>("tip")),
         lip_(cfg.getParameter<double>("lip")),
         minHit_(cfg.getParameter<int>("minHit")),
+        minLayer_(cfg.getParameter<int>("minLayer")),
         chargedOnly_(cfg.getParameter<bool>("chargedOnly")),
         pdgId_(cfg.getParameter<std::vector<int> >("pdgId")),
         beamSpotToken_(iC.consumes<reco::BeamSpot>(edm::InputTag("offlineBeamSpot"))),
@@ -82,6 +85,7 @@ public:
     desc.add<double>("tip", 100.0);
     desc.add<double>("lip", 100.0);
     desc.add<int>("minHit", 0);
+    desc.add<int>("minLayer", 0);
     desc.add<bool>("chargedOnly", true);
     desc.add<std::vector<int> >("pdgId", {});
   }
@@ -205,7 +209,8 @@ public:
             << "FINAL State extrapolated at PCA: Radius = " << vertex.perp() << ", z = " << vertex.z()
             << ", pt = " << momentum.perp() << ", pz = " << momentum.z() << "\n";
 
-        return (tpr->numberOfTrackerLayers() >= minHit_ && sqrt(momentum.perp2()) >= ptMin_ &&
+        return (tpr->numberOfTrackerHits() >= minHit_ && tpr->numberOfTrackerLayers() >= minLayer_ && 
+                sqrt(momentum.perp2()) >= ptMin_ &&
                 momentum.eta() >= minRapidity_ && momentum.eta() <= maxRapidity_ && sqrt(vertex.perp2()) <= tip_ &&
                 fabs(vertex.z()) <= lip_);
       }
@@ -221,6 +226,7 @@ private:
   double tip_;
   double lip_;
   int minHit_;
+  int minLayer_;
   bool chargedOnly_;
   std::vector<int> pdgId_;
   container selected_;

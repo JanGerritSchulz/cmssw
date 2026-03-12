@@ -45,6 +45,7 @@ namespace {
                                     param.getParameter<double>("tipTP"),
                                     param.getParameter<double>("lipTP"),
                                     param.getParameter<int>("minHitTP"),
+                                    param.getParameter<int>("minLayerTP"),
                                     param.getParameter<bool>("signalOnlyTP"),
                                     param.getParameter<bool>("intimeOnlyTP"),
                                     param.getParameter<bool>("chargedOnlyTP"),
@@ -90,6 +91,7 @@ void VertexAssociatorByTracksProducer::fillDescriptions(edm::ConfigurationDescri
   descTp.add<bool>("signalOnlyTP", true);
   descTp.add<double>("minRapidityTP", -2.4);
   descTp.add<int>("minHitTP", 0);
+  descTp.add<int>("minHitLayer", 0);
   descTp.add<double>("ptMinTP", 0.9);
   descTp.add<double>("ptMaxTP", 1e100);
   descTp.add<double>("maxRapidityTP", 2.4);

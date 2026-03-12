@@ -19,7 +19,8 @@ signalOnly = False,
 minRapidity = -2.5,
 ptMin = 0.3,
 maxRapidity = 2.5,
-minHit = 0
+minHit = 0,
+minLayer = 0
 )
 
 tpSelecForFakeRate = _trackingParticleRefSelector.clone(
@@ -31,7 +32,8 @@ signalOnly = False,
 minRapidity = -2.5,
 ptMin = 0.0,
 maxRapidity = 2.5,
-minHit = 0
+minHit = 0,
+minLayer = 0
 )
 
 
