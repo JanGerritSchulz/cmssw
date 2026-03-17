@@ -328,6 +328,8 @@ void MultiTrackValidator::bookHistograms(DQMStore::IBooker& ibook,
 
       const bool doResolutionPlots = doResolutionPlots_[www];
 
+      histoProducerAlgo_->pushbackNewMTVMonitoringElements(histograms.histoProducerAlgo);
+
       if (doSimTrackPlots_) {
         histoProducerAlgo_->bookSimTrackHistos(ibook, histograms.histoProducerAlgo, doResolutionPlots);
         if (doPVAssociationPlots_)

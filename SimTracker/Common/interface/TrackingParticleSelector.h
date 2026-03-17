@@ -136,10 +136,9 @@ public:
       double pt2 = tp->p4().perp2();
       return pt2 >= ptMin2_ && pt2 <= ptMax2_;
     };
-    return (tp->numberOfTrackerHits() >= minHit_ && tp->numberOfTrackerLayers() >= minLayer_ && 
-            ptOk(tp) && etaOk(tp) && phiOk(tp) &&
-            std::abs(tp->vertex().z()) <= lip_ &&  // vertex last to avoid to load it if not striclty
-                                                   // necessary...
+    return (tp->numberOfTrackerHits() >= minHit_ && tp->numberOfTrackerLayers() >= minLayer_ && ptOk(tp) && etaOk(tp) &&
+            phiOk(tp) && std::abs(tp->vertex().z()) <= lip_ &&  // vertex last to avoid to load it if not striclty
+                                                                // necessary...
             tp->vertex().perp2() <= tip2_);
   }
 

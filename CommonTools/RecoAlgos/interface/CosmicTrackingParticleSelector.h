@@ -209,10 +209,9 @@ public:
             << "FINAL State extrapolated at PCA: Radius = " << vertex.perp() << ", z = " << vertex.z()
             << ", pt = " << momentum.perp() << ", pz = " << momentum.z() << "\n";
 
-        return (tpr->numberOfTrackerHits() >= minHit_ && tpr->numberOfTrackerLayers() >= minLayer_ && 
-                sqrt(momentum.perp2()) >= ptMin_ &&
-                momentum.eta() >= minRapidity_ && momentum.eta() <= maxRapidity_ && sqrt(vertex.perp2()) <= tip_ &&
-                fabs(vertex.z()) <= lip_);
+        return (tpr->numberOfTrackerHits() >= minHit_ && tpr->numberOfTrackerLayers() >= minLayer_ &&
+                sqrt(momentum.perp2()) >= ptMin_ && momentum.eta() >= minRapidity_ && momentum.eta() <= maxRapidity_ &&
+                sqrt(vertex.perp2()) <= tip_ && fabs(vertex.z()) <= lip_);
       }
     }
   }

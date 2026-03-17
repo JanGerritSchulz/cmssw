@@ -18,72 +18,6 @@ using namespace std;
 namespace {
   typedef dqm::reco::DQMStore DQMStore;
 
-  void BinLogX(TH1* h) {
-    TAxis* axis = h->GetXaxis();
-    int bins = axis->GetNbins();
-
-    float from = axis->GetXmin();
-    float to = axis->GetXmax();
-    float width = (to - from) / bins;
-    std::vector<float> new_bins(bins + 1, 0);
-
-    for (int i = 0; i <= bins; i++) {
-      new_bins[i] = TMath::Power(10, from + i * width);
-    }
-    axis->Set(bins, new_bins.data());
-  }
-
-  void BinLogY(TH1* h) {
-    TAxis* axis = h->GetYaxis();
-    int bins = axis->GetNbins();
-
-    float from = axis->GetXmin();
-    float to = axis->GetXmax();
-    float width = (to - from) / bins;
-    std::vector<float> new_bins(bins + 1, 0);
-
-    for (int i = 0; i <= bins; i++) {
-      new_bins[i] = TMath::Power(10, from + i * width);
-    }
-    axis->Set(bins, new_bins.data());
-  }
-
-  template <typename... Args>
-  dqm::reco::MonitorElement* make1DIfLogX(DQMStore::IBooker& ibook, bool logx, Args&&... args) {
-    auto h = std::make_unique<TH1F>(std::forward<Args>(args)...);
-    if (logx)
-      BinLogX(h.get());
-    const auto& name = h->GetName();
-    return ibook.book1D(name, h.release());
-  }
-
-  template <typename... Args>
-  dqm::reco::MonitorElement* makeProfileIfLogX(DQMStore::IBooker& ibook, bool logx, Args&&... args) {
-    auto h = std::make_unique<TProfile>(std::forward<Args>(args)...);
-    if (logx)
-      BinLogX(h.get());
-    const auto& name = h->GetName();
-    return ibook.bookProfile(name, h.release());
-  }
-
-  template <typename... Args>
-  dqm::reco::MonitorElement* make2DIfLogX(DQMStore::IBooker& ibook, bool logx, Args&&... args) {
-    auto h = std::make_unique<TH2F>(std::forward<Args>(args)...);
-    if (logx)
-      BinLogX(h.get());
-    const auto& name = h->GetName();
-    return ibook.book2D(name, h.release());
-  }
-
-  template <typename... Args>
-  dqm::reco::MonitorElement* make2DIfLogY(DQMStore::IBooker& ibook, bool logy, Args&&... args) {
-    auto h = std::make_unique<TH2F>(std::forward<Args>(args)...);
-    if (logy)
-      BinLogY(h.get());
-    const auto& name = h->GetName();
-    return ibook.book2D(name, h.release());
-  }
-
   void setBinLabels(dqm::reco::MonitorElement*& h, const std::vector<std::string>& labels) {
     for (size_t i = 0; i < labels.size(); ++i) {
       h->setBinLabel(i + 1, labels[i]);
@@ -278,6 +212,7 @@ MTVHistoProducerAlgoForTracker::MTVHistoProducerAlgoForTracker(const edm::Parame
   };
 
   initTPselector(generalTpSelector, "generalTpSelector");
+  initTPselector(TpSelectorForTechnicalEfficiency, "TpSelectorForTechnicalEfficiency");
   initTPselector(TpSelectorForEfficiencyVsEta, "TpSelectorForEfficiencyVsEta");
   initTPselector(TpSelectorForEfficiencyVsPhi, "TpSelectorForEfficiencyVsPhi");
   initTPselector(TpSelectorForEfficiencyVsPt, "TpSelectorForEfficiencyVsPt");
@@ -289,6 +224,7 @@ MTVHistoProducerAlgoForTracker::MTVHistoProducerAlgoForTracker(const edm::Parame
   initTrackSelector(trackSelectorVsPt, "TpSelectorForEfficiencyVsPt");
 
   initGPselector(generalGpSelector, "generalGpSelector");
+  initGPselector(GpSelectorForTechnicalEfficiency, "GpSelectorForTechnicalEfficiency");
   initGPselector(GpSelectorForEfficiencyVsEta, "GpSelectorForEfficiencyVsEta");
   initGPselector(GpSelectorForEfficiencyVsPhi, "GpSelectorForEfficiencyVsPhi");
   initGPselector(GpSelectorForEfficiencyVsPt, "GpSelectorForEfficiencyVsPt");
@@ -393,6 +329,33 @@ std::unique_ptr<RecoTrackSelectorBase> MTVHistoProducerAlgoForTracker::makeRecoT
   return std::make_unique<RecoTrackSelectorBase>(psetTrack);
 }
 
+void MTVHistoProducerAlgoForTracker::pushbackNewMTVMonitoringElements(Histograms& histograms) {
+  histograms.hs_eta.push_back(MTVMonitoringElement());
+  histograms.hs_pT.push_back(MTVMonitoringElement());
+  histograms.hs_pTvseta.push_back(MTVMonitoringElement());
+  histograms.hs_hit.push_back(MTVMonitoringElement());
+  histograms.hs_layer.push_back(MTVMonitoringElement());
+  histograms.hs_pixellayer.push_back(MTVMonitoringElement());
+  histograms.hs_3Dlayer.push_back(MTVMonitoringElement());
+  histograms.hs_pu.push_back(MTVMonitoringElement());
+  histograms.hs_phi.push_back(MTVMonitoringElement());
+  histograms.hs_dxy.push_back(MTVMonitoringElement());
+  histograms.hs_dz.push_back(MTVMonitoringElement());
+  histograms.hs_dxypv.push_back(MTVMonitoringElement());
+  histograms.hs_dzpv.push_back(MTVMonitoringElement());
+  histograms.hs_dxypvzoomed.push_back(MTVMonitoringElement());
+  histograms.hs_dzpvzoomed.push_back(MTVMonitoringElement());
+  histograms.hs_vertpos.push_back(MTVMonitoringElement());
+  histograms.hs_zpos.push_back(MTVMonitoringElement());
+  histograms.hs_dr.push_back(MTVMonitoringElement());
+  histograms.hs_drj.push_back(MTVMonitoringElement());
+  histograms.hs_dzpvcut.push_back(MTVMonitoringElement());
+  histograms.hs_dzpvsigcut.push_back(MTVMonitoringElement());
+  histograms.hs_simpvz.push_back(MTVMonitoringElement());
+  histograms.hs_chi2.push_back(MTVMonitoringElement());
+  histograms.hs_chi2prob.push_back(MTVMonitoringElement());
+}
+
 void MTVHistoProducerAlgoForTracker::bookSimHistos(DQMStore::IBooker& ibook, Histograms& histograms) {
   histograms.h_ptSIM = make1DIfLogX(ibook, useLogPt, "ptSIM", "generated p_{t}", nintPt, minPt, maxPt);
   histograms.h_etaSIM = ibook.book1D("etaSIM", "generated pseudorapidity", nintEta, minEta, maxEta);
@@ -407,125 +370,53 @@ void MTVHistoProducerAlgoForTracker::bookSimHistos(DQMStore::IBooker& ibook, His
 void MTVHistoProducerAlgoForTracker::bookSimTrackHistos(DQMStore::IBooker& ibook,
                                                         Histograms& histograms,
                                                         bool doResolutionPlots) {
-  histograms.h_assocSimToReco_eta.push_back(
-      ibook.book1D("num_assoc(simToReco)_eta", "N of associated tracks (simToReco) vs eta", nintEta, minEta, maxEta));
-  histograms.h_simul_eta.push_back(
-      ibook.book1D("num_simul_eta", "N of simulated tracks vs eta", nintEta, minEta, maxEta));
+  histograms.hs_eta.back().book1D(ibook, true, false, "eta", "Pseudorapidity #eta", "Count", nintEta, minEta, maxEta);
+  histograms.hs_pT.back().book1DIfLogX(ibook, useLogPt, true, false, "pT", "p_T", "Count", nintPt, minPt, maxPt);
+  histograms.hs_pTvseta.back().book2DIfLogY(ibook,
+                                            useLogPt,
+                                            true,
+                                            false,
+                                            "pTvseta",
+                                            "Pseudorapidity #eta",
+                                            "p_T",
+                                            nintEta,
+                                            minEta,
+                                            maxEta,
+                                            nintPt,
+                                            minPt,
+                                            maxPt);
 
-  histograms.h_assocSimToReco_pT.push_back(make1DIfLogX(
-      ibook, useLogPt, "num_assoc(simToReco)_pT", "N of associated tracks (simToReco) vs pT", nintPt, minPt, maxPt));
-  histograms.h_simul_pT.push_back(
-      make1DIfLogX(ibook, useLogPt, "num_simul_pT", "N of simulated tracks vs pT", nintPt, minPt, maxPt));
-
-  histograms.h_assocSimToReco_pTvseta.push_back(make2DIfLogY(ibook,
-                                                   useLogPt,
-                                                   "num_assoc(simToReco)_pTvseta",
-                                                   "N of associated tracks (simToReco) in (pT-eta) please",
-                                                   nintEta,
-                                                   minEta,
-                                                   maxEta,
-                                                   nintPt,
-                                                   minPt,
-                                                   maxPt));
-  histograms.h_simul_pTvseta.push_back(make2DIfLogY(ibook,
-                                                   useLogPt,
-                                                   "num_simul_pTvseta",
-                                                   "N of simulated tracks in (pT-eta) plane",
-                                                   nintEta,
-                                                   minEta,
-                                                   maxEta,
-                                                   nintPt,
-                                                   minPt,
-                                                   maxPt));
-
-  histograms.h_assocSimToReco_hit.push_back(
-      ibook.book1D("num_assoc(simToReco)_hit", "N of associated tracks (simToReco) vs hit", nintHit, minHit, maxHit));
-  histograms.h_simul_hit.push_back(
-      ibook.book1D("num_simul_hit", "N of simulated tracks vs hit", nintHit, minHit, maxHit));
-
-  histograms.h_assocSimToReco_layer.push_back(ibook.book1D(
-      "num_assoc(simToReco)_layer", "N of associated tracks (simToReco) vs layer", nintLayers, minLayers, maxLayers));
-  histograms.h_simul_layer.push_back(
-      ibook.book1D("num_simul_layer", "N of simulated tracks vs layer", nintLayers, minLayers, maxLayers));
-
-  histograms.h_assocSimToReco_pixellayer.push_back(ibook.book1D("num_assoc(simToReco)_pixellayer",
-                                                      "N of associated tracks (simToReco) vs pixel layer",
-                                                      nintLayers,
-                                                      minLayers,
-                                                      maxLayers));
-  histograms.h_simul_pixellayer.push_back(
-      ibook.book1D("num_simul_pixellayer", "N of simulated tracks vs pixel layer", nintLayers, minLayers, maxLayers));
-
-  histograms.h_assocSimToReco_3Dlayer.push_back(ibook.book1D("num_assoc(simToReco)_3Dlayer",
-                                                   "N of associated tracks (simToReco) vs 3D layer",
-                                                   nintLayers,
-                                                   minLayers,
-                                                   maxLayers));
-  histograms.h_simul_3Dlayer.push_back(
-      ibook.book1D("num_simul_3Dlayer", "N of simulated tracks vs 3D layer", nintLayers, minLayers, maxLayers));
-
-  histograms.h_assocSimToReco_pu.push_back(
-      ibook.book1D("num_assoc(simToReco)_pu", "N of associated tracks (simToReco) vs pu", nintPu, minPu, maxPu));
-  histograms.h_simul_pu.push_back(ibook.book1D("num_simul_pu", "N of simulated tracks vs pu", nintPu, minPu, maxPu));
-
-  histograms.h_assocSimToReco_phi.push_back(
-      ibook.book1D("num_assoc(simToReco)_phi", "N of associated tracks (simToReco) vs phi", nintPhi, minPhi, maxPhi));
-  histograms.h_simul_phi.push_back(
-      ibook.book1D("num_simul_phi", "N of simulated tracks vs phi", nintPhi, minPhi, maxPhi));
-
-  histograms.h_assocSimToReco_dxy.push_back(
-      ibook.book1D("num_assoc(simToReco)_dxy", "N of associated tracks (simToReco) vs dxy", nintDxy, minDxy, maxDxy));
-  histograms.h_simul_dxy.push_back(
-      ibook.book1D("num_simul_dxy", "N of simulated tracks vs dxy", nintDxy, minDxy, maxDxy));
-
-  histograms.h_assocSimToReco_dz.push_back(
-      ibook.book1D("num_assoc(simToReco)_dz", "N of associated tracks (simToReco) vs dz", nintDz, minDz, maxDz));
-  histograms.h_simul_dz.push_back(ibook.book1D("num_simul_dz", "N of simulated tracks vs dz", nintDz, minDz, maxDz));
-
-  histograms.h_assocSimToReco_vertpos.push_back(make1DIfLogX(ibook,
-                                                   useLogVertpos,
-                                                   "num_assoc(simToReco)_vertpos",
-                                                   "N of associated tracks (simToReco) vs transverse vert position",
-                                                   nintVertpos,
-                                                   minVertpos,
-                                                   maxVertpos));
-  histograms.h_simul_vertpos.push_back(make1DIfLogX(ibook,
-                                                   useLogVertpos,
-                                                   "num_simul_vertpos",
-                                                   "N of simulated tracks vs transverse vert position",
-                                                   nintVertpos,
-                                                   minVertpos,
-                                                   maxVertpos));
-
-  histograms.h_assocSimToReco_zpos.push_back(ibook.book1D(
-      "num_assoc(simToReco)_zpos", "N of associated tracks (simToReco) vs z vert position", nintZpos, minZpos, maxZpos));
-  histograms.h_simul_zpos.push_back(
-      ibook.book1D("num_simul_zpos", "N of simulated tracks vs z vert position", nintZpos, minZpos, maxZpos));
-
-  histograms.h_assocSimToReco_dr.push_back(make1DIfLogX(ibook,
-                                              true,
-                                              "num_assoc(simToReco)_dr",
-                                              "N of associated tracks (simToReco) vs dR",
-                                              nintdr,
-                                              log10(mindr),
-                                              log10(maxdr)));
-  histograms.h_simul_dr.push_back(
-      make1DIfLogX(ibook, true, "num_simul_dr", "N of simulated tracks vs dR", nintdr, log10(mindr), log10(maxdr)));
-
-  histograms.h_assocSimToReco_drj.push_back(make1DIfLogX(ibook,
-                                               true,
-                                               "num_assoc(simToReco)_drj",
-                                               "N of associated tracks (simToReco) vs dR(TP,jet)",
-                                               nintdrj,
-                                               log10(mindrj),
-                                               log10(maxdrj)));
-  histograms.h_simul_drj.push_back(make1DIfLogX(
-      ibook, true, "num_simul_drj", "N of simulated tracks vs dR(TP,jet)", nintdrj, log10(mindrj), log10(maxdrj)));
-
-  histograms.h_simul_simpvz.push_back(
-      ibook.book1D("num_simul_simpvz", "N of simulated tracks vs. sim PV z", nintPVz, minPVz, maxPVz));
-  histograms.h_assocSimToReco_simpvz.push_back(ibook.book1D(
-      "num_assoc(simToReco)_simpvz", "N of associated tracks (simToReco) vs. sim PV z", nintPVz, minPVz, maxPVz));
+  histograms.hs_hit.back().book1D(ibook, true, false, "hit", "Number of hits", "Count", nintHit, minHit, maxHit);
+  histograms.hs_layer.back().book1D(
+      ibook, true, false, "layer", "Number of layers", "Count", nintLayers, minLayers, maxLayers);
+  histograms.hs_pixellayer.back().book1D(
+      ibook, true, false, "pixellayer", "Number of pixel layers", "Count", nintLayers, minLayers, maxLayers);
+  histograms.hs_3Dlayer.back().book1D(
+      ibook, true, false, "3Dlayer", "Number of 3D layers", "Count", nintLayers, minLayers, maxLayers);
+  histograms.hs_pu.back().book1D(
+      ibook, true, false, "pu", "Number of Primary Vertices / Pileup", "Count", nintPu, minPu, maxPu);
+  histograms.hs_phi.back().book1D(ibook, true, false, "phi", "#phi angle", "Count", nintPhi, minPhi, maxPhi);
+  histograms.hs_dxy.back().book1D(
+      ibook, true, false, "dxy", "Transverse impact parameter dxy [cm]", "Count", nintDxy, minDxy, maxDxy);
+  histograms.hs_dz.back().book1D(
+      ibook, true, false, "dz", "Longitudinal impact parameter dz [cm]", "Count", nintDz, minDz, maxDz);
+  histograms.hs_vertpos.back().book1DIfLogX(ibook,
+                                            useLogVertpos,
+                                            true,
+                                            false,
+                                            "vertpos",
+                                            "Radial displacement of production vertex [cm]",
+                                            "Count",
+                                            nintVertpos,
+                                            minVertpos,
+                                            maxVertpos);
+  histograms.hs_zpos.back().book1D(
+      ibook, true, false, "zpos", "z coordinate of production vertex [cm]", "Count", nintZpos, minZpos, maxZpos);
+  histograms.hs_dr.back().book1DLogX(ibook, true, false, "dr", "dR", "Count", nintdr, log10(mindr), log10(maxdr));
+  histograms.hs_drj.back().book1DLogX(
+      ibook, true, false, "drj", "dR(TP,jet)", "Count", nintdrj, log10(mindrj), log10(maxdrj));
+  histograms.hs_simpvz.back().book1D(
+      ibook, true, false, "simpvz", "z of the simulated PV", "Count", nintPVz, minPVz, maxPVz);
 
   histograms.nrecHit_vs_nsimHit_sim2rec.push_back(doResolutionPlots ? ibook.book2D("nrecHit_vs_nsimHit_sim2rec",
                                                                                    "nrecHit vs nsimHit (Sim2RecAssoc)",
@@ -552,37 +443,32 @@ void MTVHistoProducerAlgoForTracker::bookSimTrackHistos(DQMStore::IBooker& ibook
 }
 
 void MTVHistoProducerAlgoForTracker::bookSimTrackPVAssociationHistos(DQMStore::IBooker& ibook, Histograms& histograms) {
-  histograms.h_assocSimToReco_dxypv.push_back(ibook.book1D(
-      "num_assoc(simToReco)_dxypv", "N of associated tracks (simToReco) vs dxy(PV)", nintDxy, minDxy, maxDxy));
-  histograms.h_simul_dxypv.push_back(
-      ibook.book1D("num_simul_dxypv", "N of simulated tracks vs dxy(PV)", nintDxy, minDxy, maxDxy));
-
-  histograms.h_assocSimToReco_dzpv.push_back(
-      ibook.book1D("num_assoc(simToReco)_dzpv", "N of associated tracks (simToReco) vs dz(PV)", nintDz, minDz, maxDz));
-  histograms.h_simul_dzpv.push_back(
-      ibook.book1D("num_simul_dzpv", "N of simulated tracks vs dz(PV)", nintDz, minDz, maxDz));
-
-  histograms.h_assocSimToReco_dxypvzoomed.push_back(ibook.book1D("num_assoc(simToReco)_dxypv_zoomed",
-                                                       "N of associated tracks (simToReco) vs dxy(PV)",
-                                                       nintDxy,
-                                                       minDxy / dxyDzZoom,
-                                                       maxDxy / dxyDzZoom));
-  histograms.h_simul_dxypvzoomed.push_back(ibook.book1D(
-      "num_simul_dxypv_zoomed", "N of simulated tracks vs dxy(PV)", nintDxy, minDxy / dxyDzZoom, maxDxy / dxyDzZoom));
-
-  histograms.h_assocSimToReco_dzpvzoomed.push_back(ibook.book1D("num_assoc(simToReco)_dzpv_zoomed",
-                                                      "N of associated tracks (simToReco) vs dz(PV)",
-                                                      nintDz,
-                                                      minDz / dxyDzZoom,
-                                                      maxDz / dxyDzZoom));
-  histograms.h_simul_dzpvzoomed.push_back(ibook.book1D(
-      "num_simul_dzpv_zoomed", "N of simulated tracks vs dz(PV)", nintDz, minDz / dxyDzZoom, maxDz / dxyDzZoom));
+  histograms.hs_dxypv.back().book1D(
+      ibook, true, false, "dxypv", "Transverse impact parameter dxy wrt PV", "Count", nintDxy, minDxy, maxDxy);
+  histograms.hs_dzpv.back().book1D(
+      ibook, true, false, "dzpv", "Longitudinal impact parameter dz wrt PV", "Count", nintDz, minDz, maxDz);
+  histograms.hs_dxypvzoomed.back().book1D(ibook,
+                                          true,
+                                          false,
+                                          "dxypvzoomed",
+                                          "Transverse impact parameter dxy wrt P",
+                                          "Count",
+                                          nintDxy,
+                                          minDxy / dxyDzZoom,
+                                          maxDxy / dxyDzZoom);
+  histograms.hs_dzpvzoomed.back().book1D(ibook,
+                                         true,
+                                         false,
+                                         "dzpvzoomed",
+                                         "Longitudinal impact parameter dz wrt PV",
+                                         "Count",
+                                         nintDz,
+                                         minDz / dxyDzZoom,
+                                         maxDz / dxyDzZoom);
 
   if (doDzPVcutPlots_) {
-    histograms.h_assocSimToReco_dzpvcut.push_back(ibook.book1D(
-        "num_assoc(simToReco)_dzpvcut", "N of associated tracks (simToReco) vs dz(PV)", nintDzpvCum, 0, maxDzpvCum));
-    histograms.h_simul_dzpvcut.push_back(
-        ibook.book1D("num_simul_dzpvcut", "N of simulated tracks from sim PV", nintDzpvCum, 0, maxDzpvCum));
+    histograms.hs_dzpvcut.back().book1D(
+        ibook, true, false, "dzpvcut", "Longitudinal impact parameter dz wrt PV", "Count", nintDzpvCum, 0, maxDzpvCum);
     histograms.h_simul2_dzpvcut.push_back(ibook.book1D("num_simul2_dzpvcut",
                                                        "N of simulated tracks (associated to any track) from sim PV",
                                                        nintDzpvCum,
@@ -616,367 +502,57 @@ void MTVHistoProducerAlgoForTracker::bookRecoHistos(DQMStore::IBooker& ibook,
   histograms.h_algo.back()->disableAlphanumeric();
 
   /// these are needed to calculate efficiency during the harvesting for the automated validation
-  histograms.h_reco_eta.push_back(ibook.book1D("num_reco_eta", "N of reco track vs eta", nintEta, minEta, maxEta));
-  histograms.h_selreco_eta.push_back(
-      ibook.book1D("num_reco2_eta", "N of selected reco track vs eta", nintEta, minEta, maxEta));
-  histograms.h_assocRecoToSim_eta.push_back(
-      ibook.book1D("num_assoc(recoToSim)_eta", "N of associated (recoToSim) tracks vs eta", nintEta, minEta, maxEta));
-  histograms.h_looper_eta.push_back(ibook.book1D(
-      "num_duplicate_eta", "N of associated (recoToSim) duplicate tracks vs eta", nintEta, minEta, maxEta));
-  if (!doSeedPlots_)
-    histograms.h_misid_eta.push_back(ibook.book1D(
-        "num_chargemisid_eta", "N of associated (recoToSim) charge misIDed tracks vs eta", nintEta, minEta, maxEta));
-  histograms.h_pileup_eta.push_back(
-      ibook.book1D("num_pileup_eta", "N of associated (recoToSim) pileup tracks vs eta", nintEta, minEta, maxEta));
-  //
-  histograms.h_reco_pT.push_back(
-      make1DIfLogX(ibook, useLogPt, "num_reco_pT", "N of reco track vs pT", nintPt, minPt, maxPt));
-  histograms.h_selreco_pT.push_back(
-      make1DIfLogX(ibook, useLogPt, "num_reco2_pT", "N of selected reco track vs pT", nintPt, minPt, maxPt));
-  histograms.h_assocRecoToSim_pT.push_back(make1DIfLogX(
-      ibook, useLogPt, "num_assoc(recoToSim)_pT", "N of associated (recoToSim) tracks vs pT", nintPt, minPt, maxPt));
-  histograms.h_looper_pT.push_back(make1DIfLogX(
-      ibook, useLogPt, "num_duplicate_pT", "N of associated (recoToSim) duplicate tracks vs pT", nintPt, minPt, maxPt));
-  if (!doSeedPlots_)
-    histograms.h_misid_pT.push_back(make1DIfLogX(ibook,
-                                                useLogPt,
-                                                "num_chargemisid_pT",
-                                                "N of associated (recoToSim) charge misIDed tracks vs pT",
-                                                nintPt,
-                                                minPt,
-                                                maxPt));
-  histograms.h_pileup_pT.push_back(make1DIfLogX(
-      ibook, useLogPt, "num_pileup_pT", "N of associated (recoToSim) pileup tracks vs pT", nintPt, minPt, maxPt));
-  //
-  histograms.h_reco_pTvseta.push_back(make2DIfLogY(ibook,
-                                                  useLogPt,
-                                                  "num_reco_pTvseta",
-                                                  "N of reco track in (pT-eta) plane",
-                                                  nintEta,
-                                                  minEta,
-                                                  maxEta,
-                                                  nintPt,
-                                                  minPt,
-                                                  maxPt));
-  histograms.h_selreco_pTvseta.push_back(make2DIfLogY(ibook,
-                                                   useLogPt,
-                                                   "num_reco2_pTvseta",
-                                                   "N of selected reco track in (pT-eta) plane",
-                                                   nintEta,
-                                                   minEta,
-                                                   maxEta,
-                                                   nintPt,
-                                                   minPt,
-                                                   maxPt));
-  histograms.h_assocRecoToSim_pTvseta.push_back(make2DIfLogY(ibook,
-                                                    useLogPt,
-                                                    "num_assoc(recoToSim)_pTvseta",
-                                                    "N of associated (recoToSim) tracks in (pT-eta) plane",
-                                                    nintEta,
-                                                    minEta,
-                                                    maxEta,
-                                                    nintPt,
-                                                    minPt,
-                                                    maxPt));
-  histograms.h_looper_pTvseta.push_back(make2DIfLogY(ibook,
-                                                    useLogPt,
-                                                    "num_duplicate_pTvseta",
-                                                    "N of associated (recoToSim) duplicate tracks in (pT-eta) plane",
-                                                    nintEta,
-                                                    minEta,
-                                                    maxEta,
-                                                    nintPt,
-                                                    minPt,
-                                                    maxPt));
-  if (!doSeedPlots_)
-    histograms.h_misid_pTvseta.push_back(
-        make2DIfLogY(ibook,
-                     useLogPt,
-                     "num_chargemisid_pTvseta",
-                     "N of associated (recoToSim) charge misIDed tracks in (pT-eta) plane",
-                     nintEta,
-                     minEta,
-                     maxEta,
-                     nintPt,
-                     minPt,
-                     maxPt));
-  histograms.h_pileup_pTvseta.push_back(make2DIfLogY(ibook,
-                                                    useLogPt,
-                                                    "num_pileup_pTvseta",
-                                                    "N of associated (recoToSim) pileup tracks in (pT-eta) plane",
-                                                    nintEta,
-                                                    minEta,
-                                                    maxEta,
-                                                    nintPt,
-                                                    minPt,
-                                                    maxPt));
-  //
-  histograms.h_reco_hit.push_back(ibook.book1D("num_reco_hit", "N of reco track vs hit", nintHit, minHit, maxHit));
-  histograms.h_assocRecoToSim_hit.push_back(
-      ibook.book1D("num_assoc(recoToSim)_hit", "N of associated (recoToSim) tracks vs hit", nintHit, minHit, maxHit));
-  histograms.h_looper_hit.push_back(ibook.book1D(
-      "num_duplicate_hit", "N of associated (recoToSim) duplicate tracks vs hit", nintHit, minHit, maxHit));
-  if (!doSeedPlots_)
-    histograms.h_misid_hit.push_back(ibook.book1D(
-        "num_chargemisid_hit", "N of associated (recoToSim) charge misIDed tracks vs hit", nintHit, minHit, maxHit));
-  histograms.h_pileup_hit.push_back(
-      ibook.book1D("num_pileup_hit", "N of associated (recoToSim) pileup tracks vs hit", nintHit, minHit, maxHit));
-  //
-  histograms.h_reco_layer.push_back(
-      ibook.book1D("num_reco_layer", "N of reco track vs layer", nintLayers, minLayers, maxLayers));
-  histograms.h_assocRecoToSim_layer.push_back(ibook.book1D(
-      "num_assoc(recoToSim)_layer", "N of associated (recoToSim) tracks vs layer", nintLayers, minLayers, maxLayers));
-  histograms.h_looper_layer.push_back(ibook.book1D(
-      "num_duplicate_layer", "N of associated (recoToSim) duplicate tracks vs layer", nintLayers, minLayers, maxLayers));
-  if (!doSeedPlots_)
-    histograms.h_misid_layer.push_back(ibook.book1D("num_chargemisid_layer",
-                                                   "N of associated (recoToSim) charge misIDed tracks vs layer",
-                                                   nintLayers,
-                                                   minLayers,
-                                                   maxLayers));
-  histograms.h_pileup_layer.push_back(ibook.book1D(
-      "num_pileup_layer", "N of associated (recoToSim) pileup tracks vs layer", nintLayers, minLayers, maxLayers));
-  //
-  histograms.h_reco_pixellayer.push_back(
-      ibook.book1D("num_reco_pixellayer", "N of reco track vs pixellayer", nintLayers, minLayers, maxLayers));
-  histograms.h_assocRecoToSim_pixellayer.push_back(ibook.book1D("num_assoc(recoToSim)_pixellayer",
-                                                       "N of associated (recoToSim) tracks vs pixellayer",
-                                                       nintLayers,
-                                                       minLayers,
-                                                       maxLayers));
-  histograms.h_looper_pixellayer.push_back(ibook.book1D("num_duplicate_pixellayer",
-                                                       "N of associated (recoToSim) duplicate tracks vs pixellayer",
-                                                       nintLayers,
-                                                       minLayers,
-                                                       maxLayers));
-  if (!doSeedPlots_)
-    histograms.h_misid_pixellayer.push_back(
-        ibook.book1D("num_chargemisid_pixellayer",
-                     "N of associated (recoToSim) charge misIDed tracks vs pixellayer",
-                     nintLayers,
-                     minLayers,
-                     maxLayers));
-  histograms.h_pileup_pixellayer.push_back(ibook.book1D("num_pileup_pixellayer",
-                                                       "N of associated (recoToSim) pileup tracks vs pixellayer",
-                                                       nintLayers,
-                                                       minLayers,
-                                                       maxLayers));
-  //
-  histograms.h_reco_3Dlayer.push_back(
-      ibook.book1D("num_reco_3Dlayer", "N of reco track vs 3D layer", nintLayers, minLayers, maxLayers));
-  histograms.h_assocRecoToSim_3Dlayer.push_back(ibook.book1D("num_assoc(recoToSim)_3Dlayer",
-                                                    "N of associated (recoToSim) tracks vs 3D layer",
-                                                    nintLayers,
-                                                    minLayers,
-                                                    maxLayers));
-  histograms.h_looper_3Dlayer.push_back(ibook.book1D("num_duplicate_3Dlayer",
-                                                    "N of associated (recoToSim) duplicate tracks vs 3D layer",
-                                                    nintLayers,
-                                                    minLayers,
-                                                    maxLayers));
-  if (!doSeedPlots_)
-    histograms.h_misid_3Dlayer.push_back(ibook.book1D("num_chargemisid_3Dlayer",
-                                                     "N of associated (recoToSim) charge misIDed tracks vs 3D layer",
-                                                     nintLayers,
-                                                     minLayers,
-                                                     maxLayers));
-  histograms.h_pileup_3Dlayer.push_back(ibook.book1D(
-      "num_pileup_3Dlayer", "N of associated (recoToSim) pileup tracks vs 3D layer", nintLayers, minLayers, maxLayers));
-  //
-  histograms.h_reco_pu.push_back(ibook.book1D("num_reco_pu", "N of reco track vs pu", nintPu, minPu, maxPu));
-  histograms.h_selreco_pu.push_back(ibook.book1D("num_reco2_pu", "N of selected reco track vs pu", nintPu, minPu, maxPu));
-  histograms.h_assocRecoToSim_pu.push_back(
-      ibook.book1D("num_assoc(recoToSim)_pu", "N of associated (recoToSim) tracks vs pu", nintPu, minPu, maxPu));
-  histograms.h_looper_pu.push_back(
-      ibook.book1D("num_duplicate_pu", "N of associated (recoToSim) duplicate tracks vs pu", nintPu, minPu, maxPu));
-  if (!doSeedPlots_)
-    histograms.h_misid_pu.push_back(ibook.book1D(
-        "num_chargemisid_pu", "N of associated (recoToSim) charge misIDed tracks vs pu", nintPu, minPu, maxPu));
-  histograms.h_pileup_pu.push_back(
-      ibook.book1D("num_pileup_pu", "N of associated (recoToSim) pileup tracks vs pu", nintPu, minPu, maxPu));
-  //
-  histograms.h_reco_phi.push_back(ibook.book1D("num_reco_phi", "N of reco track vs phi", nintPhi, minPhi, maxPhi));
-  histograms.h_assocRecoToSim_phi.push_back(
-      ibook.book1D("num_assoc(recoToSim)_phi", "N of associated (recoToSim) tracks vs phi", nintPhi, minPhi, maxPhi));
-  histograms.h_looper_phi.push_back(ibook.book1D(
-      "num_duplicate_phi", "N of associated (recoToSim) duplicate tracks vs phi", nintPhi, minPhi, maxPhi));
-  if (!doSeedPlots_)
-    histograms.h_misid_phi.push_back(ibook.book1D(
-        "num_chargemisid_phi", "N of associated (recoToSim) charge misIDed tracks vs phi", nintPhi, minPhi, maxPhi));
-  histograms.h_pileup_phi.push_back(
-      ibook.book1D("num_pileup_phi", "N of associated (recoToSim) pileup tracks vs phi", nintPhi, minPhi, maxPhi));
+  histograms.hs_eta.back().book1D(ibook, false, true, "eta", "Pseudorapidity #eta", "Count", nintEta, minEta, maxEta);
+  histograms.hs_pT.back().book1DIfLogX(ibook, useLogPt, false, true, "pT", "p_T", "Count", nintPt, minPt, maxPt);
+  histograms.hs_pTvseta.back().book2DIfLogY(ibook,
+                                            useLogPt,
+                                            false,
+                                            true,
+                                            "pTvseta",
+                                            "Pseudorapidity #eta",
+                                            "p_T",
+                                            nintEta,
+                                            minEta,
+                                            maxEta,
+                                            nintPt,
+                                            minPt,
+                                            maxPt);
 
-  histograms.h_reco_dxy.push_back(ibook.book1D("num_reco_dxy", "N of reco track vs dxy", nintDxy, minDxy, maxDxy));
-  histograms.h_assocRecoToSim_dxy.push_back(
-      ibook.book1D("num_assoc(recoToSim)_dxy", "N of associated (recoToSim) tracks vs dxy", nintDxy, minDxy, maxDxy));
-  histograms.h_looper_dxy.push_back(
-      ibook.book1D("num_duplicate_dxy", "N of associated (recoToSim) looper tracks vs dxy", nintDxy, minDxy, maxDxy));
-  if (!doSeedPlots_)
-    histograms.h_misid_dxy.push_back(ibook.book1D(
-        "num_chargemisid_dxy", "N of associated (recoToSim) charge misIDed tracks vs dxy", nintDxy, minDxy, maxDxy));
-  histograms.h_pileup_dxy.push_back(
-      ibook.book1D("num_pileup_dxy", "N of associated (recoToSim) pileup tracks vs dxy", nintDxy, minDxy, maxDxy));
-
-  histograms.h_reco_dz.push_back(ibook.book1D("num_reco_dz", "N of reco track vs dz", nintDz, minDz, maxDz));
-  histograms.h_assocRecoToSim_dz.push_back(
-      ibook.book1D("num_assoc(recoToSim)_dz", "N of associated (recoToSim) tracks vs dz", nintDz, minDz, maxDz));
-  histograms.h_looper_dz.push_back(
-      ibook.book1D("num_duplicate_dz", "N of associated (recoToSim) looper tracks vs dz", nintDz, minDz, maxDz));
-  if (!doSeedPlots_)
-    histograms.h_misid_dz.push_back(ibook.book1D(
-        "num_chargemisid_versus_dz", "N of associated (recoToSim) charge misIDed tracks vs dz", nintDz, minDz, maxDz));
-  histograms.h_pileup_dz.push_back(
-      ibook.book1D("num_pileup_dz", "N of associated (recoToSim) pileup tracks vs dz", nintDz, minDz, maxDz));
-
-  histograms.h_reco_vertpos.push_back(make1DIfLogX(ibook,
-                                                  useLogVertpos,
-                                                  "num_reco_vertpos",
-                                                  "N of reconstructed tracks vs transverse ref point position",
-                                                  nintVertpos,
-                                                  minVertpos,
-                                                  maxVertpos));
-  histograms.h_assocRecoToSim_vertpos.push_back(
-      make1DIfLogX(ibook,
-                   useLogVertpos,
-                   "num_assoc(recoToSim)_vertpos",
-                   "N of associated (recoToSim) tracks vs transverse ref point position",
-                   nintVertpos,
-                   minVertpos,
-                   maxVertpos));
-  histograms.h_looper_vertpos.push_back(
-      make1DIfLogX(ibook,
-                   useLogVertpos,
-                   "num_duplicate_vertpos",
-                   "N of associated (recoToSim) looper tracks vs transverse ref point position",
-                   nintVertpos,
-                   minVertpos,
-                   maxVertpos));
-  histograms.h_pileup_vertpos.push_back(
-      make1DIfLogX(ibook,
-                   useLogVertpos,
-                   "num_pileup_vertpos",
-                   "N of associated (recoToSim) pileup tracks vs transverse ref point position",
-                   nintVertpos,
-                   minVertpos,
-                   maxVertpos));
-
-  histograms.h_reco_zpos.push_back(ibook.book1D(
-      "num_reco_zpos", "N of reconstructed tracks vs transverse ref point position", nintZpos, minZpos, maxZpos));
-  histograms.h_assocRecoToSim_zpos.push_back(ibook.book1D("num_assoc(recoToSim)_zpos",
-                                                 "N of associated (recoToSim) tracks vs transverse ref point position",
-                                                 nintZpos,
-                                                 minZpos,
-                                                 maxZpos));
-  histograms.h_looper_zpos.push_back(
-      ibook.book1D("num_duplicate_zpos",
-                   "N of associated (recoToSim) looper tracks vs transverse ref point position",
-                   nintZpos,
-                   minZpos,
-                   maxZpos));
-  histograms.h_pileup_zpos.push_back(
-      ibook.book1D("num_pileup_zpos",
-                   "N of associated (recoToSim) pileup tracks vs transverse ref point position",
-                   nintZpos,
-                   minZpos,
-                   maxZpos));
-
-  histograms.h_reco_dr.push_back(
-      make1DIfLogX(ibook, true, "num_reco_dr", "N of reconstructed tracks vs dR", nintdr, log10(mindr), log10(maxdr)));
-  histograms.h_assocRecoToSim_dr.push_back(make1DIfLogX(ibook,
-                                               true,
-                                               "num_assoc(recoToSim)_dr",
-                                               "N of associated tracks (recoToSim) vs dR",
-                                               nintdr,
-                                               log10(mindr),
-                                               log10(maxdr)));
-  histograms.h_looper_dr.push_back(make1DIfLogX(ibook,
-                                               true,
-                                               "num_duplicate_dr",
-                                               "N of associated (recoToSim) looper tracks vs dR",
-                                               nintdr,
-                                               log10(mindr),
-                                               log10(maxdr)));
-  histograms.h_pileup_dr.push_back(make1DIfLogX(ibook,
-                                               true,
-                                               "num_pileup_dr",
-                                               "N of associated (recoToSim) pileup tracks vs dR",
-                                               nintdr,
-                                               log10(mindr),
-                                               log10(maxdr)));
-
-  histograms.h_reco_drj.push_back(make1DIfLogX(
-      ibook, true, "num_reco_drj", "N of reconstructed tracks vs dR(track,jet)", nintdrj, log10(mindrj), log10(maxdrj)));
-  histograms.h_assocRecoToSim_drj.push_back(make1DIfLogX(ibook,
-                                                true,
-                                                "num_assoc(recoToSim)_drj",
-                                                "N of associated tracks (recoToSim) vs dR(track,jet)",
-                                                nintdrj,
-                                                log10(mindrj),
-                                                log10(maxdrj)));
-  histograms.h_looper_drj.push_back(make1DIfLogX(ibook,
-                                                true,
-                                                "num_duplicate_drj",
-                                                "N of associated (recoToSim) looper tracks vs dR(track,jet)",
-                                                nintdrj,
-                                                log10(mindrj),
-                                                log10(maxdrj)));
-  histograms.h_pileup_drj.push_back(make1DIfLogX(ibook,
-                                                true,
-                                                "num_pileup_drj",
-                                                "N of associated (recoToSim) pileup tracks vs dR(track,jet)",
-                                                nintdrj,
-                                                log10(mindrj),
-                                                log10(maxdrj)));
-
-  histograms.h_reco_simpvz.push_back(
-      ibook.book1D("num_reco_simpvz", "N of reco track vs. sim PV z", nintPVz, minPVz, maxPVz));
-  histograms.h_assocRecoToSim_simpvz.push_back(ibook.book1D(
-      "num_assoc(recoToSim)_simpvz", "N of associated tracks (recoToSim) vs. sim PV z", nintPVz, minPVz, maxPVz));
-  histograms.h_looper_simpvz.push_back(ibook.book1D(
-      "num_duplicate_simpvz", "N of associated (recoToSim) looper tracks vs. sim PV z", nintPVz, minPVz, maxPVz));
-  histograms.h_pileup_simpvz.push_back(ibook.book1D(
-      "num_pileup_simpvz", "N of associated (recoToSim) pileup tracks vs. sim PV z", nintPVz, minPVz, maxPVz));
-
-  histograms.h_reco_chi2.push_back(
-      ibook.book1D("num_reco_chi2", "N of reco track vs normalized #chi^{2}", nintChi2, minChi2, maxChi2));
-  histograms.h_assocRecoToSim_chi2.push_back(ibook.book1D("num_assoc(recoToSim)_chi2",
-                                                 "N of associated (recoToSim) tracks vs normalized #chi^{2}",
-                                                 nintChi2,
-                                                 minChi2,
-                                                 maxChi2));
-  histograms.h_looper_chi2.push_back(ibook.book1D("num_duplicate_chi2",
-                                                 "N of associated (recoToSim) looper tracks vs normalized #chi^{2}",
-                                                 nintChi2,
-                                                 minChi2,
-                                                 maxChi2));
-  if (!doSeedPlots_)
-    histograms.h_misid_chi2.push_back(
-        ibook.book1D("num_chargemisid_chi2",
-                     "N of associated (recoToSim) charge misIDed tracks vs normalized #chi^{2}",
-                     nintChi2,
-                     minChi2,
-                     maxChi2));
-  histograms.h_pileup_chi2.push_back(ibook.book1D("num_pileup_chi2",
-                                                 "N of associated (recoToSim) pileup tracks vs normalized #chi^{2}",
-                                                 nintChi2,
-                                                 minChi2,
-                                                 maxChi2));
-
-  histograms.h_reco_chi2prob.push_back(
-      ibook.book1D("num_reco_chi2prob", "N of reco track vs normalized #chi^{2}", 100, 0., 1.));
-  histograms.h_assocRecoToSim_chi2prob.push_back(ibook.book1D(
-      "num_assoc(recoToSim)_chi2prob", "N of associated (recoToSim) tracks vs normalized #chi^{2}", 100, 0., 1.));
-  histograms.h_looper_chi2prob.push_back(ibook.book1D(
-      "num_duplicate_chi2prob", "N of associated (recoToSim) looper tracks vs normalized #chi^{2}", 100, 0., 1.));
-  if (!doSeedPlots_)
-    histograms.h_misid_chi2prob.push_back(
-        ibook.book1D("num_chargemisid_chi2prob",
-                     "N of associated (recoToSim) charge misIDed tracks vs normalized #chi^{2}",
-                     100,
-                     0.,
-                     1.));
-  histograms.h_pileup_chi2prob.push_back(ibook.book1D(
-      "num_pileup_chi2prob", "N of associated (recoToSim) pileup tracks vs normalized #chi^{2}", 100, 0., 1.));
+  histograms.hs_hit.back().book1D(ibook, false, true, "hit", "Number of hits", "Count", nintHit, minHit, maxHit);
+  histograms.hs_layer.back().book1D(
+      ibook, false, true, "layer", "Number of layers", "Count", nintLayers, minLayers, maxLayers);
+  histograms.hs_pixellayer.back().book1D(
+      ibook, false, true, "pixellayer", "Number of pixel layers", "Count", nintLayers, minLayers, maxLayers);
+  histograms.hs_3Dlayer.back().book1D(
+      ibook, false, true, "3Dlayer", "Number of 3D layers", "Count", nintLayers, minLayers, maxLayers);
+  histograms.hs_pu.back().book1D(
+      ibook, false, true, "pu", "Number of Primary Vertices / Pileup", "Count", nintPu, minPu, maxPu);
+  histograms.hs_phi.back().book1D(ibook, false, true, "phi", "#phi angle", "Count", nintPhi, minPhi, maxPhi);
+  histograms.hs_dxy.back().book1D(
+      ibook, false, true, "dxy", "Transverse impact parameter dxy [cm]", "Count", nintDxy, minDxy, maxDxy);
+  histograms.hs_dz.back().book1D(
+      ibook, false, true, "dz", "Longitudinal impact parameter dz [cm]", "Count", nintDz, minDz, maxDz);
+  histograms.hs_vertpos.back().book1DIfLogX(ibook,
+                                            useLogVertpos,
+                                            false,
+                                            true,
+                                            "vertpos",
+                                            "Radial displacement of production vertex [cm]",
+                                            "Count",
+                                            nintVertpos,
+                                            minVertpos,
+                                            maxVertpos);
+  histograms.hs_zpos.back().book1D(
+      ibook, false, true, "zpos", "z coordinate of production vertex [cm]", "Count", nintZpos, minZpos, maxZpos);
+  histograms.hs_dr.back().book1DLogX(ibook, false, true, "dr", "dR", "Count", nintdr, log10(mindr), log10(maxdr));
+  histograms.hs_drj.back().book1DLogX(
+      ibook, false, true, "drj", "dR(TP,jet)", "Count", nintdrj, log10(mindrj), log10(maxdrj));
+  histograms.hs_simpvz.back().book1D(
+      ibook, false, true, "simpvz", "z of the simulated PV", "Count", nintPVz, minPVz, maxPVz);
+  histograms.hs_chi2.back().book1D(
+      ibook, false, true, "chi2", "Normalized #chi2 / ndof", "Count", nintChi2, minChi2, maxChi2);
+  histograms.hs_chi2prob.back().book1D(
+      ibook, false, true, "chi2prob", "Probability for given #chi2", "Count", 100, 0., 1.);
 
   if (!seedingLayerSetNames.empty()) {
     const auto size = seedingLayerSetNames.size();
@@ -1021,15 +597,16 @@ void MTVHistoProducerAlgoForTracker::bookRecoHistos(DQMStore::IBooker& ibook,
 
   /* TO BE FIXED -----------
   if (associators[ww]=="TrackAssociatorByChi2"){
-    histograms.h_assocSimToReco_hi2.push_back( ibook.book1D("assocChi2","track association #chi^{2}",1000000,0,100000) );
-    histograms.h_assocSimToReco_hi2_prob.push_back(ibook.book1D("assocChi2_prob","probability of association #chi^{2}",100,0,1));
+    histograms.h_assocSimToReco_chi2.push_back( ibook.book1D("assocChi2","track association #chi^{2}",1000000,0,100000) );
+    histograms.h_assocSimToReco_chi2_prob.push_back(ibook.book1D("assocChi2_prob","probability of association #chi^{2}",100,0,1));
   } else if (associators[ww]=="quickTrackAssociatorByHits"){
     histograms.h_assocSimToReco_Fraction.push_back( ibook.book1D("assocFraction","fraction of shared hits",200,0,2) );
     histograms.h_assocSimToReco_SharedHit.push_back(ibook.book1D("assocSharedHit","number of shared hits",20,0,20));
   }
   */
   histograms.h_assocSimToReco_Fraction.push_back(ibook.book1D("assocFraction", "fraction of shared hits", 200, 0, 2));
-  histograms.h_assocSimToReco_SharedHit.push_back(ibook.book1D("assocSharedHit", "number of shared hits", 41, -0.5, 40.5));
+  histograms.h_assocSimToReco_SharedHit.push_back(
+      ibook.book1D("assocSharedHit", "number of shared hits", 41, -0.5, 40.5));
   // ----------------------
 
   // use the standard error of the mean as the errors in the profile
@@ -1406,92 +983,37 @@ void MTVHistoProducerAlgoForTracker::bookRecoHistos(DQMStore::IBooker& ibook,
 }
 
 void MTVHistoProducerAlgoForTracker::bookRecoPVAssociationHistos(DQMStore::IBooker& ibook, Histograms& histograms) {
-  histograms.h_reco_dxypv.push_back(
-      ibook.book1D("num_reco_dxypv", "N of reco track vs dxy(PV)", nintDxy, minDxy, maxDxy));
-  histograms.h_assocRecoToSim_dxypv.push_back(ibook.book1D(
-      "num_assoc(recoToSim)_dxypv", "N of associated (recoToSim) tracks vs dxy(PV)", nintDxy, minDxy, maxDxy));
-  histograms.h_looper_dxypv.push_back(ibook.book1D(
-      "num_duplicate_dxypv", "N of associated (recoToSim) looper tracks vs dxy(PV)", nintDxy, minDxy, maxDxy));
-  if (!doSeedPlots_)
-    histograms.h_misid_dxypv.push_back(ibook.book1D("num_chargemisid_dxypv",
-                                                   "N of associated (recoToSim) charge misIDed tracks vs dxy(PV)",
-                                                   nintDxy,
-                                                   minDxy,
-                                                   maxDxy));
-  histograms.h_pileup_dxypv.push_back(ibook.book1D(
-      "num_pileup_dxypv", "N of associated (recoToSim) pileup tracks vs dxy(PV)", nintDxy, minDxy, maxDxy));
-
-  histograms.h_reco_dzpv.push_back(ibook.book1D("num_reco_dzpv", "N of reco track vs dz(PV)", nintDz, minDz, maxDz));
-  histograms.h_assocRecoToSim_dzpv.push_back(
-      ibook.book1D("num_assoc(recoToSim)_dzpv", "N of associated (recoToSim) tracks vs dz(PV)", nintDz, minDz, maxDz));
-  histograms.h_looper_dzpv.push_back(
-      ibook.book1D("num_duplicate_dzpv", "N of associated (recoToSim) looper tracks vs dz(PV)", nintDz, minDz, maxDz));
-  if (!doSeedPlots_)
-    histograms.h_misid_dzpv.push_back(ibook.book1D("num_chargemisid_versus_dzpv",
-                                                  "N of associated (recoToSim) charge misIDed tracks vs dz(PV)",
-                                                  nintDz,
-                                                  minDz,
-                                                  maxDz));
-  histograms.h_pileup_dzpv.push_back(
-      ibook.book1D("num_pileup_dzpv", "N of associated (recoToSim) pileup tracks vs dz(PV)", nintDz, minDz, maxDz));
-
-  histograms.h_reco_dxypvzoomed.push_back(ibook.book1D(
-      "num_reco_dxypv_zoomed", "N of reco track vs dxy(PV)", nintDxy, minDxy / dxyDzZoom, maxDxy / dxyDzZoom));
-  histograms.h_assocRecoToSim_dxypvzoomed.push_back(ibook.book1D("num_assoc(recoToSim)_dxypv_zoomed",
-                                                        "N of associated (recoToSim) tracks vs dxy(PV)",
-                                                        nintDxy,
-                                                        minDxy / dxyDzZoom,
-                                                        maxDxy / dxyDzZoom));
-  histograms.h_looper_dxypvzoomed.push_back(ibook.book1D("num_duplicate_dxypv_zoomed",
-                                                        "N of associated (recoToSim) looper tracks vs dxy(PV)",
-                                                        nintDxy,
-                                                        minDxy / dxyDzZoom,
-                                                        maxDxy / dxyDzZoom));
-  if (!doSeedPlots_)
-    histograms.h_misid_dxypvzoomed.push_back(ibook.book1D("num_chargemisid_dxypv_zoomed",
-                                                         "N of associated (recoToSim) charge misIDed tracks vs dxy(PV)",
-                                                         nintDxy,
-                                                         minDxy / dxyDzZoom,
-                                                         maxDxy / dxyDzZoom));
-  histograms.h_pileup_dxypvzoomed.push_back(ibook.book1D("num_pileup_dxypv_zoomed",
-                                                        "N of associated (recoToSim) pileup tracks vs dxy(PV)",
-                                                        nintDxy,
-                                                        minDxy / dxyDzZoom,
-                                                        maxDxy / dxyDzZoom));
-
-  histograms.h_reco_dzpvzoomed.push_back(
-      ibook.book1D("num_reco_dzpv_zoomed", "N of reco track vs dz(PV)", nintDz, minDz / dxyDzZoom, maxDz / dxyDzZoom));
-  histograms.h_assocRecoToSim_dzpvzoomed.push_back(ibook.book1D("num_assoc(recoToSim)_dzpv_zoomed",
-                                                       "N of associated (recoToSim) tracks vs dz(PV)",
-                                                       nintDz,
-                                                       minDz / dxyDzZoom,
-                                                       maxDz / dxyDzZoom));
-  histograms.h_looper_dzpvzoomed.push_back(ibook.book1D("num_duplicate_dzpv_zoomed",
-                                                       "N of associated (recoToSim) looper tracks vs dz(PV)",
-                                                       nintDz,
-                                                       minDz / dxyDzZoom,
-                                                       maxDz / dxyDzZoom));
-  if (!doSeedPlots_)
-    histograms.h_misid_dzpvzoomed.push_back(ibook.book1D("num_chargemisid_versus_dzpv_zoomed",
-                                                        "N of associated (recoToSim) charge misIDed tracks vs dz(PV)",
-                                                        nintDz,
-                                                        minDz / dxyDzZoom,
-                                                        maxDz / dxyDzZoom));
-  histograms.h_pileup_dzpvzoomed.push_back(ibook.book1D("num_pileup_dzpv_zoomed",
-                                                       "N of associated (recoToSim) pileup tracks vs dz(PV)",
-                                                       nintDz,
-                                                       minDz / dxyDzZoom,
-                                                       maxDz / dxyDzZoom));
+  histograms.hs_dxypv.back().book1D(
+      ibook, false, true, "dxypv", "Transverse impact parameter dxy wrt PV", "Count", nintDxy, minDxy, maxDxy);
+  histograms.hs_dzpv.back().book1D(
+      ibook, false, true, "dzpv", "Longitudinal impact parameter dz wrt PV", "Count", nintDz, minDz, maxDz);
+  histograms.hs_dxypvzoomed.back().book1D(ibook,
+                                          true,
+                                          false,
+                                          "dxypvzoomed",
+                                          "Transverse impact parameter dxy wrt P",
+                                          "Count",
+                                          nintDxy,
+                                          minDxy / dxyDzZoom,
+                                          maxDxy / dxyDzZoom);
+  histograms.hs_dzpvzoomed.back().book1D(ibook,
+                                         true,
+                                         false,
+                                         "dzpvzoomed",
+                                         "Longitudinal impact parameter dz wrt PV",
+                                         "Count",
+                                         nintDz,
+                                         minDz / dxyDzZoom,
+                                         maxDz / dxyDzZoom);
 
   if (doDzPVcutPlots_) {
-    histograms.h_reco_dzpvcut.push_back(
-        ibook.book1D("num_reco_dzpvcut", "N of reco track vs dz(PV)", nintDzpvCum, 0, maxDzpvCum));
-
-    histograms.h_assocRecoToSim_dzpvcut.push_back(ibook.book1D(
-        "num_assoc(recoToSim)_dzpvcut", "N of associated (recoToSim) tracks vs dz(PV)", nintDzpvCum, 0, maxDzpvCum));
-
-    histograms.h_pileup_dzpvcut.push_back(ibook.book1D(
-        "num_pileup_dzpvcut", "N of associated (recoToSim) pileup tracks vs dz(PV)", nintDzpvCum, 0, maxDzpvCum));
+    histograms.hs_dzpvcut.back().book1D(
+        ibook, false, true, "dzpvcut", "Longitudinal impact parameter dz wrt PV", "Count", nintDzpvCum, 0, maxDzpvCum);
+    histograms.h_simul2_dzpvcut.push_back(ibook.book1D("num_simul2_dzpvcut",
+                                                       "N of simulated tracks (associated to any track) from sim PV",
+                                                       nintDzpvCum,
+                                                       0,
+                                                       maxDzpvCum));
   }
 }
 
@@ -1645,11 +1167,12 @@ void MTVHistoProducerAlgoForTracker::bookMVAHistos(DQMStore::IBooker& ibook, His
 
     histograms.h_reco_mva.back().push_back(
         ibook.book1D("num_reco_mva" + istr, "N of reco track vs MVA" + istr + pfix, nintMVA, minMVA, maxMVA));
-    histograms.h_assocRecoToSim_mva.back().push_back(ibook.book1D("num_assoc(recoToSim)_mva" + istr,
-                                                          "N of associated tracks (recoToSim) vs MVA" + istr + pfix,
-                                                          nintMVA,
-                                                          minMVA,
-                                                          maxMVA));
+    histograms.h_assocRecoToSim_mva.back().push_back(
+        ibook.book1D("num_assoc(recoToSim)_mva" + istr,
+                     "N of associated tracks (recoToSim) vs MVA" + istr + pfix,
+                     nintMVA,
+                     minMVA,
+                     maxMVA));
 
     histograms.h_reco_mvacut.back().push_back(ibook.book1D(
         "num_reco_mva" + istr + "cut", "N of reco track vs cut on MVA" + istr + pfix, nintMVA, minMVA, maxMVA));
@@ -1750,7 +1273,8 @@ void MTVHistoProducerAlgoForTracker::fill_recoAssociated_simTrack_histos(
     const std::vector<float>& mvas,
     unsigned int selectsLoose,
     unsigned int selectsHP) const {
-  bool isMatched = track;
+  const bool isMatched = track;
+  const bool isReconstructable = (*TpSelectorForTechnicalEfficiency)(tp);
   const auto eta = getEta(momentumTP.eta());
   const auto phi = momentumTP.phi();
   const auto pt = getPt(sqrt(momentumTP.perp2()));
@@ -1778,102 +1302,52 @@ void MTVHistoProducerAlgoForTracker::fill_recoAssociated_simTrack_histos(
     }
   }
 
-  if ((*TpSelectorForEfficiencyVsEta)(tp)) {
+  if ((*TpSelectorForEfficiencyVsEta)(tp))
     //effic vs eta
-    histograms.h_simul_eta[count]->Fill(eta);
-    if (isMatched)
-      histograms.h_assocSimToReco_eta[count]->Fill(eta);
-  }
+    histograms.hs_eta[count].fillSimTrackHistos(isMatched, isReconstructable, eta);
 
   if ((*TpSelectorForEfficiencyVsPhi)(tp)) {
-    histograms.h_simul_phi[count]->Fill(phi);
-    if (isMatched)
-      histograms.h_assocSimToReco_phi[count]->Fill(phi);
-    //effic vs hits
-    histograms.h_simul_hit[count]->Fill(nSimHits);
-    histograms.h_simul_layer[count]->Fill(nSimLayers);
-    histograms.h_simul_pixellayer[count]->Fill(nSimPixelLayers);
-    histograms.h_simul_3Dlayer[count]->Fill(nSim3DLayers);
-    if (isMatched) {
-      histograms.h_assocSimToReco_hit[count]->Fill(nSimHits);
-      histograms.h_assocSimToReco_layer[count]->Fill(nSimLayers);
-      histograms.h_assocSimToReco_pixellayer[count]->Fill(nSimPixelLayers);
-      histograms.h_assocSimToReco_3Dlayer[count]->Fill(nSim3DLayers);
-      if (histograms.nrecHit_vs_nsimHit_sim2rec[count])
-        histograms.nrecHit_vs_nsimHit_sim2rec[count]->Fill(track->numberOfValidHits(), nSimHits);
-    }
-    //effic vs pu
-    histograms.h_simul_pu[count]->Fill(numVertices);
-    if (isMatched)
-      histograms.h_assocSimToReco_pu[count]->Fill(numVertices);
-    //efficiency vs dR
-    histograms.h_simul_dr[count]->Fill(dR);
-    if (isMatched)
-      histograms.h_assocSimToReco_dr[count]->Fill(dR);
-    //efficiency vs dR jet
-    histograms.h_simul_drj[count]->Fill(dRJet);
-    if (isMatched)
-      histograms.h_assocSimToReco_drj[count]->Fill(dRJet);
+    histograms.hs_phi[count].fillSimTrackHistos(isMatched, isReconstructable, phi);
+    histograms.hs_hit[count].fillSimTrackHistos(isMatched, isReconstructable, nSimHits);
+    histograms.hs_layer[count].fillSimTrackHistos(isMatched, isReconstructable, nSimLayers);
+    histograms.hs_pixellayer[count].fillSimTrackHistos(isMatched, isReconstructable, nSimPixelLayers);
+    histograms.hs_3Dlayer[count].fillSimTrackHistos(isMatched, isReconstructable, nSim3DLayers);
+    histograms.hs_pu[count].fillSimTrackHistos(isMatched, isReconstructable, numVertices);
+    histograms.hs_dr[count].fillSimTrackHistos(isMatched, isReconstructable, dR);
+    histograms.hs_drj[count].fillSimTrackHistos(isMatched, isReconstructable, dRJet);
+
+    if (isMatched && histograms.nrecHit_vs_nsimHit_sim2rec[count])
+      histograms.nrecHit_vs_nsimHit_sim2rec[count]->Fill(track->numberOfValidHits(), nSimHits);
   }
 
-  if ((*TpSelectorForEfficiencyVsPt)(tp)) {
-    histograms.h_simul_pT[count]->Fill(pt);
-    if (isMatched)
-      histograms.h_assocSimToReco_pT[count]->Fill(pt);
-  }
+  if ((*TpSelectorForEfficiencyVsPt)(tp))
+    histograms.hs_pT[count].fillSimTrackHistos(isMatched, isReconstructable, pt);
 
   if ((*TpSelectorForEfficiencyVsVTXR)(tp)) {
-    histograms.h_simul_dxy[count]->Fill(dxySim);
-    if (isMatched)
-      histograms.h_assocSimToReco_dxy[count]->Fill(dxySim);
+    histograms.hs_vertpos[count].fillSimTrackHistos(isMatched, isReconstructable, vertxy);
+    histograms.hs_dxy[count].fillSimTrackHistos(isMatched, isReconstructable, dxySim);
     if (pvPosition) {
-      histograms.h_simul_dxypv[count]->Fill(dxyPVSim);
-      histograms.h_simul_dxypvzoomed[count]->Fill(dxyPVSim);
-      if (isMatched) {
-        histograms.h_assocSimToReco_dxypv[count]->Fill(dxyPVSim);
-        histograms.h_assocSimToReco_dxypvzoomed[count]->Fill(dxyPVSim);
-      }
+      histograms.hs_dxypv[count].fillSimTrackHistos(isMatched, isReconstructable, dxyPVSim);
+      histograms.hs_dxypvzoomed[count].fillSimTrackHistos(isMatched, isReconstructable, dxyPVSim);
     }
-
-    histograms.h_simul_vertpos[count]->Fill(vertxy);
-    if (isMatched)
-      histograms.h_assocSimToReco_vertpos[count]->Fill(vertxy);
   }
 
   if ((*TpSelectorForEfficiencyVsVTXZ)(tp)) {
-    histograms.h_simul_dz[count]->Fill(dzSim);
-    if (isMatched)
-      histograms.h_assocSimToReco_dz[count]->Fill(dzSim);
-
-    histograms.h_simul_zpos[count]->Fill(vertz);
-    if (isMatched)
-      histograms.h_assocSimToReco_zpos[count]->Fill(vertz);
-
+    histograms.hs_zpos[count].fillSimTrackHistos(isMatched, isReconstructable, vertz);
+    histograms.hs_dz[count].fillSimTrackHistos(isMatched, isReconstructable, dzSim);
     if (pvPosition) {
-      histograms.h_simul_dzpv[count]->Fill(dzPVSim);
-      histograms.h_simul_dzpvzoomed[count]->Fill(dzPVSim);
-
-      if (doDzPVcutPlots_)
-        histograms.h_simul_dzpvcut[count]->Fill(0);
-
-      if (isMatched) {
-        histograms.h_assocSimToReco_dzpv[count]->Fill(dzPVSim);
-        histograms.h_assocSimToReco_dzpvzoomed[count]->Fill(dzPVSim);
-
-        if (doDzPVcutPlots_) {
-          histograms.h_simul2_dzpvcut[count]->Fill(0);
-
-          const double dzpvcut = std::abs(track->dz(*pvPosition));
-          histograms.h_assocSimToReco_dzpvcut[count]->Fill(dzpvcut);
-        }
+      histograms.hs_dzpv[count].fillSimTrackHistos(isMatched, isReconstructable, dzPVSim);
+      histograms.hs_dzpvzoomed[count].fillSimTrackHistos(isMatched, isReconstructable, dzPVSim);
+      if (doDzPVcutPlots_) {
+        const double dzpvcut = std::abs(track->dz(*pvPosition));
+        histograms.hs_dzpvcut[count].fillSimTrackHistos(isMatched, isReconstructable, dzpvcut);
+        if (isMatched)
+          histograms.h_simul2_dzpvcut[count]->Fill(dzpvcut);
       }
     }
     if (simPVPosition) {
       const auto simpvz = simPVPosition->z();
-      histograms.h_simul_simpvz[count]->Fill(simpvz);
-      if (isMatched) {
-        histograms.h_assocSimToReco_simpvz[count]->Fill(simpvz);
-      }
+      histograms.hs_simpvz[count].fillSimTrackHistos(isMatched, isReconstructable, simpvz);
     }
   }
 }
@@ -1949,51 +1423,66 @@ void MTVHistoProducerAlgoForTracker::fill_generic_recoTrack_histos(const Histogr
   const auto simpvz = simPVPosition ? simPVPosition->z() : 0.0;
 
   const bool paramsValid = !trackFromSeedFitFailed(track);
+  const bool isSelected = (*trackSelectorVsPhi)(track, bsPosition);
+  const bool isDuplicate = (numAssocRecoTracks > 1);
+  const bool isPileup = isMatched && (!isSigMatched);
+  isChargeMatched = isChargeMatched || (!doSeedPlots_);
 
   if (paramsValid) {
-    histograms.h_reco_eta[count]->Fill(eta);
-    histograms.h_reco_phi[count]->Fill(phi);
-    histograms.h_reco_pT[count]->Fill(pt);
-    histograms.h_reco_pTvseta[count]->Fill(eta, pt);
-    histograms.h_reco_dxy[count]->Fill(dxy);
-    histograms.h_reco_dz[count]->Fill(dz);
-    histograms.h_reco_chi2[count]->Fill(chi2);
-    histograms.h_reco_chi2prob[count]->Fill(chi2prob);
-    histograms.h_reco_vertpos[count]->Fill(vertxy);
-    histograms.h_reco_zpos[count]->Fill(vertz);
-    histograms.h_reco_dr[count]->Fill(dR);
-    histograms.h_reco_drj[count]->Fill(dRJet);
+    histograms.hs_eta[count].fillRecoHistos(
+        isMatched, (*trackSelectorVsEta)(track, bsPosition), isDuplicate, isPileup, isChargeMatched, eta);
+    histograms.hs_phi[count].fillRecoHistos(isMatched, isSelected, isDuplicate, isPileup, isChargeMatched, phi);
+    histograms.hs_pT[count].fillRecoHistos(
+        isMatched, (*trackSelectorVsPt)(track, bsPosition), isDuplicate, isPileup, isChargeMatched, pt);
+    histograms.hs_pTvseta[count].fillRecoHistos(
+        isMatched, (*trackSelectorVsPt)(track, bsPosition), isDuplicate, isPileup, isChargeMatched, eta, pt);
+    histograms.hs_chi2[count].fillRecoHistos(isMatched, isSelected, isDuplicate, isPileup, isChargeMatched, chi2);
+    histograms.hs_chi2prob[count].fillRecoHistos(
+        isMatched, isSelected, isDuplicate, isPileup, isChargeMatched, chi2prob);
+    histograms.hs_hit[count].fillRecoHistos(isMatched, isSelected, isDuplicate, isPileup, isChargeMatched, nhits);
+    histograms.hs_layer[count].fillRecoHistos(isMatched, isSelected, isDuplicate, isPileup, isChargeMatched, nlayers);
+    histograms.hs_pixellayer[count].fillRecoHistos(
+        isMatched, isSelected, isDuplicate, isPileup, isChargeMatched, nPixelLayers);
+    histograms.hs_3Dlayer[count].fillRecoHistos(
+        isMatched, isSelected, isDuplicate, isPileup, isChargeMatched, n3DLayers);
+    histograms.hs_pu[count].fillRecoHistos(isMatched, isSelected, isDuplicate, isPileup, isChargeMatched, numVertices);
+    histograms.hs_dr[count].fillRecoHistos(isMatched, isSelected, isDuplicate, isPileup, isChargeMatched, dR);
+    histograms.hs_drj[count].fillRecoHistos(isMatched, isSelected, isDuplicate, isPileup, isChargeMatched, dRJet);
+    histograms.hs_vertpos[count].fillRecoHistos(isMatched, isSelected, isDuplicate, isPileup, isChargeMatched, vertxy);
+    histograms.hs_dxy[count].fillRecoHistos(isMatched, isSelected, isDuplicate, isPileup, isChargeMatched, dxy);
+    histograms.hs_zpos[count].fillRecoHistos(isMatched, isSelected, isDuplicate, isPileup, isChargeMatched, vertz);
+    histograms.hs_dz[count].fillRecoHistos(isMatched, isSelected, isDuplicate, isPileup, isChargeMatched, dz);
+    if (pvPosition) {
+      histograms.hs_dxypv[count].fillRecoHistos(isMatched, isSelected, isDuplicate, isPileup, isChargeMatched, dxypv);
+      histograms.hs_dxypvzoomed[count].fillRecoHistos(
+          isMatched, isSelected, isDuplicate, isPileup, isChargeMatched, dxypv);
+      histograms.hs_dzpv[count].fillRecoHistos(isMatched, isSelected, isDuplicate, isPileup, isChargeMatched, dzpv);
+      histograms.hs_dzpvzoomed[count].fillRecoHistos(
+          isMatched, isSelected, isDuplicate, isPileup, isChargeMatched, dzpv);
+      if (doDzPVcutPlots_)
+        histograms.hs_dzpvcut[count].fillRecoHistos(
+            isMatched, isSelected, isDuplicate, isPileup, isChargeMatched, std::abs(dzpv));
+    }
+    if (simPVPosition)
+      histograms.hs_simpvz[count].fillRecoHistos(isMatched, isSelected, isDuplicate, isPileup, isChargeMatched, simpvz);
+
     if (dRJet <= 99999)  //dRJet can be set to numeric_limits max^2, this is a protection
       histograms.chi2_vs_drj[count]->Fill(dRJet, chi2);
     if (fillSeedingLayerSets)
       histograms.h_reco_seedingLayerSet[count]->Fill(seedingLayerSetBin);
-    if (pvPosition) {
-      histograms.h_reco_dxypv[count]->Fill(dxypv);
-      histograms.h_reco_dzpv[count]->Fill(dzpv);
-      histograms.h_reco_dxypvzoomed[count]->Fill(dxypv);
-      histograms.h_reco_dzpvzoomed[count]->Fill(dzpv);
 
-      if (doDzPVcutPlots_)
-        histograms.h_reco_dzpvcut[count]->Fill(std::abs(dzpv));
+    if (isMatched) {
+      histograms.assoc_chi2_vs_eta[count]->Fill(eta, chi2);
+      histograms.assoc_chi2prob_vs_eta[count]->Fill(eta, chi2prob);
+      histograms.assoc_chi2_vs_pt[count]->Fill(pt, chi2);
+      histograms.assoc_chi2prob_vs_pt[count]->Fill(pt, chi2prob);
+      if (dRJet <= 99999) {  //dRJet can be set to numeric_limits max^2, this is a protection
+        histograms.assoc_chi2_vs_drj[count]->Fill(dRJet, chi2);
+        histograms.assoc_chi2prob_vs_drj[count]->Fill(dRJet, chi2prob);
+      }
+      if (fillSeedingLayerSets)
+        histograms.h_assocRecoToSim_seedingLayerSet[count]->Fill(seedingLayerSetBin);
     }
-    if (simPVPosition) {
-      histograms.h_reco_simpvz[count]->Fill(simpvz);
-    }
-    if ((*trackSelectorVsEta)(track, bsPosition)) {
-      histograms.h_selreco_eta[count]->Fill(eta);
-    }
-    if ((*trackSelectorVsPt)(track, bsPosition)) {
-      histograms.h_selreco_pT[count]->Fill(pt);
-      histograms.h_selreco_pTvseta[count]->Fill(eta, pt);
-    }
-  }
-  histograms.h_reco_hit[count]->Fill(nhits);
-  histograms.h_reco_layer[count]->Fill(nlayers);
-  histograms.h_reco_pixellayer[count]->Fill(nPixelLayers);
-  histograms.h_reco_3Dlayer[count]->Fill(n3DLayers);
-  histograms.h_reco_pu[count]->Fill(numVertices);
-  if ((*trackSelectorVsPhi)(track, bsPosition)) {
-    histograms.h_selreco_pu[count]->Fill(numVertices);
   }
 
   if (!mvas.empty()) {
@@ -2009,56 +1498,8 @@ void MTVHistoProducerAlgoForTracker::fill_generic_recoTrack_histos(const Histogr
                   mvas,
                   selectsLoose,
                   selectsHP);
-  }
 
-  if (isMatched) {
-    if (paramsValid) {
-      histograms.h_assocRecoToSim_eta[count]->Fill(eta);
-      histograms.h_assocRecoToSim_phi[count]->Fill(phi);
-      histograms.h_assocRecoToSim_pT[count]->Fill(pt);
-      histograms.h_assocRecoToSim_pTvseta[count]->Fill(eta, pt);
-      histograms.h_assocRecoToSim_dxy[count]->Fill(dxy);
-      histograms.h_assocRecoToSim_dz[count]->Fill(dz);
-      histograms.h_assocRecoToSim_hit[count]->Fill(nhits);
-      histograms.h_assocRecoToSim_chi2[count]->Fill(chi2);
-      histograms.h_assocRecoToSim_chi2prob[count]->Fill(chi2prob);
-      histograms.assoc_chi2_vs_eta[count]->Fill(eta, chi2);
-      histograms.assoc_chi2prob_vs_eta[count]->Fill(eta, chi2prob);
-      histograms.assoc_chi2_vs_pt[count]->Fill(pt, chi2);
-      histograms.assoc_chi2prob_vs_pt[count]->Fill(pt, chi2prob);
-      if (dRJet <= 99999) {  //dRJet can be set to numeric_limits max^2, this is a protection
-        histograms.assoc_chi2_vs_drj[count]->Fill(dRJet, chi2);
-        histograms.assoc_chi2prob_vs_drj[count]->Fill(dRJet, chi2prob);
-      }
-      histograms.h_assocRecoToSim_vertpos[count]->Fill(vertxy);
-      histograms.h_assocRecoToSim_zpos[count]->Fill(vertz);
-      histograms.h_assocRecoToSim_dr[count]->Fill(dR);
-      histograms.h_assocRecoToSim_drj[count]->Fill(dRJet);
-      if (fillSeedingLayerSets)
-        histograms.h_assocRecoToSim_seedingLayerSet[count]->Fill(seedingLayerSetBin);
-      if (pvPosition) {
-        histograms.h_assocRecoToSim_dxypv[count]->Fill(dxypv);
-        histograms.h_assocRecoToSim_dzpv[count]->Fill(dzpv);
-        histograms.h_assocRecoToSim_dxypvzoomed[count]->Fill(dxypv);
-        histograms.h_assocRecoToSim_dzpvzoomed[count]->Fill(dzpv);
-
-        if (doDzPVcutPlots_)
-          histograms.h_assocRecoToSim_dzpvcut[count]->Fill(std::abs(dzpv));
-      }
-      if (simPVPosition) {
-        histograms.h_assocRecoToSim_simpvz[count]->Fill(simpvz);
-      }
-    }
-    histograms.h_assocRecoToSim_layer[count]->Fill(nlayers);
-    histograms.h_assocRecoToSim_pixellayer[count]->Fill(nPixelLayers);
-    histograms.h_assocRecoToSim_3Dlayer[count]->Fill(n3DLayers);
-    histograms.h_assocRecoToSim_pu[count]->Fill(numVertices);
-
-    if (!mvas.empty()) {
-      assert(histograms.h_reco_mva.size() > static_cast<size_t>(count));
-      assert(histograms.h_reco_mvacut.size() > static_cast<size_t>(count));
-      assert(histograms.h_reco_mva_hp.size() > static_cast<size_t>(count));
-      assert(histograms.h_reco_mvacut_hp.size() > static_cast<size_t>(count));
+    if (isMatched) {
       fillMVAHistos(histograms.h_assocRecoToSim_mva[count],
                     histograms.h_assocRecoToSim_mvacut[count],
                     histograms.h_assocRecoToSim_mva_hp[count],
@@ -2082,104 +1523,7 @@ void MTVHistoProducerAlgoForTracker::fill_generic_recoTrack_histos(const Histogr
                     mvas,
                     selectsLoose,
                     selectsHP);
-    }
-
-    if (histograms.nrecHit_vs_nsimHit_rec2sim[count])
-      histograms.nrecHit_vs_nsimHit_rec2sim[count]->Fill(track.numberOfValidHits(), nSimHits);
-    histograms.h_assocSimToReco_Fraction[count]->Fill(sharedFraction);
-    histograms.h_assocSimToReco_SharedHit[count]->Fill(sharedHits);
-
-    if (!doSeedPlots_ && !isChargeMatched) {
-      histograms.h_misid_eta[count]->Fill(eta);
-      histograms.h_misid_phi[count]->Fill(phi);
-      histograms.h_misid_pT[count]->Fill(pt);
-      histograms.h_misid_pTvseta[count]->Fill(eta, pt);
-      histograms.h_misid_dxy[count]->Fill(dxy);
-      histograms.h_misid_dz[count]->Fill(dz);
-      histograms.h_misid_hit[count]->Fill(nhits);
-      histograms.h_misid_layer[count]->Fill(nlayers);
-      histograms.h_misid_pixellayer[count]->Fill(nPixelLayers);
-      histograms.h_misid_3Dlayer[count]->Fill(n3DLayers);
-      histograms.h_misid_pu[count]->Fill(numVertices);
-      histograms.h_misid_chi2[count]->Fill(chi2);
-      histograms.h_misid_chi2prob[count]->Fill(chi2prob);
-      if (pvPosition) {
-        histograms.h_misid_dxypv[count]->Fill(dxypv);
-        histograms.h_misid_dzpv[count]->Fill(dzpv);
-        histograms.h_misid_dxypvzoomed[count]->Fill(dxypv);
-        histograms.h_misid_dzpvzoomed[count]->Fill(dzpv);
-      }
-    }
-
-    if (numAssocRecoTracks > 1) {
-      if (paramsValid) {
-        histograms.h_looper_eta[count]->Fill(eta);
-        histograms.h_looper_phi[count]->Fill(phi);
-        histograms.h_looper_pT[count]->Fill(pt);
-        histograms.h_looper_pTvseta[count]->Fill(eta, pt);
-        histograms.h_looper_dxy[count]->Fill(dxy);
-        histograms.h_looper_dz[count]->Fill(dz);
-        histograms.h_looper_chi2[count]->Fill(chi2);
-        histograms.h_looper_chi2prob[count]->Fill(chi2prob);
-        histograms.h_looper_vertpos[count]->Fill(vertxy);
-        histograms.h_looper_zpos[count]->Fill(vertz);
-        histograms.h_looper_dr[count]->Fill(dR);
-        histograms.h_looper_drj[count]->Fill(dRJet);
-        if (fillSeedingLayerSets)
-          histograms.h_looper_seedingLayerSet[count]->Fill(seedingLayerSetBin);
-        if (pvPosition) {
-          histograms.h_looper_dxypv[count]->Fill(dxypv);
-          histograms.h_looper_dzpv[count]->Fill(dzpv);
-          histograms.h_looper_dxypvzoomed[count]->Fill(dxypv);
-          histograms.h_looper_dzpvzoomed[count]->Fill(dzpv);
-        }
-        if (simPVPosition) {
-          histograms.h_looper_simpvz[count]->Fill(simpvz);
-        }
-      }
-      histograms.h_looper_hit[count]->Fill(nhits);
-      histograms.h_looper_layer[count]->Fill(nlayers);
-      histograms.h_looper_pixellayer[count]->Fill(nPixelLayers);
-      histograms.h_looper_3Dlayer[count]->Fill(n3DLayers);
-      histograms.h_looper_pu[count]->Fill(numVertices);
-    }
-    if (!isSigMatched) {
-      if (paramsValid) {
-        histograms.h_pileup_eta[count]->Fill(eta);
-        histograms.h_pileup_phi[count]->Fill(phi);
-        histograms.h_pileup_pT[count]->Fill(pt);
-        histograms.h_pileup_pTvseta[count]->Fill(eta, pt);
-        histograms.h_pileup_dxy[count]->Fill(dxy);
-        histograms.h_pileup_dz[count]->Fill(dz);
-        histograms.h_pileup_chi2[count]->Fill(chi2);
-        histograms.h_pileup_chi2prob[count]->Fill(chi2prob);
-        histograms.h_pileup_vertpos[count]->Fill(vertxy);
-        histograms.h_pileup_zpos[count]->Fill(vertz);
-        histograms.h_pileup_dr[count]->Fill(dR);
-        histograms.h_pileup_drj[count]->Fill(dRJet);
-        if (fillSeedingLayerSets)
-          histograms.h_pileup_seedingLayerSet[count]->Fill(seedingLayerSetBin);
-        if (pvPosition) {
-          histograms.h_pileup_dxypv[count]->Fill(dxypv);
-          histograms.h_pileup_dzpv[count]->Fill(dzpv);
-          histograms.h_pileup_dxypvzoomed[count]->Fill(dxypv);
-          histograms.h_pileup_dzpvzoomed[count]->Fill(dzpv);
-
-          if (doDzPVcutPlots_)
-            histograms.h_pileup_dzpvcut[count]->Fill(std::abs(dzpv));
-        }
-        if (simPVPosition) {
-          histograms.h_pileup_simpvz[count]->Fill(simpvz);
-        }
-      }
-      histograms.h_pileup_hit[count]->Fill(nhits);
-      histograms.h_pileup_layer[count]->Fill(nlayers);
-      histograms.h_pileup_pixellayer[count]->Fill(nPixelLayers);
-      histograms.h_pileup_3Dlayer[count]->Fill(n3DLayers);
-      histograms.h_pileup_pu[count]->Fill(numVertices);
-    }
-  } else {  // !isMatched
-    if (!mvas.empty()) {
+    } else {  // !isMatched
       assert(histograms.h_fake_mva_vs_pt.size() > static_cast<size_t>(count));
       assert(histograms.h_fake_mva_vs_pt_hp.size() > static_cast<size_t>(count));
       assert(histograms.h_fake_mva_vs_eta.size() > static_cast<size_t>(count));
@@ -2193,6 +1537,13 @@ void MTVHistoProducerAlgoForTracker::fill_generic_recoTrack_histos(const Histogr
                     selectsLoose,
                     selectsHP);
     }
+  }
+
+  if (isMatched) {
+    if (histograms.nrecHit_vs_nsimHit_rec2sim[count])
+      histograms.nrecHit_vs_nsimHit_rec2sim[count]->Fill(track.numberOfValidHits(), nSimHits);
+    histograms.h_assocSimToReco_Fraction[count]->Fill(sharedFraction);
+    histograms.h_assocSimToReco_SharedHit[count]->Fill(sharedHits);
   }
 }
 
@@ -2576,60 +1927,34 @@ void MTVHistoProducerAlgoForTracker::fill_recoAssociated_simTrack_histos(const H
                                                                          const reco::Track* track,
                                                                          int numVertices) const {
   bool isMatched = track;
+  bool isReconstructable = (*GpSelectorForTechnicalEfficiency)(tp);
 
-  if ((*GpSelectorForEfficiencyVsEta)(tp)) {
+  if ((*GpSelectorForEfficiencyVsEta)(tp))
     //effic vs eta
-    histograms.h_simul_eta[count]->Fill(getEta(momentumTP.eta()));
-    if (isMatched)
-      histograms.h_assocSimToReco_eta[count]->Fill(getEta(momentumTP.eta()));
-  }
+    histograms.hs_eta[count].fillSimTrackHistos(isMatched, isReconstructable, getEta(momentumTP.eta()));
 
   if ((*GpSelectorForEfficiencyVsPhi)(tp)) {
-    histograms.h_simul_phi[count]->Fill(momentumTP.phi());
-    if (isMatched)
-      histograms.h_assocSimToReco_phi[count]->Fill(momentumTP.phi());
-    //effic vs hits
-    histograms.h_simul_hit[count]->Fill((int)nSimHits);
-    if (isMatched) {
-      histograms.h_assocSimToReco_hit[count]->Fill((int)nSimHits);
-      if (histograms.nrecHit_vs_nsimHit_sim2rec[count])
-        histograms.nrecHit_vs_nsimHit_sim2rec[count]->Fill(track->numberOfValidHits(), nSimHits);
-    }
-    //effic vs pu
-    histograms.h_simul_pu[count]->Fill(numVertices);
-    if (isMatched)
-      histograms.h_assocSimToReco_pu[count]->Fill(numVertices);
-    //efficiency vs dR
-    //not implemented for now
+    histograms.hs_phi[count].fillSimTrackHistos(isMatched, isReconstructable, momentumTP.phi());
+    histograms.hs_hit[count].fillSimTrackHistos(isMatched, isReconstructable, (int)nSimHits);
+    histograms.hs_pu[count].fillSimTrackHistos(isMatched, isReconstructable, numVertices);
+    if (isMatched && histograms.nrecHit_vs_nsimHit_sim2rec[count])
+      histograms.nrecHit_vs_nsimHit_sim2rec[count]->Fill(track->numberOfValidHits(), nSimHits);
   }
 
   if ((*GpSelectorForEfficiencyVsPt)(tp)) {
-    histograms.h_simul_pT[count]->Fill(getPt(sqrt(momentumTP.perp2())));
-    histograms.h_simul_pTvseta[count]->Fill(getEta(momentumTP.eta()), getPt(sqrt(momentumTP.perp2())));
-    if (isMatched) {
-      histograms.h_assocSimToReco_pT[count]->Fill(getPt(sqrt(momentumTP.perp2())));
-      histograms.h_assocSimToReco_pTvseta[count]->Fill(getEta(momentumTP.eta()), getPt(sqrt(momentumTP.perp2())));
-    }
+    histograms.hs_pT[count].fillSimTrackHistos(isMatched, isReconstructable, getPt(sqrt(momentumTP.perp2())));
+    histograms.hs_pTvseta[count].fillSimTrackHistos(
+        isMatched, isReconstructable, getEta(momentumTP.eta()), getPt(sqrt(momentumTP.perp2())));
   }
 
   if ((*GpSelectorForEfficiencyVsVTXR)(tp)) {
-    histograms.h_simul_dxy[count]->Fill(dxySim);
-    if (isMatched)
-      histograms.h_assocSimToReco_dxy[count]->Fill(dxySim);
-
-    histograms.h_simul_vertpos[count]->Fill(sqrt(vertexTP.perp2()));
-    if (isMatched)
-      histograms.h_assocSimToReco_vertpos[count]->Fill(sqrt(vertexTP.perp2()));
+    histograms.hs_vertpos[count].fillSimTrackHistos(isMatched, isReconstructable, sqrt(vertexTP.perp2()));
+    histograms.hs_dxy[count].fillSimTrackHistos(isMatched, isReconstructable, dxySim);
   }
 
   if ((*GpSelectorForEfficiencyVsVTXZ)(tp)) {
-    histograms.h_simul_dz[count]->Fill(dzSim);
-    if (isMatched)
-      histograms.h_assocSimToReco_dz[count]->Fill(dzSim);
-
-    histograms.h_simul_zpos[count]->Fill(vertexTP.z());
-    if (isMatched)
-      histograms.h_assocSimToReco_zpos[count]->Fill(vertexTP.z());
+    histograms.hs_zpos[count].fillSimTrackHistos(isMatched, isReconstructable, vertexTP.z());
+    histograms.hs_dz[count].fillSimTrackHistos(isMatched, isReconstructable, dzSim);
   }
 }
 

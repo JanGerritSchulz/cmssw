@@ -10,21 +10,19 @@
 #include "FWCore/Framework/interface/ConsumesCollector.h"
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 
-#include "DataFormats/TrackerCommon/interface/TrackerTopology.h"
-#include "DataFormats/TrackReco/interface/Track.h"
-#include "DataFormats/GsfTrackReco/interface/GsfTrack.h"
-#include "SimDataFormats/TrackingAnalysis/interface/TrackingParticle.h"
-#include "DataFormats/HepMCCandidate/interface/GenParticle.h"
-#include "DataFormats/TrackReco/interface/DeDxData.h"
-#include "DataFormats/Common/interface/ValueMap.h"
-
-#include "RecoTracker/TkSeedingLayers/interface/SeedingLayerSetsBuilder.h"
-
-#include "SimTracker/Common/interface/TrackingParticleSelector.h"
 #include "CommonTools/CandAlgos/interface/GenParticleCustomSelector.h"
 #include "CommonTools/RecoAlgos/interface/RecoTrackSelectorBase.h"
-
+#include "DataFormats/Common/interface/ValueMap.h"
+#include "DataFormats/GsfTrackReco/interface/GsfTrack.h"
+#include "DataFormats/HepMCCandidate/interface/GenParticle.h"
+#include "DataFormats/TrackerCommon/interface/TrackerTopology.h"
+#include "DataFormats/TrackReco/interface/Track.h"
+#include "DataFormats/TrackReco/interface/DeDxData.h"
 #include "DQMServices/Core/interface/DQMStore.h"
+#include "RecoTracker/TkSeedingLayers/interface/SeedingLayerSetsBuilder.h"
+#include "SimDataFormats/TrackingAnalysis/interface/TrackingParticle.h"
+#include "SimTracker/Common/interface/TrackingParticleSelector.h"
+#include "Validation/RecoTrack/interface/MTVMonitoringElement.h"
 
 struct MTVHistoProducerAlgoForTrackerHistograms {
   //sim
@@ -33,48 +31,16 @@ struct MTVHistoProducerAlgoForTrackerHistograms {
 
   //1D
   std::vector<METype> h_tracks, h_fakes, h_hits, h_charge, h_algo, h_seedsFitFailed, h_seedsFitFailedFraction;
-  std::vector<METype> h_reco_eta, h_selreco_eta, h_assocSimToReco_eta, h_assocRecoToSim_eta, h_simul_eta, h_looper_eta, h_misid_eta, h_pileup_eta;
-  std::vector<METype> h_reco_pT, h_selreco_pT, h_assocSimToReco_pT, h_assocRecoToSim_pT, h_simul_pT, h_looper_pT, h_misid_pT, h_pileup_pT;
-  std::vector<METype> h_reco_pTvseta, h_selreco_pTvseta, h_assocSimToReco_pTvseta, h_assocRecoToSim_pTvseta, h_simul_pTvseta, h_looper_pTvseta,
-      h_misid_pTvseta, h_pileup_pTvseta;
-  std::vector<METype> h_reco_hit, h_assocSimToReco_hit, h_assocRecoToSim_hit, h_simul_hit, h_looper_hit, h_misid_hit, h_pileup_hit;
-  std::vector<METype> h_reco_layer, h_assocSimToReco_layer, h_assocRecoToSim_layer, h_simul_layer, h_looper_layer, h_misid_layer,
-      h_pileup_layer;
-  std::vector<METype> h_reco_pixellayer, h_assocSimToReco_pixellayer, h_assocRecoToSim_pixellayer, h_simul_pixellayer, h_looper_pixellayer,
-      h_misid_pixellayer, h_pileup_pixellayer;
-  std::vector<METype> h_reco_3Dlayer, h_assocSimToReco_3Dlayer, h_assocRecoToSim_3Dlayer, h_simul_3Dlayer, h_looper_3Dlayer, h_misid_3Dlayer,
-      h_pileup_3Dlayer;
-  std::vector<METype> h_reco_pu, h_selreco_pu, h_assocSimToReco_pu, h_assocRecoToSim_pu, h_simul_pu, h_looper_pu, h_misid_pu, h_pileup_pu;
-  std::vector<METype> h_reco_phi, h_assocSimToReco_phi, h_assocRecoToSim_phi, h_simul_phi, h_looper_phi, h_misid_phi, h_pileup_phi;
-  std::vector<METype> h_reco_dxy, h_assocSimToReco_dxy, h_assocRecoToSim_dxy, h_simul_dxy, h_looper_dxy, h_misid_dxy, h_pileup_dxy;
-  std::vector<METype> h_reco_dz, h_assocSimToReco_dz, h_assocRecoToSim_dz, h_simul_dz, h_looper_dz, h_misid_dz, h_pileup_dz;
-  std::vector<METype> h_reco_dxypv, h_assocSimToReco_dxypv, h_assocRecoToSim_dxypv, h_simul_dxypv, h_looper_dxypv, h_misid_dxypv,
-      h_pileup_dxypv;
-  std::vector<METype> h_reco_dzpv, h_assocSimToReco_dzpv, h_assocRecoToSim_dzpv, h_simul_dzpv, h_looper_dzpv, h_misid_dzpv, h_pileup_dzpv;
-  std::vector<METype> h_reco_dxypvzoomed, h_assocSimToReco_dxypvzoomed, h_assocRecoToSim_dxypvzoomed, h_simul_dxypvzoomed,
-      h_looper_dxypvzoomed, h_misid_dxypvzoomed, h_pileup_dxypvzoomed;
-  std::vector<METype> h_reco_dzpvzoomed, h_assocSimToReco_dzpvzoomed, h_assocRecoToSim_dzpvzoomed, h_simul_dzpvzoomed, h_looper_dzpvzoomed,
-      h_misid_dzpvzoomed, h_pileup_dzpvzoomed;
-
-  std::vector<METype> h_reco_vertpos, h_assocSimToReco_vertpos, h_assocRecoToSim_vertpos, h_simul_vertpos, h_looper_vertpos, h_pileup_vertpos;
-  std::vector<METype> h_reco_zpos, h_assocSimToReco_zpos, h_assocRecoToSim_zpos, h_simul_zpos, h_looper_zpos, h_pileup_zpos;
-  std::vector<METype> h_assocSimToReco_dr, h_assocRecoToSim_dr, h_simul_dr, h_reco_dr, h_looper_dr, h_pileup_dr;
-  std::vector<METype> h_assocSimToReco_drj, h_assocRecoToSim_drj, h_simul_drj, h_reco_drj, h_looper_drj, h_pileup_drj;
-  std::vector<METype> h_reco_chi2, h_assocRecoToSim_chi2, h_looper_chi2, h_misid_chi2, h_pileup_chi2;
-  std::vector<METype> h_reco_chi2prob, h_assocRecoToSim_chi2prob, h_looper_chi2prob, h_misid_chi2prob, h_pileup_chi2prob;
+  mutable std::vector<MTVMonitoringElement> hs_eta, hs_pT, hs_pTvseta, hs_hit, hs_layer, hs_pixellayer, hs_3Dlayer,
+      hs_pu, hs_phi, hs_dxy, hs_dz, hs_dxypv, hs_dzpv, hs_dxypvzoomed, hs_dzpvzoomed, hs_vertpos, hs_zpos, hs_dr,
+      hs_drj, hs_dzpvcut, hs_dzpvsigcut, hs_simpvz, hs_chi2, hs_chi2prob;
   std::vector<METype> h_pt, h_eta, h_pullTheta, h_pullPhi, h_pullDxy, h_pullDz, h_pullQoverp;
   std::vector<METype> h_assocRecoToSim_itpu_eta, h_assocRecoToSim_itpu_sig_eta, h_assocRecoToSim_eta_sig;
   std::vector<METype> h_assocRecoToSim_itpu_vertcount, h_assocRecoToSim_itpu_sig_vertcount;
   std::vector<METype> h_assocRecoToSim_ootpu_eta, h_assocRecoToSim_ootpu_vertcount;
   std::vector<METype> h_reco_ootpu_eta, h_reco_ootpu_vertcount;
   std::vector<METype> h_con_eta, h_con_vertcount, h_con_zpos;
-
-  std::vector<METype> h_reco_dzpvcut, h_assocSimToReco_dzpvcut, h_assocRecoToSim_dzpvcut, h_simul_dzpvcut, h_simul2_dzpvcut,
-      h_pileup_dzpvcut;
-  std::vector<METype> h_reco_dzpvsigcut, h_assocSimToReco_dzpvsigcut, h_assocRecoToSim_dzpvsigcut, h_simul_dzpvsigcut,
-      h_simul2_dzpvsigcut, h_pileup_dzpvsigcut;
-
-  std::vector<METype> h_reco_simpvz, h_assocSimToReco_simpvz, h_assocRecoToSim_simpvz, h_simul_simpvz, h_looper_simpvz, h_pileup_simpvz;
+  std::vector<METype> h_simul2_dzpvcut;
 
   std::vector<METype> h_reco_seedingLayerSet, h_assocRecoToSim_seedingLayerSet, h_looper_seedingLayerSet,
       h_pileup_seedingLayerSet;
@@ -82,10 +48,13 @@ struct MTVHistoProducerAlgoForTrackerHistograms {
   std::vector<std::vector<METype>> h_reco_mva, h_assocRecoToSim_mva;
   std::vector<std::vector<METype>> h_reco_mvacut, h_assocSimToReco_mvacut, h_assocRecoToSim_mvacut, h_simul2_mvacut;
   std::vector<std::vector<METype>> h_reco_mva_hp, h_assocRecoToSim_mva_hp;
-  std::vector<std::vector<METype>> h_reco_mvacut_hp, h_assocSimToReco_mvacut_hp, h_assocRecoToSim_mvacut_hp, h_simul2_mvacut_hp;
+  std::vector<std::vector<METype>> h_reco_mvacut_hp, h_assocSimToReco_mvacut_hp, h_assocRecoToSim_mvacut_hp,
+      h_simul2_mvacut_hp;
 
-  std::vector<std::vector<METype>> h_assocRecoToSim_mva_vs_pt, h_fake_mva_vs_pt, h_assocRecoToSim_mva_vs_pt_hp, h_fake_mva_vs_pt_hp;
-  std::vector<std::vector<METype>> h_assocRecoToSim_mva_vs_eta, h_fake_mva_vs_eta, h_assocRecoToSim_mva_vs_eta_hp, h_fake_mva_vs_eta_hp;
+  std::vector<std::vector<METype>> h_assocRecoToSim_mva_vs_pt, h_fake_mva_vs_pt, h_assocRecoToSim_mva_vs_pt_hp,
+      h_fake_mva_vs_pt_hp;
+  std::vector<std::vector<METype>> h_assocRecoToSim_mva_vs_eta, h_fake_mva_vs_eta, h_assocRecoToSim_mva_vs_eta_hp,
+      h_fake_mva_vs_eta_hp;
 
   // dE/dx
   // in the future these might become an array
@@ -121,7 +90,7 @@ struct MTVHistoProducerAlgoForTrackerHistograms {
   std::vector<METype> ptmean_vs_eta_phi, phimean_vs_eta_phi;
 
   //assoc chi2
-  std::vector<METype> h_assocSimToReco_hi2, h_assocSimToReco_hi2_prob;
+  std::vector<METype> h_assocSimToReco_chi2, h_assocSimToReco_chi2_prob;
 
   //chi2 and # lost hits vs eta: to be used with doProfileX
   std::vector<METype> chi2_vs_eta, chi2_vs_pt, chi2_vs_drj, nlosthits_vs_eta;
@@ -149,6 +118,7 @@ public:
       const edm::ParameterSet& pset);
 
   using Histograms = MTVHistoProducerAlgoForTrackerHistograms;
+  void pushbackNewMTVMonitoringElements(Histograms& histograms);
   void bookSimHistos(DQMStore::IBooker& ibook, Histograms& histograms);
   void bookSimTrackHistos(DQMStore::IBooker& ibook, Histograms& histograms, bool doResolutionPlots);
   void bookSimTrackPVAssociationHistos(DQMStore::IBooker& ibook, Histograms& histograms);
@@ -278,6 +248,7 @@ private:
 
   //private data members
   std::unique_ptr<TrackingParticleSelector> generalTpSelector;
+  std::unique_ptr<TrackingParticleSelector> TpSelectorForTechnicalEfficiency;
   std::unique_ptr<TrackingParticleSelector> TpSelectorForEfficiencyVsEta;
   std::unique_ptr<TrackingParticleSelector> TpSelectorForEfficiencyVsPhi;
   std::unique_ptr<TrackingParticleSelector> TpSelectorForEfficiencyVsPt;
@@ -289,6 +260,7 @@ private:
   std::unique_ptr<RecoTrackSelectorBase> trackSelectorVsPt;
 
   std::unique_ptr<GenParticleCustomSelector> generalGpSelector;
+  std::unique_ptr<GenParticleCustomSelector> GpSelectorForTechnicalEfficiency;
   std::unique_ptr<GenParticleCustomSelector> GpSelectorForEfficiencyVsEta;
   std::unique_ptr<GenParticleCustomSelector> GpSelectorForEfficiencyVsPhi;
   std::unique_ptr<GenParticleCustomSelector> GpSelectorForEfficiencyVsPt;

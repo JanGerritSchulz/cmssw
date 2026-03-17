@@ -29,6 +29,7 @@ generalGpSelectorBlock = cms.PSet(
     minPhi = cms.double(-3.2)
 )
 
+GpSelectorForTechnicalEfficiencyBlock = generalGpSelectorBlock.clone()
 
 GpSelectorForEfficiencyVsEtaBlock = cms.PSet(
     status = cms.int32(1),
