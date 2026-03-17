@@ -4,20 +4,22 @@ from Validation.RecoTrack.GenParticleSelectionsForEfficiency_cff import *
 
 MTVHistoProducerAlgoForTrackerBlock = cms.PSet(
     ### tp selectors for efficiency
-    generalTpSelector             = generalTpSelectorBlock,
-    TpSelectorForEfficiencyVsEta  = TpSelectorForEfficiencyVsEtaBlock,
-    TpSelectorForEfficiencyVsPhi  = TpSelectorForEfficiencyVsPhiBlock,
-    TpSelectorForEfficiencyVsPt   = TpSelectorForEfficiencyVsPtBlock,
-    TpSelectorForEfficiencyVsVTXR = TpSelectorForEfficiencyVsVTXRBlock,
-    TpSelectorForEfficiencyVsVTXZ = TpSelectorForEfficiencyVsVTXZBlock,
+    generalTpSelector                = generalTpSelectorBlock,
+    TpSelectorForTechnicalEfficiency = TpSelectorForTechnicalEfficiencyBlock,
+    TpSelectorForEfficiencyVsEta     = TpSelectorForEfficiencyVsEtaBlock,
+    TpSelectorForEfficiencyVsPhi     = TpSelectorForEfficiencyVsPhiBlock,
+    TpSelectorForEfficiencyVsPt      = TpSelectorForEfficiencyVsPtBlock,
+    TpSelectorForEfficiencyVsVTXR    = TpSelectorForEfficiencyVsVTXRBlock,
+    TpSelectorForEfficiencyVsVTXZ    = TpSelectorForEfficiencyVsVTXZBlock,
 
     ### gp selectors for efficiency
-    generalGpSelector             = generalGpSelectorBlock,
-    GpSelectorForEfficiencyVsEta  = GpSelectorForEfficiencyVsEtaBlock,
-    GpSelectorForEfficiencyVsPhi  = GpSelectorForEfficiencyVsPhiBlock,
-    GpSelectorForEfficiencyVsPt   = GpSelectorForEfficiencyVsPtBlock,
-    GpSelectorForEfficiencyVsVTXR = GpSelectorForEfficiencyVsVTXRBlock,
-    GpSelectorForEfficiencyVsVTXZ = GpSelectorForEfficiencyVsVTXZBlock,
+    generalGpSelector                = generalGpSelectorBlock,
+    GpSelectorForTechnicalEfficiency = GpSelectorForTechnicalEfficiencyBlock,
+    GpSelectorForEfficiencyVsEta     = GpSelectorForEfficiencyVsEtaBlock,
+    GpSelectorForEfficiencyVsPhi     = GpSelectorForEfficiencyVsPhiBlock,
+    GpSelectorForEfficiencyVsPt      = GpSelectorForEfficiencyVsPtBlock,
+    GpSelectorForEfficiencyVsVTXR    = GpSelectorForEfficiencyVsVTXRBlock,
+    GpSelectorForEfficiencyVsVTXZ    = GpSelectorForEfficiencyVsVTXZBlock,
 
     # to be added here all the other histogram settings
 

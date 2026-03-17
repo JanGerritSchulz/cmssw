@@ -110,8 +110,18 @@ namespace tt {
     constexpr bool chargedOnly = true;
     constexpr bool stableOnly = false;
     const double maxEta = std::asinh((maxZT_ + maxZ0_) / setup_->chosenRofZ());
-    tpSelector_ = TrackingParticleSelector(
-        minPt_, ptMax, -maxEta, maxEta, maxVertR_, maxVertZ_, minHit, minLayer, signalOnly, intimeOnly, chargedOnly, stableOnly);
+    tpSelector_ = TrackingParticleSelector(minPt_,
+                                           ptMax,
+                                           -maxEta,
+                                           maxEta,
+                                           maxVertR_,
+                                           maxVertZ_,
+                                           minHit,
+                                           minLayer,
+                                           signalOnly,
+                                           intimeOnly,
+                                           chargedOnly,
+                                           stableOnly);
   }
 
   void StubAssociator::produce(edm::Event& iEvent, const edm::EventSetup& iSetup) {
