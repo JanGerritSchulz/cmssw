@@ -269,39 +269,12 @@ void MultiTrackValidator::bookHistograms(DQMStore::IBooker& ibook,
     // FIXME: these need to be moved to a subdirectory whose name depends on the associator
     ibook.setCurrentFolder(dirName_);
 
+    histograms.hs_coll.push_back(MTVMonitoringElement());
+
     if (doSummaryPlots_) {
-      if (doSimTrackPlots_) {
-        histograms.h_assoc_coll.push_back(
-            binLabels(ibook.book1D("num_assoc(simToReco)_coll",
-                                   "N of associated (simToReco) tracks vs track collection",
-                                   nintColl,
-                                   minColl,
-                                   maxColl)));
-        histograms.h_simul_coll.push_back(binLabels(
-            ibook.book1D("num_simul_coll", "N of simulated tracks vs track collection", nintColl, minColl, maxColl)));
-      }
-      if (doRecoTrackPlots_) {
-        histograms.h_reco_coll.push_back(binLabels(
-            ibook.book1D("num_reco_coll", "N of reco track vs track collection", nintColl, minColl, maxColl)));
-        histograms.h_assoc2_coll.push_back(
-            binLabels(ibook.book1D("num_assoc(recoToSim)_coll",
-                                   "N of associated (recoToSim) tracks vs track collection",
-                                   nintColl,
-                                   minColl,
-                                   maxColl)));
-        histograms.h_looper_coll.push_back(
-            binLabels(ibook.book1D("num_duplicate_coll",
-                                   "N of associated (recoToSim) looper tracks vs track collection",
-                                   nintColl,
-                                   minColl,
-                                   maxColl)));
-        histograms.h_pileup_coll.push_back(
-            binLabels(ibook.book1D("num_pileup_coll",
-                                   "N of associated (recoToSim) pileup tracks vs track collection",
-                                   nintColl,
-                                   minColl,
-                                   maxColl)));
-      }
+      histograms.hs_coll.back().book1D(
+          ibook, doSimTrackPlots_, doRecoTrackPlots_, "coll", "Track collection", "Count", nintColl, minColl, maxColl);
+      histograms.hs_coll.back().modifyHistograms(binLabels);
     }
 
     for (unsigned int www = 0; www < label.size(); www++) {
@@ -1021,10 +994,9 @@ void MultiTrackValidator::dqmAnalyze(const edm::Event& event,
 
         if (doSummaryPlots_) {
           if (dRtpSelector(tp)) {
-            histograms.h_simul_coll[ww]->Fill(www);
-            if (matchedTrackPointer) {
-              histograms.h_assoc_coll[ww]->Fill(www);
-            }
+            const bool isSimMatched = matchedTrackPointer;
+            const bool isReconstructable = histoProducerAlgo_->tpIsReconstructable(tp);
+            histograms.hs_coll[ww].fillSimTrackHistos(isSimMatched, isReconstructable, www);
           }
         }
 
@@ -1140,16 +1112,11 @@ void MultiTrackValidator::dqmAnalyze(const edm::Event& event,
         mvaValues.clear();
 
         if (doSummaryPlots_) {
-          histograms.h_reco_coll[ww]->Fill(www);
-          if (isSimMatched) {
-            histograms.h_assoc2_coll[ww]->Fill(www);
-            if (numAssocRecoTracks > 1) {
-              histograms.h_looper_coll[ww]->Fill(www);
-            }
-            if (!isSigSimMatched) {
-              histograms.h_pileup_coll[ww]->Fill(www);
-            }
-          }
+          const bool isSelected = false;
+          const bool isDuplicate = (numAssocRecoTracks > 1);
+          const bool isPileup = isSimMatched && (!isSigSimMatched);
+          isChargeMatched = isChargeMatched || (!doSeedPlots_);
+          histograms.hs_coll[ww].fillRecoHistos(isSimMatched, isSelected, isDuplicate, isPileup, isChargeMatched, www);
         }
 
         // dE/dx

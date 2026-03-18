@@ -117,6 +117,8 @@ public:
   static std::unique_ptr<RecoTrackSelectorBase> makeRecoTrackSelectorFromTPSelectorParameters(
       const edm::ParameterSet& pset);
 
+  bool tpIsReconstructable(const TrackingParticle& tp) { return (*TpSelectorForTechnicalEfficiency)(tp); }
+
   using Histograms = MTVHistoProducerAlgoForTrackerHistograms;
   void pushbackNewMTVMonitoringElements(Histograms& histograms);
   void bookSimHistos(DQMStore::IBooker& ibook, Histograms& histograms);

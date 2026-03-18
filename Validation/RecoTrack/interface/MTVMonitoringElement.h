@@ -319,6 +319,24 @@ public:
     book2DIfLogY(ibooker, true, std::forward<Args>(args)...);
   }
 
+  // setting the labels on the x-ticks (for collection summary plots)
+  template <typename ModificationFunc>
+  void modifyHistograms(ModificationFunc modify) {
+    for (auto const h : {h_reco,
+                         h_selectedReco,
+                         h_sim,
+                         h_reconstructableSim,
+                         h_assocSimToReco,
+                         h_assocRecoToSim,
+                         h_assocReconstructableSimToReco,
+                         h_duplicate,
+                         h_chargemisid,
+                         h_pileup}) {
+      if (h)
+        modify(h);
+    }
+  }
+
 private:
   // histograms
   dqm::reco::MonitorElement* h_reco = nullptr;

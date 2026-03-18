@@ -307,6 +307,7 @@ postProcessorTrackSummary = DQMEDHarvester("DQMGenericClient",
     subDirs = cms.untracked.vstring(_defaultSubdirsSummary),
     efficiency = cms.vstring(
     "effic_vs_coll 'Efficiency vs track collection' num_assoc(simToReco)_coll num_simul_coll",
+    "technicalEffic_vs_coll 'Technical efficiency vs track collection' num_assoc(reconstructableSimToReco)_coll num_reconstructableSim_coll",
     "effic_vs_coll_allPt 'Efficiency vs track collection' num_assoc(simToReco)_coll_allPt num_simul_coll_allPt",
     "duplicatesRate_coll 'Duplicates Rate vs track collection' num_duplicate_coll num_reco_coll",
     "pileuprate_coll 'Pileup rate vs track collection' num_pileup_coll num_reco_coll",
