@@ -98,6 +98,7 @@ TrackingAssocValueMapsProducer::TrackingAssocValueMapsProducer(const edm::Parame
                                            tpSet_.getParameter<double>("tip"),
                                            tpSet_.getParameter<double>("lip"),
                                            tpSet_.getParameter<int>("minHit"),
+                                           tpSet_.getParameter<int>("minLayer"),
                                            tpSet_.getParameter<bool>("signalOnly"),
                                            tpSet_.getParameter<bool>("intimeOnly"),
                                            tpSet_.getParameter<bool>("chargedOnly"),
@@ -255,6 +256,7 @@ void TrackingAssocValueMapsProducer::fillDescriptions(edm::ConfigurationDescript
   tpSet.add<double>("tip", 60);
   tpSet.add<double>("lip", 30.0);
   tpSet.add<int>("minHit", 0);
+  tpSet.add<int>("minLayer", 0);
   tpSet.add<bool>("signalOnly", false);
   tpSet.add<bool>("intimeOnly", true);
   tpSet.add<bool>("chargedOnly", true);
