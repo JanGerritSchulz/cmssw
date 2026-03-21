@@ -303,15 +303,14 @@ void MultiTrackValidator::bookHistograms(DQMStore::IBooker& ibook,
 
       histoProducerAlgo_->pushbackNewMTVMonitoringElements(histograms.histoProducerAlgo);
 
-      if (doSimTrackPlots_) {
-        histoProducerAlgo_->bookSimTrackHistos(ibook, histograms.histoProducerAlgo, doResolutionPlots);
-        if (doPVAssociationPlots_)
-          histoProducerAlgo_->bookSimTrackPVAssociationHistos(ibook, histograms.histoProducerAlgo);
-      }
+      histoProducerAlgo_->bookSimAndRecoTrackHistos(
+          ibook, histograms.histoProducerAlgo, doSimTrackPlots_, doRecoTrackPlots_, doResolutionPlots);
+
+      if (doSimTrackPlots_ && doPVAssociationPlots_)
+        histoProducerAlgo_->bookSimTrackPVAssociationHistos(ibook, histograms.histoProducerAlgo);
 
       //Booking histograms concerning with reconstructed tracks
       if (doRecoTrackPlots_) {
-        histoProducerAlgo_->bookRecoHistos(ibook, histograms.histoProducerAlgo, doResolutionPlots);
         if (dodEdxPlots_)
           histoProducerAlgo_->bookRecodEdxHistos(ibook, histograms.histoProducerAlgo);
         if (doPVAssociationPlots_)

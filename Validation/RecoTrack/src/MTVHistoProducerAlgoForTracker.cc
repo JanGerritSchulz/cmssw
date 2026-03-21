@@ -330,6 +330,7 @@ std::unique_ptr<RecoTrackSelectorBase> MTVHistoProducerAlgoForTracker::makeRecoT
 }
 
 void MTVHistoProducerAlgoForTracker::pushbackNewMTVMonitoringElements(Histograms& histograms) {
+  // monitoring histograms for reco and sim tracks
   histograms.hs_eta.push_back(MTVMonitoringElement());
   histograms.hs_pT.push_back(MTVMonitoringElement());
   histograms.hs_pTvseta.push_back(MTVMonitoringElement());
@@ -354,6 +355,14 @@ void MTVHistoProducerAlgoForTracker::pushbackNewMTVMonitoringElements(Histograms
   histograms.hs_simpvz.push_back(MTVMonitoringElement());
   histograms.hs_chi2.push_back(MTVMonitoringElement());
   histograms.hs_chi2prob.push_back(MTVMonitoringElement());
+  histograms.hs_seedingLayerSet.push_back(MTVMonitoringElement());
+  // monitoring histograms for resolutions
+  histograms.hr_dxy.push_back(MTVResolutionBundle());
+  histograms.hr_dz.push_back(MTVResolutionBundle());
+  histograms.hr_phi.push_back(MTVResolutionBundle());
+  histograms.hr_pt.push_back(MTVResolutionBundle());
+  histograms.hr_cotTheta.push_back(MTVResolutionBundle());
+  histograms.hr_theta.push_back(MTVResolutionBundle());
 }
 
 void MTVHistoProducerAlgoForTracker::bookSimHistos(DQMStore::IBooker& ibook, Histograms& histograms) {
@@ -367,15 +376,42 @@ void MTVHistoProducerAlgoForTracker::bookSimHistos(DQMStore::IBooker& ibook, His
   histograms.h_bunchxSIM = ibook.book1D("bunchxSIM", "bunch crossing", 21, -15.5, 5.5);
 }
 
-void MTVHistoProducerAlgoForTracker::bookSimTrackHistos(DQMStore::IBooker& ibook,
-                                                        Histograms& histograms,
-                                                        bool doResolutionPlots) {
-  histograms.hs_eta.back().book1D(ibook, true, false, "eta", "Pseudorapidity #eta", "", nintEta, minEta, maxEta);
-  histograms.hs_pT.back().book1DIfLogX(ibook, useLogPt, true, false, "pT", "p_{T}", "", nintPt, minPt, maxPt);
+void MTVHistoProducerAlgoForTracker::bookSimAndRecoTrackHistos(DQMStore::IBooker& ibook,
+                                                               Histograms& histograms,
+                                                               const bool doSimTrackPlots,
+                                                               const bool doRecoTrackPlots,
+                                                               const bool doResolutionPlots) {
+  if (doRecoTrackPlots) {
+    histograms.h_tracks.push_back(
+        ibook.book1D("tracks", "number of reconstructed tracks", nintTracks, minTracks, maxTracks));
+    histograms.h_fakes.push_back(ibook.book1D("fakes", "number of fake reco tracks", nintTracks, minTracks, maxTracks));
+    histograms.h_charge.push_back(ibook.book1D("charge", "charge", 3, -1.5, 1.5));
+
+    histograms.h_hits.push_back(ibook.book1D("hits", "number of hits per track", nintHit, minHit, maxHit));
+    histograms.h_losthits.push_back(ibook.book1D("losthits", "number of lost hits per track", nintHit, minHit, maxHit));
+    histograms.h_nchi2.push_back(ibook.book1D("chi2", "normalized #chi^{2}", 200, 0, 20));
+    histograms.h_nchi2_prob.push_back(ibook.book1D("chi2_prob", "normalized #chi^{2} probability", 100, 0, 1));
+
+    histograms.h_nmisslayers_inner.push_back(
+        ibook.book1D("missing_inner_layers", "number of missing inner layers", nintLayers, minLayers, maxLayers));
+    histograms.h_nmisslayers_outer.push_back(
+        ibook.book1D("missing_outer_layers", "number of missing outer layers", nintLayers, minLayers, maxLayers));
+
+    histograms.h_algo.push_back(
+        ibook.book1D("h_algo", "Tracks by algo", reco::TrackBase::algoSize, 0., double(reco::TrackBase::algoSize)));
+    for (size_t ibin = 0; ibin < reco::TrackBase::algoSize - 1; ibin++)
+      histograms.h_algo.back()->setBinLabel(ibin + 1, reco::TrackBase::algoNames[ibin]);
+    histograms.h_algo.back()->disableAlphanumeric();
+  }
+
+  histograms.hs_eta.back().book1D(
+      ibook, doSimTrackPlots, doRecoTrackPlots, "eta", "Pseudorapidity #eta", "", nintEta, minEta, maxEta);
+  histograms.hs_pT.back().book1DIfLogX(
+      ibook, useLogPt, doSimTrackPlots, doRecoTrackPlots, "pT", "p_{T}", "", nintPt, minPt, maxPt);
   histograms.hs_pTvseta.back().book2DIfLogY(ibook,
                                             useLogPt,
-                                            true,
-                                            false,
+                                            doSimTrackPlots,
+                                            doRecoTrackPlots,
                                             "pTvseta",
                                             "Pseudorapidity #eta",
                                             "p_{T}",
@@ -386,60 +422,346 @@ void MTVHistoProducerAlgoForTracker::bookSimTrackHistos(DQMStore::IBooker& ibook
                                             minPt,
                                             maxPt);
 
-  histograms.hs_hit.back().book1D(ibook, true, false, "hit", "Number of hits", "", nintHit, minHit, maxHit);
+  histograms.hs_hit.back().book1D(
+      ibook, doSimTrackPlots, doRecoTrackPlots, "hit", "Number of hits", "", nintHit, minHit, maxHit);
   histograms.hs_layer.back().book1D(
-      ibook, true, false, "layer", "Number of layers", "", nintLayers, minLayers, maxLayers);
-  histograms.hs_pixellayer.back().book1D(
-      ibook, true, false, "pixellayer", "Number of pixel layers", "", nintLayers, minLayers, maxLayers);
+      ibook, doSimTrackPlots, doRecoTrackPlots, "layer", "Number of layers", "", nintLayers, minLayers, maxLayers);
+  histograms.hs_pixellayer.back().book1D(ibook,
+                                         doSimTrackPlots,
+                                         doRecoTrackPlots,
+                                         "pixellayer",
+                                         "Number of pixel layers",
+                                         "",
+                                         nintLayers,
+                                         minLayers,
+                                         maxLayers);
   histograms.hs_3Dlayer.back().book1D(
-      ibook, true, false, "3Dlayer", "Number of 3D layers", "", nintLayers, minLayers, maxLayers);
+      ibook, doSimTrackPlots, doRecoTrackPlots, "3Dlayer", "Number of 3D layers", "", nintLayers, minLayers, maxLayers);
   histograms.hs_pu.back().book1D(
-      ibook, true, false, "pu", "Number of Primary Vertices / Pileup", "", nintPu, minPu, maxPu);
-  histograms.hs_phi.back().book1D(ibook, true, false, "phi", "#phi angle", "", nintPhi, minPhi, maxPhi);
-  histograms.hs_dxy.back().book1D(
-      ibook, true, false, "dxy", "Transverse impact parameter d_{xy} [cm]", "", nintDxy, minDxy, maxDxy);
-  histograms.hs_dz.back().book1D(
-      ibook, true, false, "dz", "Longitudinal impact parameter d_{z} [cm]", "", nintDz, minDz, maxDz);
+      ibook, doSimTrackPlots, doRecoTrackPlots, "pu", "Number of Primary Vertices / Pileup", "", nintPu, minPu, maxPu);
+  histograms.hs_phi.back().book1D(
+      ibook, doSimTrackPlots, doRecoTrackPlots, "phi", "#phi angle", "", nintPhi, minPhi, maxPhi);
+  histograms.hs_dxy.back().book1D(ibook,
+                                  doSimTrackPlots,
+                                  doRecoTrackPlots,
+                                  "dxy",
+                                  "Transverse impact parameter d_{xy} [cm]",
+                                  "",
+                                  nintDxy,
+                                  minDxy,
+                                  maxDxy);
+  histograms.hs_dz.back().book1D(ibook,
+                                 doSimTrackPlots,
+                                 doRecoTrackPlots,
+                                 "dz",
+                                 "Longitudinal impact parameter d_{z} [cm]",
+                                 "",
+                                 nintDz,
+                                 minDz,
+                                 maxDz);
   histograms.hs_vertpos.back().book1DIfLogX(ibook,
                                             useLogVertpos,
-                                            true,
-                                            false,
+                                            doSimTrackPlots,
+                                            doRecoTrackPlots,
                                             "vertpos",
                                             "Radial displacement of production vertex [cm]",
                                             "",
                                             nintVertpos,
                                             minVertpos,
                                             maxVertpos);
-  histograms.hs_zpos.back().book1D(
-      ibook, true, false, "zpos", "z coordinate of production vertex [cm]", "", nintZpos, minZpos, maxZpos);
-  histograms.hs_dr.back().book1DLogX(ibook, true, false, "dr", "dR", "", nintdr, log10(mindr), log10(maxdr));
+  histograms.hs_zpos.back().book1D(ibook,
+                                   doSimTrackPlots,
+                                   doRecoTrackPlots,
+                                   "zpos",
+                                   "z coordinate of production vertex [cm]",
+                                   "",
+                                   nintZpos,
+                                   minZpos,
+                                   maxZpos);
+  histograms.hs_dr.back().book1DLogX(
+      ibook, doSimTrackPlots, doRecoTrackPlots, "dr", "dR", "", nintdr, log10(mindr), log10(maxdr));
   histograms.hs_drj.back().book1DLogX(
-      ibook, true, false, "drj", "dR(TP,jet)", "", nintdrj, log10(mindrj), log10(maxdrj));
+      ibook, doSimTrackPlots, doRecoTrackPlots, "drj", "dR(TP,jet)", "", nintdrj, log10(mindrj), log10(maxdrj));
   histograms.hs_simpvz.back().book1D(
-      ibook, true, false, "simpvz", "z of the simulated PV", "", nintPVz, minPVz, maxPVz);
+      ibook, doSimTrackPlots, doRecoTrackPlots, "simpvz", "z of the simulated PV", "", nintPVz, minPVz, maxPVz);
+  histograms.hs_chi2.back().book1D(
+      ibook, false, doRecoTrackPlots, "chi2", "Normalized #chi^{2} / ndof", "", nintChi2, minChi2, maxChi2);
+  histograms.hs_chi2prob.back().book1D(
+      ibook, false, doRecoTrackPlots, "chi2prob", "Probability for given #chi^{2}", "", 100, 0., 1.);
+  if (!seedingLayerSetNames.empty()) {
+    const auto size = seedingLayerSetNames.size();
+    histograms.hs_seedingLayerSet.back().book1D(
+        ibook, false, doRecoTrackPlots, "seedingLayerSet", "Seeding layer set", "", size, 0, size);
+    histograms.hs_seedingLayerSet.back().modifyHistograms(setBinLabels, seedingLayerSetNames);
+  }
 
-  histograms.nrecHit_vs_nsimHit_sim2rec.push_back(doResolutionPlots ? ibook.book2D("nrecHit_vs_nsimHit_sim2rec",
-                                                                                   "nrecHit vs nsimHit (Sim2RecAssoc)",
-                                                                                   nintHit,
-                                                                                   minHit,
-                                                                                   maxHit,
-                                                                                   nintHit,
-                                                                                   minHit,
-                                                                                   maxHit)
-                                                                    : nullptr);
+  if (doRecoTrackPlots) {
+    auto bookResolutionPlots1D = [&](std::vector<dqm::reco::MonitorElement*>& vec, auto&&... params) {
+      vec.push_back(doResolutionPlots ? ibook.book1D(std::forward<decltype(params)>(params)...) : nullptr);
+    };
+    auto bookResolutionPlots2D = [&](std::vector<dqm::reco::MonitorElement*>& vec, bool logx, auto&&... params) {
+      vec.push_back(doResolutionPlots ? make2DIfLogX(ibook, logx, std::forward<decltype(params)>(params)...) : nullptr);
+    };
+    auto bookResolutionPlotsProfile2D = [&](std::vector<dqm::reco::MonitorElement*>& vec, auto&&... params) {
+      vec.push_back(doResolutionPlots ? ibook.bookProfile2D(std::forward<decltype(params)>(params)...) : nullptr);
+    };
 
-  // TODO: use the dynamic track algo priority order also here
-  constexpr auto nalgos = reco::TrackBase::algoSize;
-  histograms.h_duplicates_oriAlgo_vs_oriAlgo.push_back(ibook.book2D("duplicates_oriAlgo_vs_oriAlgo",
-                                                                    "Duplicate tracks: originalAlgo vs originalAlgo",
-                                                                    nalgos,
-                                                                    0,
-                                                                    nalgos,
-                                                                    nalgos,
-                                                                    0,
-                                                                    nalgos));
-  setBinLabelsAlgo(histograms.h_duplicates_oriAlgo_vs_oriAlgo.back(), 1);
-  setBinLabelsAlgo(histograms.h_duplicates_oriAlgo_vs_oriAlgo.back(), 2);
+    auto bookResolutionBundle = [&](std::vector<MTVResolutionBundle>& vec, auto&&... params) {
+      vec.back().bookResolutions(ibook,
+                                 nintEta,
+                                 minEta,
+                                 maxEta,
+                                 nintPhi,
+                                 minPhi,
+                                 maxPhi,
+                                 nintPt,
+                                 minPt,
+                                 maxPt,
+                                 useLogPt,
+                                 std::forward<decltype(params)>(params)...);
+    };
+
+    bookResolutionPlots1D(histograms.h_eta, "eta", "pseudorapidity residue", 1000, -0.1, 0.1);
+    bookResolutionPlots1D(histograms.h_pt, "pullPt", "pull of p_{T}", 100, -10, 10);
+    bookResolutionPlots1D(histograms.h_pullTheta, "pullTheta", "pull of #theta parameter", 250, -25, 25);
+    bookResolutionPlots1D(histograms.h_pullPhi, "pullPhi", "pull of #phi parameter", 250, -25, 25);
+    bookResolutionPlots1D(histograms.h_pullDxy, "pullDxy", "pull of d_{xy} parameter", 250, -25, 25);
+    bookResolutionPlots1D(histograms.h_pullDz, "pullDz", "pull of d_{z} parameter", 250, -25, 25);
+    bookResolutionPlots1D(histograms.h_pullQoverp, "pullQoverp", "pull of qoverp parameter", 250, -25, 25);
+
+    /* TO BE FIXED -----------
+    if (associators[ww]=="TrackAssociatorByChi2"){
+      histograms.h_assocSimToReco_chi2.push_back( ibook.book1D("assocChi2","track association #chi^{2}",1000000,0,100000) );
+      histograms.h_assocSimToReco_chi2_prob.push_back(ibook.book1D("assocChi2_prob","probability of association #chi^{2}",100,0,1));
+    } else if (associators[ww]=="quickTrackAssociatorByHits"){
+      histograms.h_assocSimToReco_Fraction.push_back( ibook.book1D("assocFraction","fraction of shared hits",200,0,2) );
+      histograms.h_assocSimToReco_SharedHit.push_back(ibook.book1D("assocSharedHit","number of shared hits",20,0,20));
+    }
+    */
+    histograms.h_assocSimToReco_Fraction.push_back(ibook.book1D("assocFraction", "fraction of shared hits", 200, 0, 2));
+    histograms.h_assocSimToReco_SharedHit.push_back(
+        ibook.book1D("assocSharedHit", "number of shared hits", 41, -0.5, 40.5));
+    // ----------------------
+
+    // use the standard error of the mean as the errors in the profile
+    histograms.chi2_vs_nhits.push_back(
+        ibook.bookProfile("chi2mean_vs_nhits", "mean #chi^{2} vs nhits", nintHit, minHit, maxHit, 100, 0, 10, " "));
+
+    bookResolutionPlots2D(
+        histograms.etares_vs_eta, false, "etares_vs_eta", "etaresidue vs eta", nintEta, minEta, maxEta, 200, -0.1, 0.1);
+    bookResolutionPlots2D(
+        histograms.nrec_vs_nsim,
+        false,
+        "nrec_vs_nsim",
+        "Number of selected reco tracks vs. number of selected sim tracks;TrackingParticles;Reco tracks",
+        nintTracks,
+        minTracks,
+        maxTracks,
+        nintTracks,
+        minTracks,
+        maxTracks);
+
+    histograms.chi2_vs_eta.push_back(
+        ibook.bookProfile("chi2mean", "mean #chi^{2} vs #eta", nintEta, minEta, maxEta, 200, 0, 20, " "));
+    histograms.chi2_vs_phi.push_back(
+        ibook.bookProfile("chi2mean_vs_phi", "mean #chi^{2} vs #phi", nintPhi, minPhi, maxPhi, 200, 0, 20, " "));
+    histograms.chi2_vs_pt.push_back(
+        makeProfileIfLogX(ibook, useLogPt, "chi2mean_vs_pt", "mean #chi^{2} vs p_{T}", nintPt, minPt, maxPt, 0, 20));
+    histograms.chi2_vs_drj.push_back(makeProfileIfLogX(
+        ibook, true, "chi2mean_vs_drj", "mean #chi^{2} vs dR(track,jet)", nintdrj, log10(mindrj), log10(maxdrj), 0, 20));
+
+    histograms.assoc_chi2_vs_eta.push_back(
+        ibook.bookProfile("assoc_chi2mean", "mean #chi^{2} vs #eta", nintEta, minEta, maxEta, 200, 0., 20., " "));
+    histograms.assoc_chi2prob_vs_eta.push_back(ibook.bookProfile(
+        "assoc_chi2prob_vs_eta", "mean #chi^{2} probability vs #eta", nintEta, minEta, maxEta, 100, 0., 1., " "));
+    histograms.assoc_chi2_vs_pt.push_back(makeProfileIfLogX(
+        ibook, useLogPt, "assoc_chi2mean_vs_pt", "mean #chi^{2} vs p_{T}", nintPt, minPt, maxPt, 0., 20.));
+    histograms.assoc_chi2prob_vs_pt.push_back(makeProfileIfLogX(
+        ibook, useLogPt, "assoc_chi2prob_vs_pt", "mean #chi^{2} probability vs p_{T}", nintPt, minPt, maxPt, 0., 1.));
+    histograms.assoc_chi2_vs_drj.push_back(makeProfileIfLogX(ibook,
+                                                             true,
+                                                             "assoc_chi2mean_vs_drj",
+                                                             "mean #chi^{2} vs dR(track,jet)",
+                                                             nintdrj,
+                                                             log10(mindrj),
+                                                             log10(maxdrj),
+                                                             0.,
+                                                             20));
+    histograms.assoc_chi2prob_vs_drj.push_back(makeProfileIfLogX(ibook,
+                                                                 true,
+                                                                 "assoc_chi2prob_vs_drj",
+                                                                 "mean #chi^{2} probability vs dR(track,jet)",
+                                                                 nintdrj,
+                                                                 log10(mindrj),
+                                                                 log10(maxdrj),
+                                                                 0.,
+                                                                 1.));
+
+    histograms.nhits_vs_eta.push_back(
+        ibook.bookProfile("hits_eta", "mean hits vs eta", nintEta, minEta, maxEta, nintHit, minHit, maxHit, " "));
+    histograms.nPXBhits_vs_eta.push_back(ibook.bookProfile(
+        "PXBhits_vs_eta", "mean # PXB its vs eta", nintEta, minEta, maxEta, nintHit, minHit, maxHit, " "));
+    histograms.nPXFhits_vs_eta.push_back(ibook.bookProfile(
+        "PXFhits_vs_eta", "mean # PXF hits vs eta", nintEta, minEta, maxEta, nintHit, minHit, maxHit, " "));
+    histograms.nPXLhits_vs_eta.push_back(ibook.bookProfile(
+        "PXLhits_vs_eta", "mean # PXL hits vs eta", nintEta, minEta, maxEta, nintHit, minHit, maxHit, " "));
+    histograms.nTIBhits_vs_eta.push_back(ibook.bookProfile(
+        "TIBhits_vs_eta", "mean # TIB hits vs eta", nintEta, minEta, maxEta, nintHit, minHit, maxHit, " "));
+    histograms.nTIDhits_vs_eta.push_back(ibook.bookProfile(
+        "TIDhits_vs_eta", "mean # TID hits vs eta", nintEta, minEta, maxEta, nintHit, minHit, maxHit, " "));
+    histograms.nTOBhits_vs_eta.push_back(ibook.bookProfile(
+        "TOBhits_vs_eta", "mean # TOB hits vs eta", nintEta, minEta, maxEta, nintHit, minHit, maxHit, " "));
+    histograms.nTEChits_vs_eta.push_back(ibook.bookProfile(
+        "TEChits_vs_eta", "mean # TEC hits vs eta", nintEta, minEta, maxEta, nintHit, minHit, maxHit, " "));
+    histograms.nSTRIPhits_vs_eta.push_back(ibook.bookProfile(
+        "STRIPhits_vs_eta", "mean # STRIP hits vs eta", nintEta, minEta, maxEta, nintHit, minHit, maxHit, " "));
+
+    histograms.nLayersWithMeas_vs_eta.push_back(ibook.bookProfile("LayersWithMeas_eta",
+                                                                  "mean # Layers with measurement vs eta",
+                                                                  nintEta,
+                                                                  minEta,
+                                                                  maxEta,
+                                                                  nintLayers,
+                                                                  minLayers,
+                                                                  maxLayers,
+                                                                  " "));
+    histograms.nPXLlayersWithMeas_vs_eta.push_back(ibook.bookProfile("PXLlayersWithMeas_vs_eta",
+                                                                     "mean # PXL Layers with measurement vs eta",
+                                                                     nintEta,
+                                                                     minEta,
+                                                                     maxEta,
+                                                                     nintLayers,
+                                                                     minLayers,
+                                                                     maxLayers,
+                                                                     " "));
+    histograms.nSTRIPlayersWithMeas_vs_eta.push_back(ibook.bookProfile("STRIPlayersWithMeas_vs_eta",
+                                                                       "mean # STRIP Layers with measurement vs eta",
+                                                                       nintEta,
+                                                                       minEta,
+                                                                       maxEta,
+                                                                       nintLayers,
+                                                                       minLayers,
+                                                                       maxLayers,
+                                                                       " "));
+    histograms.nSTRIPlayersWith1dMeas_vs_eta.push_back(
+        ibook.bookProfile("STRIPlayersWith1dMeas_vs_eta",
+                          "mean # STRIP Layers with 1D measurement vs eta",
+                          nintEta,
+                          minEta,
+                          maxEta,
+                          nintLayers,
+                          minLayers,
+                          maxLayers,
+                          " "));
+    histograms.nSTRIPlayersWith2dMeas_vs_eta.push_back(
+        ibook.bookProfile("STRIPlayersWith2dMeas_vs_eta",
+                          "mean # STRIP Layers with 2D measurement vs eta",
+                          nintEta,
+                          minEta,
+                          maxEta,
+                          nintLayers,
+                          minLayers,
+                          maxLayers,
+                          " "));
+
+    if (doMTDPlots_) {
+      histograms.nMTDhits_vs_eta.push_back(ibook.bookProfile(
+          "MTDhits_vs_eta", "mean # MTD hits vs eta", nintEta, minEta, maxEta, nintHit, minHit, maxHit, " "));
+
+      histograms.nBTLhits_vs_eta.push_back(ibook.bookProfile(
+          "BTLhits_vs_eta", "mean # BTL hits vs eta", nintEta, minEta, maxEta, nintHit, minHit, maxHit, " "));
+
+      histograms.nETLhits_vs_eta.push_back(ibook.bookProfile(
+          "ETLhits_vs_eta", "mean # ETL hits vs eta", nintEta, minEta, maxEta, nintHit, minHit, maxHit, " "));
+    }
+
+    histograms.nhits_vs_phi.push_back(
+        ibook.bookProfile("hits_phi", "mean # hits vs #phi", nintPhi, minPhi, maxPhi, nintHit, minHit, maxHit, " "));
+
+    histograms.nlosthits_vs_eta.push_back(ibook.bookProfile(
+        "losthits_vs_eta", "mean # lost hits vs eta", nintEta, minEta, maxEta, nintHit, minHit, maxHit, " "));
+
+    //resolution of track parameters
+    //                       dPt/Pt    cotTheta        Phi            TIP            LIP
+    // log10(pt)<0.5        100,0.1    240,0.08     100,0.015      100,0.1000    150,0.3000
+    // 0.5<log10(pt)<1.5    100,0.1    120,0.01     100,0.003      100,0.0100    150,0.0500
+    // >1.5                 100,0.3    100,0.005    100,0.0008     100,0.0060    120,0.0300
+
+    if (doResolutionPlots) {
+      bookResolutionBundle(histograms.hr_pt, "pt", ptRes_nbin, ptRes_rangeMin, ptRes_rangeMax);
+      bookResolutionBundle(histograms.hr_phi, "phi", phiRes_nbin, phiRes_rangeMin, phiRes_rangeMax);
+      bookResolutionBundle(histograms.hr_dxy, "dxy", dxyRes_nbin, dxyRes_rangeMin, dxyRes_rangeMax);
+      bookResolutionBundle(histograms.hr_dz, "dz", dzRes_nbin, dzRes_rangeMin, dzRes_rangeMax);
+      // FIXME: those are random values for theta here. Check the histograms and reset them!!!
+      bookResolutionBundle(histograms.hr_theta, "theta", 100, -1, 1);
+      bookResolutionBundle(
+          histograms.hr_cotTheta, "cotTheta", cotThetaRes_nbin, cotThetaRes_rangeMin, cotThetaRes_rangeMax);
+    }
+
+    bookResolutionPlotsProfile2D(histograms.ptmean_vs_eta_phi,
+                                 "ptmean_vs_eta_phi",
+                                 "mean p_{t} vs #eta and #phi",
+                                 nintPhi,
+                                 minPhi,
+                                 maxPhi,
+                                 nintEta,
+                                 minEta,
+                                 maxEta,
+                                 1000,
+                                 0,
+                                 1000);
+    bookResolutionPlotsProfile2D(histograms.phimean_vs_eta_phi,
+                                 "phimean_vs_eta_phi",
+                                 "mean #phi vs #eta and #phi",
+                                 nintPhi,
+                                 minPhi,
+                                 maxPhi,
+                                 nintEta,
+                                 minEta,
+                                 maxEta,
+                                 nintPhi,
+                                 minPhi,
+                                 maxPhi);
+
+    //      histograms.h_ptshiftetamean.push_back( ibook.book1D("h_ptshifteta_Mean","<#deltapT/pT>[%] vs #eta",nintEta,minEta,maxEta) );
+
+    bookResolutionPlots2D(histograms.nrecHit_vs_nsimHit_rec2sim,
+                          false,
+                          "nrecHit_vs_nsimHit_rec2sim",
+                          "nrecHit vs nsimHit (Rec2simAssoc)",
+                          nintHit,
+                          minHit,
+                          maxHit,
+                          nintHit,
+                          minHit,
+                          maxHit);
+  }
+
+  if (doSimTrackPlots) {
+    histograms.nrecHit_vs_nsimHit_sim2rec.push_back(doResolutionPlots
+                                                        ? ibook.book2D("nrecHit_vs_nsimHit_sim2rec",
+                                                                       "nrecHit vs nsimHit (Sim2RecAssoc)",
+                                                                       nintHit,
+                                                                       minHit,
+                                                                       maxHit,
+                                                                       nintHit,
+                                                                       minHit,
+                                                                       maxHit)
+                                                        : nullptr);
+
+    // TODO: use the dynamic track algo priority order also here
+    constexpr auto nalgos = reco::TrackBase::algoSize;
+    histograms.h_duplicates_oriAlgo_vs_oriAlgo.push_back(ibook.book2D("duplicates_oriAlgo_vs_oriAlgo",
+                                                                      "Duplicate tracks: originalAlgo vs originalAlgo",
+                                                                      nalgos,
+                                                                      0,
+                                                                      nalgos,
+                                                                      nalgos,
+                                                                      0,
+                                                                      nalgos));
+    setBinLabelsAlgo(histograms.h_duplicates_oriAlgo_vs_oriAlgo.back(), 1);
+    setBinLabelsAlgo(histograms.h_duplicates_oriAlgo_vs_oriAlgo.back(), 2);
+  }
 }
 
 void MTVHistoProducerAlgoForTracker::bookSimTrackPVAssociationHistos(DQMStore::IBooker& ibook, Histograms& histograms) {
@@ -475,511 +797,6 @@ void MTVHistoProducerAlgoForTracker::bookSimTrackPVAssociationHistos(DQMStore::I
                                                        0,
                                                        maxDzpvCum));
   }
-}
-
-void MTVHistoProducerAlgoForTracker::bookRecoHistos(DQMStore::IBooker& ibook,
-                                                    Histograms& histograms,
-                                                    bool doResolutionPlots) {
-  histograms.h_tracks.push_back(
-      ibook.book1D("tracks", "number of reconstructed tracks", nintTracks, minTracks, maxTracks));
-  histograms.h_fakes.push_back(ibook.book1D("fakes", "number of fake reco tracks", nintTracks, minTracks, maxTracks));
-  histograms.h_charge.push_back(ibook.book1D("charge", "charge", 3, -1.5, 1.5));
-
-  histograms.h_hits.push_back(ibook.book1D("hits", "number of hits per track", nintHit, minHit, maxHit));
-  histograms.h_losthits.push_back(ibook.book1D("losthits", "number of lost hits per track", nintHit, minHit, maxHit));
-  histograms.h_nchi2.push_back(ibook.book1D("chi2", "normalized #chi^{2}", 200, 0, 20));
-  histograms.h_nchi2_prob.push_back(ibook.book1D("chi2_prob", "normalized #chi^{2} probability", 100, 0, 1));
-
-  histograms.h_nmisslayers_inner.push_back(
-      ibook.book1D("missing_inner_layers", "number of missing inner layers", nintLayers, minLayers, maxLayers));
-  histograms.h_nmisslayers_outer.push_back(
-      ibook.book1D("missing_outer_layers", "number of missing outer layers", nintLayers, minLayers, maxLayers));
-
-  histograms.h_algo.push_back(
-      ibook.book1D("h_algo", "Tracks by algo", reco::TrackBase::algoSize, 0., double(reco::TrackBase::algoSize)));
-  for (size_t ibin = 0; ibin < reco::TrackBase::algoSize - 1; ibin++)
-    histograms.h_algo.back()->setBinLabel(ibin + 1, reco::TrackBase::algoNames[ibin]);
-  histograms.h_algo.back()->disableAlphanumeric();
-
-  /// these are needed to calculate efficiency during the harvesting for the automated validation
-  histograms.hs_eta.back().book1D(ibook, false, true, "eta", "Pseudorapidity #eta", "", nintEta, minEta, maxEta);
-  histograms.hs_pT.back().book1DIfLogX(ibook, useLogPt, false, true, "pT", "p_{T}", "", nintPt, minPt, maxPt);
-  histograms.hs_pTvseta.back().book2DIfLogY(ibook,
-                                            useLogPt,
-                                            false,
-                                            true,
-                                            "pTvseta",
-                                            "Pseudorapidity #eta",
-                                            "p_{T}",
-                                            nintEta,
-                                            minEta,
-                                            maxEta,
-                                            nintPt,
-                                            minPt,
-                                            maxPt);
-
-  histograms.hs_hit.back().book1D(ibook, false, true, "hit", "Number of hits", "", nintHit, minHit, maxHit);
-  histograms.hs_layer.back().book1D(
-      ibook, false, true, "layer", "Number of layers", "", nintLayers, minLayers, maxLayers);
-  histograms.hs_pixellayer.back().book1D(
-      ibook, false, true, "pixellayer", "Number of pixel layers", "", nintLayers, minLayers, maxLayers);
-  histograms.hs_3Dlayer.back().book1D(
-      ibook, false, true, "3Dlayer", "Number of 3D layers", "", nintLayers, minLayers, maxLayers);
-  histograms.hs_pu.back().book1D(
-      ibook, false, true, "pu", "Number of Primary Vertices / Pileup", "", nintPu, minPu, maxPu);
-  histograms.hs_phi.back().book1D(ibook, false, true, "phi", "#phi angle", "", nintPhi, minPhi, maxPhi);
-  histograms.hs_dxy.back().book1D(
-      ibook, false, true, "dxy", "Transverse impact parameter d_{xy} [cm]", "", nintDxy, minDxy, maxDxy);
-  histograms.hs_dz.back().book1D(
-      ibook, false, true, "dz", "Longitudinal impact parameter d_{z} [cm]", "", nintDz, minDz, maxDz);
-  histograms.hs_vertpos.back().book1DIfLogX(ibook,
-                                            useLogVertpos,
-                                            false,
-                                            true,
-                                            "vertpos",
-                                            "Radial displacement of production vertex [cm]",
-                                            "",
-                                            nintVertpos,
-                                            minVertpos,
-                                            maxVertpos);
-  histograms.hs_zpos.back().book1D(
-      ibook, false, true, "zpos", "z coordinate of production vertex [cm]", "", nintZpos, minZpos, maxZpos);
-  histograms.hs_dr.back().book1DLogX(ibook, false, true, "dr", "dR", "", nintdr, log10(mindr), log10(maxdr));
-  histograms.hs_drj.back().book1DLogX(
-      ibook, false, true, "drj", "dR(TP,jet)", "", nintdrj, log10(mindrj), log10(maxdrj));
-  histograms.hs_simpvz.back().book1D(
-      ibook, false, true, "simpvz", "z of the simulated PV", "", nintPVz, minPVz, maxPVz);
-  histograms.hs_chi2.back().book1D(
-      ibook, false, true, "chi2", "Normalized #chi^{2} / ndof", "", nintChi2, minChi2, maxChi2);
-  histograms.hs_chi2prob.back().book1D(
-      ibook, false, true, "chi2prob", "Probability for given #chi^{2}", "", 100, 0., 1.);
-
-  if (!seedingLayerSetNames.empty()) {
-    const auto size = seedingLayerSetNames.size();
-    histograms.h_reco_seedingLayerSet.push_back(
-        ibook.book1D("num_reco_seedingLayerSet", "N of reco track vs. seedingLayerSet", size, 0, size));
-    histograms.h_assocRecoToSim_seedingLayerSet.push_back(
-        ibook.book1D("num_assoc(recoToSim)_seedingLayerSet",
-                     "N of associated track (recoToSim) tracks vs. seedingLayerSet",
-                     size,
-                     0,
-                     size));
-    histograms.h_looper_seedingLayerSet.push_back(ibook.book1D(
-        "num_duplicate_seedingLayerSet", "N of reco associated (recoToSim) looper vs. seedingLayerSet", size, 0, size));
-    histograms.h_pileup_seedingLayerSet.push_back(ibook.book1D(
-        "num_pileup_seedingLayerSet", "N of reco associated (recoToSim) pileup vs. seedingLayerSet", size, 0, size));
-
-    setBinLabels(histograms.h_reco_seedingLayerSet.back(), seedingLayerSetNames);
-    setBinLabels(histograms.h_assocRecoToSim_seedingLayerSet.back(), seedingLayerSetNames);
-    setBinLabels(histograms.h_looper_seedingLayerSet.back(), seedingLayerSetNames);
-    setBinLabels(histograms.h_pileup_seedingLayerSet.back(), seedingLayerSetNames);
-  }
-
-  /////////////////////////////////
-
-  auto bookResolutionPlots1D = [&](std::vector<dqm::reco::MonitorElement*>& vec, auto&&... params) {
-    vec.push_back(doResolutionPlots ? ibook.book1D(std::forward<decltype(params)>(params)...) : nullptr);
-  };
-  auto bookResolutionPlots2D = [&](std::vector<dqm::reco::MonitorElement*>& vec, bool logx, auto&&... params) {
-    vec.push_back(doResolutionPlots ? make2DIfLogX(ibook, logx, std::forward<decltype(params)>(params)...) : nullptr);
-  };
-  auto bookResolutionPlotsProfile2D = [&](std::vector<dqm::reco::MonitorElement*>& vec, auto&&... params) {
-    vec.push_back(doResolutionPlots ? ibook.bookProfile2D(std::forward<decltype(params)>(params)...) : nullptr);
-  };
-
-  bookResolutionPlots1D(histograms.h_eta, "eta", "pseudorapidity residue", 1000, -0.1, 0.1);
-  bookResolutionPlots1D(histograms.h_pt, "pullPt", "pull of p_{T}", 100, -10, 10);
-  bookResolutionPlots1D(histograms.h_pullTheta, "pullTheta", "pull of #theta parameter", 250, -25, 25);
-  bookResolutionPlots1D(histograms.h_pullPhi, "pullPhi", "pull of #phi parameter", 250, -25, 25);
-  bookResolutionPlots1D(histograms.h_pullDxy, "pullDxy", "pull of d_{xy} parameter", 250, -25, 25);
-  bookResolutionPlots1D(histograms.h_pullDz, "pullDz", "pull of d_{z} parameter", 250, -25, 25);
-  bookResolutionPlots1D(histograms.h_pullQoverp, "pullQoverp", "pull of qoverp parameter", 250, -25, 25);
-
-  /* TO BE FIXED -----------
-  if (associators[ww]=="TrackAssociatorByChi2"){
-    histograms.h_assocSimToReco_chi2.push_back( ibook.book1D("assocChi2","track association #chi^{2}",1000000,0,100000) );
-    histograms.h_assocSimToReco_chi2_prob.push_back(ibook.book1D("assocChi2_prob","probability of association #chi^{2}",100,0,1));
-  } else if (associators[ww]=="quickTrackAssociatorByHits"){
-    histograms.h_assocSimToReco_Fraction.push_back( ibook.book1D("assocFraction","fraction of shared hits",200,0,2) );
-    histograms.h_assocSimToReco_SharedHit.push_back(ibook.book1D("assocSharedHit","number of shared hits",20,0,20));
-  }
-  */
-  histograms.h_assocSimToReco_Fraction.push_back(ibook.book1D("assocFraction", "fraction of shared hits", 200, 0, 2));
-  histograms.h_assocSimToReco_SharedHit.push_back(
-      ibook.book1D("assocSharedHit", "number of shared hits", 41, -0.5, 40.5));
-  // ----------------------
-
-  // use the standard error of the mean as the errors in the profile
-  histograms.chi2_vs_nhits.push_back(
-      ibook.bookProfile("chi2mean_vs_nhits", "mean #chi^{2} vs nhits", nintHit, minHit, maxHit, 100, 0, 10, " "));
-
-  bookResolutionPlots2D(
-      histograms.etares_vs_eta, false, "etares_vs_eta", "etaresidue vs eta", nintEta, minEta, maxEta, 200, -0.1, 0.1);
-  bookResolutionPlots2D(
-      histograms.nrec_vs_nsim,
-      false,
-      "nrec_vs_nsim",
-      "Number of selected reco tracks vs. number of selected sim tracks;TrackingParticles;Reco tracks",
-      nintTracks,
-      minTracks,
-      maxTracks,
-      nintTracks,
-      minTracks,
-      maxTracks);
-
-  histograms.chi2_vs_eta.push_back(
-      ibook.bookProfile("chi2mean", "mean #chi^{2} vs #eta", nintEta, minEta, maxEta, 200, 0, 20, " "));
-  histograms.chi2_vs_phi.push_back(
-      ibook.bookProfile("chi2mean_vs_phi", "mean #chi^{2} vs #phi", nintPhi, minPhi, maxPhi, 200, 0, 20, " "));
-  histograms.chi2_vs_pt.push_back(
-      makeProfileIfLogX(ibook, useLogPt, "chi2mean_vs_pt", "mean #chi^{2} vs p_{T}", nintPt, minPt, maxPt, 0, 20));
-  histograms.chi2_vs_drj.push_back(makeProfileIfLogX(
-      ibook, true, "chi2mean_vs_drj", "mean #chi^{2} vs dR(track,jet)", nintdrj, log10(mindrj), log10(maxdrj), 0, 20));
-
-  histograms.assoc_chi2_vs_eta.push_back(
-      ibook.bookProfile("assoc_chi2mean", "mean #chi^{2} vs #eta", nintEta, minEta, maxEta, 200, 0., 20., " "));
-  histograms.assoc_chi2prob_vs_eta.push_back(ibook.bookProfile(
-      "assoc_chi2prob_vs_eta", "mean #chi^{2} probability vs #eta", nintEta, minEta, maxEta, 100, 0., 1., " "));
-  histograms.assoc_chi2_vs_pt.push_back(makeProfileIfLogX(
-      ibook, useLogPt, "assoc_chi2mean_vs_pt", "mean #chi^{2} vs p_{T}", nintPt, minPt, maxPt, 0., 20.));
-  histograms.assoc_chi2prob_vs_pt.push_back(makeProfileIfLogX(
-      ibook, useLogPt, "assoc_chi2prob_vs_pt", "mean #chi^{2} probability vs p_{T}", nintPt, minPt, maxPt, 0., 1.));
-  histograms.assoc_chi2_vs_drj.push_back(makeProfileIfLogX(ibook,
-                                                           true,
-                                                           "assoc_chi2mean_vs_drj",
-                                                           "mean #chi^{2} vs dR(track,jet)",
-                                                           nintdrj,
-                                                           log10(mindrj),
-                                                           log10(maxdrj),
-                                                           0.,
-                                                           20));
-  histograms.assoc_chi2prob_vs_drj.push_back(makeProfileIfLogX(ibook,
-                                                               true,
-                                                               "assoc_chi2prob_vs_drj",
-                                                               "mean #chi^{2} probability vs dR(track,jet)",
-                                                               nintdrj,
-                                                               log10(mindrj),
-                                                               log10(maxdrj),
-                                                               0.,
-                                                               1.));
-
-  histograms.nhits_vs_eta.push_back(
-      ibook.bookProfile("hits_eta", "mean hits vs eta", nintEta, minEta, maxEta, nintHit, minHit, maxHit, " "));
-  histograms.nPXBhits_vs_eta.push_back(ibook.bookProfile(
-      "PXBhits_vs_eta", "mean # PXB its vs eta", nintEta, minEta, maxEta, nintHit, minHit, maxHit, " "));
-  histograms.nPXFhits_vs_eta.push_back(ibook.bookProfile(
-      "PXFhits_vs_eta", "mean # PXF hits vs eta", nintEta, minEta, maxEta, nintHit, minHit, maxHit, " "));
-  histograms.nPXLhits_vs_eta.push_back(ibook.bookProfile(
-      "PXLhits_vs_eta", "mean # PXL hits vs eta", nintEta, minEta, maxEta, nintHit, minHit, maxHit, " "));
-  histograms.nTIBhits_vs_eta.push_back(ibook.bookProfile(
-      "TIBhits_vs_eta", "mean # TIB hits vs eta", nintEta, minEta, maxEta, nintHit, minHit, maxHit, " "));
-  histograms.nTIDhits_vs_eta.push_back(ibook.bookProfile(
-      "TIDhits_vs_eta", "mean # TID hits vs eta", nintEta, minEta, maxEta, nintHit, minHit, maxHit, " "));
-  histograms.nTOBhits_vs_eta.push_back(ibook.bookProfile(
-      "TOBhits_vs_eta", "mean # TOB hits vs eta", nintEta, minEta, maxEta, nintHit, minHit, maxHit, " "));
-  histograms.nTEChits_vs_eta.push_back(ibook.bookProfile(
-      "TEChits_vs_eta", "mean # TEC hits vs eta", nintEta, minEta, maxEta, nintHit, minHit, maxHit, " "));
-  histograms.nSTRIPhits_vs_eta.push_back(ibook.bookProfile(
-      "STRIPhits_vs_eta", "mean # STRIP hits vs eta", nintEta, minEta, maxEta, nintHit, minHit, maxHit, " "));
-
-  histograms.nLayersWithMeas_vs_eta.push_back(ibook.bookProfile("LayersWithMeas_eta",
-                                                                "mean # Layers with measurement vs eta",
-                                                                nintEta,
-                                                                minEta,
-                                                                maxEta,
-                                                                nintLayers,
-                                                                minLayers,
-                                                                maxLayers,
-                                                                " "));
-  histograms.nPXLlayersWithMeas_vs_eta.push_back(ibook.bookProfile("PXLlayersWithMeas_vs_eta",
-                                                                   "mean # PXL Layers with measurement vs eta",
-                                                                   nintEta,
-                                                                   minEta,
-                                                                   maxEta,
-                                                                   nintLayers,
-                                                                   minLayers,
-                                                                   maxLayers,
-                                                                   " "));
-  histograms.nSTRIPlayersWithMeas_vs_eta.push_back(ibook.bookProfile("STRIPlayersWithMeas_vs_eta",
-                                                                     "mean # STRIP Layers with measurement vs eta",
-                                                                     nintEta,
-                                                                     minEta,
-                                                                     maxEta,
-                                                                     nintLayers,
-                                                                     minLayers,
-                                                                     maxLayers,
-                                                                     " "));
-  histograms.nSTRIPlayersWith1dMeas_vs_eta.push_back(ibook.bookProfile("STRIPlayersWith1dMeas_vs_eta",
-                                                                       "mean # STRIP Layers with 1D measurement vs eta",
-                                                                       nintEta,
-                                                                       minEta,
-                                                                       maxEta,
-                                                                       nintLayers,
-                                                                       minLayers,
-                                                                       maxLayers,
-                                                                       " "));
-  histograms.nSTRIPlayersWith2dMeas_vs_eta.push_back(ibook.bookProfile("STRIPlayersWith2dMeas_vs_eta",
-                                                                       "mean # STRIP Layers with 2D measurement vs eta",
-                                                                       nintEta,
-                                                                       minEta,
-                                                                       maxEta,
-                                                                       nintLayers,
-                                                                       minLayers,
-                                                                       maxLayers,
-                                                                       " "));
-
-  if (doMTDPlots_) {
-    histograms.nMTDhits_vs_eta.push_back(ibook.bookProfile(
-        "MTDhits_vs_eta", "mean # MTD hits vs eta", nintEta, minEta, maxEta, nintHit, minHit, maxHit, " "));
-
-    histograms.nBTLhits_vs_eta.push_back(ibook.bookProfile(
-        "BTLhits_vs_eta", "mean # BTL hits vs eta", nintEta, minEta, maxEta, nintHit, minHit, maxHit, " "));
-
-    histograms.nETLhits_vs_eta.push_back(ibook.bookProfile(
-        "ETLhits_vs_eta", "mean # ETL hits vs eta", nintEta, minEta, maxEta, nintHit, minHit, maxHit, " "));
-  }
-
-  histograms.nhits_vs_phi.push_back(
-      ibook.bookProfile("hits_phi", "mean # hits vs #phi", nintPhi, minPhi, maxPhi, nintHit, minHit, maxHit, " "));
-
-  histograms.nlosthits_vs_eta.push_back(ibook.bookProfile(
-      "losthits_vs_eta", "mean # lost hits vs eta", nintEta, minEta, maxEta, nintHit, minHit, maxHit, " "));
-
-  //resolution of track parameters
-  //                       dPt/Pt    cotTheta        Phi            TIP            LIP
-  // log10(pt)<0.5        100,0.1    240,0.08     100,0.015      100,0.1000    150,0.3000
-  // 0.5<log10(pt)<1.5    100,0.1    120,0.01     100,0.003      100,0.0100    150,0.0500
-  // >1.5                 100,0.3    100,0.005    100,0.0008     100,0.0060    120,0.0300
-
-  bookResolutionPlots2D(histograms.ptres_vs_eta,
-                        false,
-                        "ptres_vs_eta",
-                        "ptres_vs_eta",
-                        nintEta,
-                        minEta,
-                        maxEta,
-                        ptRes_nbin,
-                        ptRes_rangeMin,
-                        ptRes_rangeMax);
-
-  bookResolutionPlots2D(histograms.ptres_vs_phi,
-                        false,
-                        "ptres_vs_phi",
-                        "p_{T} res vs #phi",
-                        nintPhi,
-                        minPhi,
-                        maxPhi,
-                        ptRes_nbin,
-                        ptRes_rangeMin,
-                        ptRes_rangeMax);
-
-  bookResolutionPlots2D(histograms.ptres_vs_pt,
-                        useLogPt,
-                        "ptres_vs_pt",
-                        "ptres_vs_pt",
-                        nintPt,
-                        minPt,
-                        maxPt,
-                        ptRes_nbin,
-                        ptRes_rangeMin,
-                        ptRes_rangeMax);
-
-  bookResolutionPlots2D(histograms.cotThetares_vs_eta,
-                        false,
-                        "cotThetares_vs_eta",
-                        "cotThetares_vs_eta",
-                        nintEta,
-                        minEta,
-                        maxEta,
-                        cotThetaRes_nbin,
-                        cotThetaRes_rangeMin,
-                        cotThetaRes_rangeMax);
-
-  bookResolutionPlots2D(histograms.cotThetares_vs_pt,
-                        useLogPt,
-                        "cotThetares_vs_pt",
-                        "cotThetares_vs_pt",
-                        nintPt,
-                        minPt,
-                        maxPt,
-                        cotThetaRes_nbin,
-                        cotThetaRes_rangeMin,
-                        cotThetaRes_rangeMax);
-
-  bookResolutionPlots2D(histograms.phires_vs_eta,
-                        false,
-                        "phires_vs_eta",
-                        "phires_vs_eta",
-                        nintEta,
-                        minEta,
-                        maxEta,
-                        phiRes_nbin,
-                        phiRes_rangeMin,
-                        phiRes_rangeMax);
-
-  bookResolutionPlots2D(histograms.phires_vs_pt,
-                        useLogPt,
-                        "phires_vs_pt",
-                        "phires_vs_pt",
-                        nintPt,
-                        minPt,
-                        maxPt,
-                        phiRes_nbin,
-                        phiRes_rangeMin,
-                        phiRes_rangeMax);
-
-  bookResolutionPlots2D(histograms.phires_vs_phi,
-                        false,
-                        "phires_vs_phi",
-                        "#phi res vs #phi",
-                        nintPhi,
-                        minPhi,
-                        maxPhi,
-                        phiRes_nbin,
-                        phiRes_rangeMin,
-                        phiRes_rangeMax);
-
-  bookResolutionPlots2D(histograms.dxyres_vs_eta,
-                        false,
-                        "dxyres_vs_eta",
-                        "dxyres_vs_eta",
-                        nintEta,
-                        minEta,
-                        maxEta,
-                        dxyRes_nbin,
-                        dxyRes_rangeMin,
-                        dxyRes_rangeMax);
-
-  bookResolutionPlots2D(histograms.dxyres_vs_pt,
-                        useLogPt,
-                        "dxyres_vs_pt",
-                        "dxyres_vs_pt",
-                        nintPt,
-                        minPt,
-                        maxPt,
-                        dxyRes_nbin,
-                        dxyRes_rangeMin,
-                        dxyRes_rangeMax);
-
-  bookResolutionPlots2D(histograms.dxyres_vs_phi,
-                        false,
-                        "dxyres_vs_phi",
-                        "dxyres_vs_phi",
-                        nintPhi,
-                        minPhi,
-                        maxPhi,
-                        dxyRes_nbin,
-                        dxyRes_rangeMin,
-                        dxyRes_rangeMax);
-
-  bookResolutionPlots2D(histograms.dzres_vs_eta,
-                        false,
-                        "dzres_vs_eta",
-                        "dzres_vs_eta",
-                        nintEta,
-                        minEta,
-                        maxEta,
-                        dzRes_nbin,
-                        dzRes_rangeMin,
-                        dzRes_rangeMax);
-
-  bookResolutionPlots2D(histograms.dzres_vs_pt,
-                        useLogPt,
-                        "dzres_vs_pt",
-                        "dzres_vs_pt",
-                        nintPt,
-                        minPt,
-                        maxPt,
-                        dzRes_nbin,
-                        dzRes_rangeMin,
-                        dzRes_rangeMax);
-
-  bookResolutionPlots2D(histograms.dzres_vs_phi,
-                        false,
-                        "dzres_vs_phi",
-                        "dzres_vs_phi",
-                        nintPhi,
-                        minPhi,
-                        maxPhi,
-                        dzRes_nbin,
-                        dzRes_rangeMin,
-                        dzRes_rangeMax);
-
-  bookResolutionPlotsProfile2D(histograms.ptmean_vs_eta_phi,
-                               "ptmean_vs_eta_phi",
-                               "mean p_{t} vs #eta and #phi",
-                               nintPhi,
-                               minPhi,
-                               maxPhi,
-                               nintEta,
-                               minEta,
-                               maxEta,
-                               1000,
-                               0,
-                               1000);
-  bookResolutionPlotsProfile2D(histograms.phimean_vs_eta_phi,
-                               "phimean_vs_eta_phi",
-                               "mean #phi vs #eta and #phi",
-                               nintPhi,
-                               minPhi,
-                               maxPhi,
-                               nintEta,
-                               minEta,
-                               maxEta,
-                               nintPhi,
-                               minPhi,
-                               maxPhi);
-
-  //pulls of track params vs eta: to be used with fitslicesytool
-  bookResolutionPlots2D(
-      histograms.dxypull_vs_eta, false, "dxypull_vs_eta", "dxypull_vs_eta", nintEta, minEta, maxEta, 100, -10, 10);
-  bookResolutionPlots2D(
-      histograms.ptpull_vs_eta, false, "ptpull_vs_eta", "ptpull_vs_eta", nintEta, minEta, maxEta, 100, -10, 10);
-  bookResolutionPlots2D(
-      histograms.dzpull_vs_eta, false, "dzpull_vs_eta", "dzpull_vs_eta", nintEta, minEta, maxEta, 100, -10, 10);
-  bookResolutionPlots2D(
-      histograms.phipull_vs_eta, false, "phipull_vs_eta", "phipull_vs_eta", nintEta, minEta, maxEta, 100, -10, 10);
-  bookResolutionPlots2D(
-      histograms.thetapull_vs_eta, false, "thetapull_vs_eta", "thetapull_vs_eta", nintEta, minEta, maxEta, 100, -10, 10);
-  bookResolutionPlots2D(
-      histograms.dxypull_vs_pt, useLogPt, "dxypull_vs_pt", "dxypull_vs_pt", nintPt, minPt, maxPt, 100, -10, 10);
-  bookResolutionPlots2D(
-      histograms.ptpull_vs_pt, useLogPt, "ptpull_vs_pt", "ptpull_vs_pt", nintPt, minPt, maxPt, 100, -10, 10);
-  bookResolutionPlots2D(
-      histograms.dzpull_vs_pt, useLogPt, "dzpull_vs_pt", "dzpull_vs_pt", nintPt, minPt, maxPt, 100, -10, 10);
-  bookResolutionPlots2D(
-      histograms.phipull_vs_pt, useLogPt, "phipull_vs_pt", "phipull_vs_pt", nintPt, minPt, maxPt, 100, -10, 10);
-  bookResolutionPlots2D(
-      histograms.thetapull_vs_pt, useLogPt, "thetapull_vs_pt", "thetapull_vs_pt", nintPt, minPt, maxPt, 100, -10, 10);
-
-  //      histograms.h_ptshiftetamean.push_back( ibook.book1D("h_ptshifteta_Mean","<#deltapT/pT>[%] vs #eta",nintEta,minEta,maxEta) );
-
-  //pulls of track params vs phi
-  bookResolutionPlots2D(
-      histograms.ptpull_vs_phi, false, "ptpull_vs_phi", "p_{t} pull vs #phi", nintPhi, minPhi, maxPhi, 100, -10, 10);
-  bookResolutionPlots2D(
-      histograms.phipull_vs_phi, false, "phipull_vs_phi", "#phi pull vs #phi", nintPhi, minPhi, maxPhi, 100, -10, 10);
-  bookResolutionPlots2D(histograms.thetapull_vs_phi,
-                        false,
-                        "thetapull_vs_phi",
-                        "#theta pull vs #phi",
-                        nintPhi,
-                        minPhi,
-                        maxPhi,
-                        100,
-                        -10,
-                        10);
-
-  bookResolutionPlots2D(histograms.nrecHit_vs_nsimHit_rec2sim,
-                        false,
-                        "nrecHit_vs_nsimHit_rec2sim",
-                        "nrecHit vs nsimHit (Rec2simAssoc)",
-                        nintHit,
-                        minHit,
-                        maxHit,
-                        nintHit,
-                        minHit,
-                        maxHit);
 }
 
 void MTVHistoProducerAlgoForTracker::bookRecoPVAssociationHistos(DQMStore::IBooker& ibook, Histograms& histograms) {
@@ -1469,7 +1286,8 @@ void MTVHistoProducerAlgoForTracker::fill_generic_recoTrack_histos(const Histogr
     if (dRJet <= 99999)  //dRJet can be set to numeric_limits max^2, this is a protection
       histograms.chi2_vs_drj[count]->Fill(dRJet, chi2);
     if (fillSeedingLayerSets)
-      histograms.h_reco_seedingLayerSet[count]->Fill(seedingLayerSetBin);
+      histograms.hs_seedingLayerSet[count].fillRecoHistos(
+          isMatched, isSelected, isDuplicate, isPileup, isChargeMatched, seedingLayerSetBin);
 
     if (isMatched) {
       histograms.assoc_chi2_vs_eta[count]->Fill(eta, chi2);
@@ -1480,8 +1298,6 @@ void MTVHistoProducerAlgoForTracker::fill_generic_recoTrack_histos(const Histogr
         histograms.assoc_chi2_vs_drj[count]->Fill(dRJet, chi2);
         histograms.assoc_chi2prob_vs_drj[count]->Fill(dRJet, chi2prob);
       }
-      if (fillSeedingLayerSets)
-        histograms.h_assocRecoToSim_seedingLayerSet[count]->Fill(seedingLayerSetBin);
     }
   }
 
@@ -1680,6 +1496,7 @@ void MTVHistoProducerAlgoForTracker::fill_ResoAndPull_recoTrack_histos(const His
   const auto dxyRes = dxyRec - dxySim;
   const auto dzRes = dzRec - dzSim;
   const auto cotThetaRes = 1 / tan(M_PI * 0.5 - lambdaRec) - 1 / tan(M_PI * 0.5 - lambdaSim);
+  const double thetaRes = (lambdaRec - lambdaSim);
 
   // eta residue; pt, k, theta, phi, dxy, dz pulls
   double qoverpPull = (qoverpRec - qoverpSim) / qoverpErrorRec;
@@ -1748,48 +1565,19 @@ void MTVHistoProducerAlgoForTracker::fill_ResoAndPull_recoTrack_histos(const His
   //histograms.etares_vs_eta[count]->Fill(getEta(track.eta()),etares);
   histograms.etares_vs_eta[count]->Fill(etaSim, etares);
 
-  //resolution of track params: fill 2D histos
-  histograms.dxyres_vs_eta[count]->Fill(etaSim, dxyRes);
-  histograms.ptres_vs_eta[count]->Fill(etaSim, ptres / ptRec);
-  histograms.dzres_vs_eta[count]->Fill(etaSim, dzRes);
-  histograms.phires_vs_eta[count]->Fill(etaSim, phiRes);
-  histograms.cotThetares_vs_eta[count]->Fill(etaSim, cotThetaRes);
-
-  //same as before but vs pT
-  histograms.dxyres_vs_pt[count]->Fill(ptSim, dxyRes);
-  histograms.ptres_vs_pt[count]->Fill(ptSim, ptres / ptRec);
-  histograms.dzres_vs_pt[count]->Fill(ptSim, dzRes);
-  histograms.phires_vs_pt[count]->Fill(ptSim, phiRes);
-  histograms.cotThetares_vs_pt[count]->Fill(ptSim, cotThetaRes);
-
-  //pulls of track params vs eta: fill 2D histos
-  histograms.dxypull_vs_eta[count]->Fill(etaSim, dxyPull);
-  histograms.ptpull_vs_eta[count]->Fill(etaSim, ptres / ptError);
-  histograms.dzpull_vs_eta[count]->Fill(etaSim, dzPull);
-  histograms.phipull_vs_eta[count]->Fill(etaSim, phiPull);
-  histograms.thetapull_vs_eta[count]->Fill(etaSim, thetaPull);
-
-  //pulls of track params vs pt: fill 2D histos
-  histograms.dxypull_vs_pt[count]->Fill(ptSim, dxyPull);
-  histograms.ptpull_vs_pt[count]->Fill(ptSim, ptres / ptError);
-  histograms.dzpull_vs_pt[count]->Fill(ptSim, dzPull);
-  histograms.phipull_vs_pt[count]->Fill(ptSim, phiPull);
-  histograms.thetapull_vs_pt[count]->Fill(ptSim, thetaPull);
+  //resolution of track params: fill 2D histos of residuals + pulls
+  histograms.hr_dxy[count].fill(etaSim, ptSim, phiSim, dxyRes, dxyPull);
+  histograms.hr_pt[count].fill(etaSim, ptSim, phiSim, ptres / ptRec, ptres / ptError);
+  histograms.hr_dz[count].fill(etaSim, ptSim, phiSim, dzRes, dzPull);
+  histograms.hr_phi[count].fill(etaSim, ptSim, phiSim, phiRes, phiPull);
+  histograms.hr_cotTheta[count].fill(etaSim, ptSim, phiSim, cotThetaRes, -1);
+  histograms.hr_cotTheta[count].fill(etaSim, ptSim, phiSim, thetaRes, thetaPull);
 
   //plots vs phi
   histograms.nhits_vs_phi[count]->Fill(phiRec, track.numberOfValidHits());
   histograms.chi2_vs_phi[count]->Fill(phiRec, track.normalizedChi2());
   histograms.ptmean_vs_eta_phi[count]->Fill(phiRec, getEta(track.eta()), ptRec);
   histograms.phimean_vs_eta_phi[count]->Fill(phiRec, getEta(track.eta()), phiRec);
-
-  histograms.dxyres_vs_phi[count]->Fill(phiSim, dxyRes);
-  histograms.ptres_vs_phi[count]->Fill(phiSim, ptres / ptRec);
-  histograms.dzres_vs_phi[count]->Fill(phiSim, dzRes);
-  histograms.phires_vs_phi[count]->Fill(phiSim, phiRes);
-
-  histograms.ptpull_vs_phi[count]->Fill(phiSim, ptres / ptError);
-  histograms.phipull_vs_phi[count]->Fill(phiSim, phiPull);
-  histograms.thetapull_vs_phi[count]->Fill(phiSim, thetaPull);
 }
 
 void MTVHistoProducerAlgoForTracker::getRecoMomentum(const reco::Track& track,

@@ -23,6 +23,7 @@
 #include "SimDataFormats/TrackingAnalysis/interface/TrackingParticle.h"
 #include "SimTracker/Common/interface/TrackingParticleSelector.h"
 #include "Validation/RecoTrack/interface/MTVMonitoringElement.h"
+#include "Validation/RecoTrack/interface/MTVResolutionBundle.h"
 
 struct MTVHistoProducerAlgoForTrackerHistograms {
   //sim
@@ -33,7 +34,7 @@ struct MTVHistoProducerAlgoForTrackerHistograms {
   std::vector<METype> h_tracks, h_fakes, h_hits, h_charge, h_algo, h_seedsFitFailed, h_seedsFitFailedFraction;
   mutable std::vector<MTVMonitoringElement> hs_eta, hs_pT, hs_pTvseta, hs_hit, hs_layer, hs_pixellayer, hs_3Dlayer,
       hs_pu, hs_phi, hs_dxy, hs_dz, hs_dxypv, hs_dzpv, hs_dxypvzoomed, hs_dzpvzoomed, hs_vertpos, hs_zpos, hs_dr,
-      hs_drj, hs_dzpvcut, hs_dzpvsigcut, hs_simpvz, hs_chi2, hs_chi2prob;
+      hs_drj, hs_dzpvcut, hs_dzpvsigcut, hs_simpvz, hs_chi2, hs_chi2prob, hs_seedingLayerSet;
   std::vector<METype> h_pt, h_eta, h_pullTheta, h_pullPhi, h_pullDxy, h_pullDz, h_pullQoverp;
   std::vector<METype> h_assocRecoToSim_itpu_eta, h_assocRecoToSim_itpu_sig_eta, h_assocRecoToSim_eta_sig;
   std::vector<METype> h_assocRecoToSim_itpu_vertcount, h_assocRecoToSim_itpu_sig_vertcount;
@@ -41,9 +42,6 @@ struct MTVHistoProducerAlgoForTrackerHistograms {
   std::vector<METype> h_reco_ootpu_eta, h_reco_ootpu_vertcount;
   std::vector<METype> h_con_eta, h_con_vertcount, h_con_zpos;
   std::vector<METype> h_simul2_dzpvcut;
-
-  std::vector<METype> h_reco_seedingLayerSet, h_assocRecoToSim_seedingLayerSet, h_looper_seedingLayerSet,
-      h_pileup_seedingLayerSet;
 
   std::vector<std::vector<METype>> h_reco_mva, h_assocRecoToSim_mva;
   std::vector<std::vector<METype>> h_reco_mvacut, h_assocSimToReco_mvacut, h_assocRecoToSim_mvacut, h_simul2_mvacut;
@@ -84,7 +82,7 @@ struct MTVHistoProducerAlgoForTrackerHistograms {
   //2D
   std::vector<METype> chi2_vs_nhits, etares_vs_eta;
   std::vector<METype> h_ptshifteta;
-  std::vector<METype> dxyres_vs_phi, dzres_vs_phi, ptres_vs_phi, chi2_vs_phi, nhits_vs_phi, phires_vs_phi;
+  std::vector<METype> chi2_vs_phi, nhits_vs_phi;
 
   //Profile2D
   std::vector<METype> ptmean_vs_eta_phi, phimean_vs_eta_phi;
@@ -97,14 +95,15 @@ struct MTVHistoProducerAlgoForTrackerHistograms {
   std::vector<METype> assoc_chi2_vs_eta, assoc_chi2_vs_pt, assoc_chi2_vs_drj, assoc_chi2prob_vs_eta,
       assoc_chi2prob_vs_pt, assoc_chi2prob_vs_drj;
 
-  //resolution of track params: to be used with fitslicesytool
-  std::vector<METype> dxyres_vs_eta, ptres_vs_eta, dzres_vs_eta, phires_vs_eta, cotThetares_vs_eta;
-  std::vector<METype> dxyres_vs_pt, ptres_vs_pt, dzres_vs_pt, phires_vs_pt, cotThetares_vs_pt;
+  //   resolution of track params: to be used with fitslicesytool
+  // + pulls of track params vs eta: to be used with fitslicesytool
+  mutable std::vector<MTVResolutionBundle> hr_dxy, hr_pt, hr_dz, hr_phi, hr_cotTheta, hr_theta;
 
-  //pulls of track params vs eta: to be used with fitslicesytool
-  std::vector<METype> dxypull_vs_eta, ptpull_vs_eta, dzpull_vs_eta, phipull_vs_eta, thetapull_vs_eta;
-  std::vector<METype> dxypull_vs_pt, ptpull_vs_pt, dzpull_vs_pt, phipull_vs_pt, thetapull_vs_pt;
-  std::vector<METype> ptpull_vs_phi, phipull_vs_phi, thetapull_vs_phi;
+  //std::vector<METype> dxyres_vs_eta, ptres_vs_eta, dzres_vs_eta, phires_vs_eta, cotThetares_vs_eta;
+  //std::vector<METype> dxyres_vs_pt, ptres_vs_pt, dzres_vs_pt, phires_vs_pt, cotThetares_vs_pt;
+  //std::vector<METype> dxypull_vs_eta, ptpull_vs_eta, dzpull_vs_eta, phipull_vs_eta, thetapull_vs_eta;
+  //std::vector<METype> dxypull_vs_pt, ptpull_vs_pt, dzpull_vs_pt, phipull_vs_pt, thetapull_vs_pt;
+  //std::vector<METype> ptpull_vs_phi, phipull_vs_phi, thetapull_vs_phi;
 };
 
 class MTVHistoProducerAlgoForTracker {
@@ -122,9 +121,12 @@ public:
   using Histograms = MTVHistoProducerAlgoForTrackerHistograms;
   void pushbackNewMTVMonitoringElements(Histograms& histograms);
   void bookSimHistos(DQMStore::IBooker& ibook, Histograms& histograms);
-  void bookSimTrackHistos(DQMStore::IBooker& ibook, Histograms& histograms, bool doResolutionPlots);
+  void bookSimAndRecoTrackHistos(DQMStore::IBooker& ibook,
+                                 Histograms& histograms,
+                                 const bool doSimTrackPlots,
+                                 const bool doRecoTrackPlots,
+                                 const bool doResolutionPlots);
   void bookSimTrackPVAssociationHistos(DQMStore::IBooker& ibook, Histograms& histograms);
-  void bookRecoHistos(DQMStore::IBooker& ibook, Histograms& histograms, bool doResolutionPlots);
   void bookRecoPVAssociationHistos(DQMStore::IBooker& ibook, Histograms& histograms);
   void bookRecodEdxHistos(DQMStore::IBooker& ibook, Histograms& histograms);
   void bookSeedHistos(DQMStore::IBooker& ibook, Histograms& histograms);

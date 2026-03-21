@@ -1,7 +1,7 @@
-#ifndef Validation_RecoTracker_MTVMonitoringElement_h
-#define Validation_RecoTracker_MTVMonitoringElement_h
+#ifndef Validation_RecoTrack_MTVMonitoringElement_h
+#define Validation_RecoTrack_MTVMonitoringElement_h
 
-// Package:    Validation/RecoTracker
+// Package:    Validation/RecoTrack
 // Class:      MTVMonitoringElement
 //
 /**\class MTVMonitoringElement Validation/RecoTracker/MTVMonitoringElement.h
@@ -12,79 +12,7 @@
 //
 // Original Author:  Jan Schulz (2026)
 
-#include "DQMServices/Core/interface/MonitorElement.h"
-#include <TF1.h>
-
-// Wrapper functions taken from original MTV code
-namespace {
-  typedef dqm::reco::DQMStore DQMStore;
-
-  void BinLogX(TH1* h) {
-    TAxis* axis = h->GetXaxis();
-    int bins = axis->GetNbins();
-
-    float from = axis->GetXmin();
-    float to = axis->GetXmax();
-    float width = (to - from) / bins;
-    std::vector<float> new_bins(bins + 1, 0);
-
-    for (int i = 0; i <= bins; i++) {
-      new_bins[i] = TMath::Power(10, from + i * width);
-    }
-    axis->Set(bins, new_bins.data());
-  }
-
-  void BinLogY(TH1* h) {
-    TAxis* axis = h->GetYaxis();
-    int bins = axis->GetNbins();
-
-    float from = axis->GetXmin();
-    float to = axis->GetXmax();
-    float width = (to - from) / bins;
-    std::vector<float> new_bins(bins + 1, 0);
-
-    for (int i = 0; i <= bins; i++) {
-      new_bins[i] = TMath::Power(10, from + i * width);
-    }
-    axis->Set(bins, new_bins.data());
-  }
-
-  template <typename... Args>
-  dqm::reco::MonitorElement* make1DIfLogX(DQMStore::IBooker& ibook, bool logx, Args&&... args) {
-    auto h = std::make_unique<TH1F>(std::forward<Args>(args)...);
-    if (logx)
-      BinLogX(h.get());
-    const auto& name = h->GetName();
-    return ibook.book1D(name, h.release());
-  }
-
-  template <typename... Args>
-  dqm::reco::MonitorElement* makeProfileIfLogX(DQMStore::IBooker& ibook, bool logx, Args&&... args) {
-    auto h = std::make_unique<TProfile>(std::forward<Args>(args)...);
-    if (logx)
-      BinLogX(h.get());
-    const auto& name = h->GetName();
-    return ibook.bookProfile(name, h.release());
-  }
-
-  template <typename... Args>
-  dqm::reco::MonitorElement* make2DIfLogX(DQMStore::IBooker& ibook, bool logx, Args&&... args) {
-    auto h = std::make_unique<TH2F>(std::forward<Args>(args)...);
-    if (logx)
-      BinLogX(h.get());
-    const auto& name = h->GetName();
-    return ibook.book2D(name, h.release());
-  }
-
-  template <typename... Args>
-  dqm::reco::MonitorElement* make2DIfLogY(DQMStore::IBooker& ibook, bool logy, Args&&... args) {
-    auto h = std::make_unique<TH2F>(std::forward<Args>(args)...);
-    if (logy)
-      BinLogY(h.get());
-    const auto& name = h->GetName();
-    return ibook.book2D(name, h.release());
-  }
-}  // namespace
+#include "Validation/RecoTrack/interface/MTVBookers.h"
 
 // -----------------------------------------------------------------------------------------------------------------
 
@@ -206,15 +134,15 @@ public:
                    valMin,
                    valMax,
                    args...);
-      h_duplicate = bookFunc(
-          ibooker,
-          logScale,
-          ("num_duplicate_" + name).c_str(),
-          ("N of reconstructed duplicated tracks (matched to multi-assoc simulated track)" + xylabels).c_str(),
-          nBins,
-          valMin,
-          valMax,
-          args...);
+      h_duplicate =
+          bookFunc(ibooker,
+                   logScale,
+                   ("num_duplicate_" + name).c_str(),
+                   ("N of reconstructed duplicated tracks (matched to multi-assoc simulated track)" + xylabels).c_str(),
+                   nBins,
+                   valMin,
+                   valMax,
+                   args...);
       h_chargemisid = bookFunc(
           ibooker,
           logScale,
@@ -319,21 +247,22 @@ public:
     book2DIfLogY(ibooker, true, std::forward<Args>(args)...);
   }
 
-  // setting the labels on the x-ticks (for collection summary plots)
-  template <typename ModificationFunc>
-  void modifyHistograms(ModificationFunc modify) {
-    for (auto const h : {h_reco,
-                         h_selectedReco,
-                         h_sim,
-                         h_reconstructableSim,
-                         h_assocSimToReco,
-                         h_assocRecoToSim,
-                         h_assocReconstructableSimToReco,
-                         h_duplicate,
-                         h_chargemisid,
-                         h_pileup}) {
+  // allow modification of the histograms,
+  // e.g. for setting the labels on the x-ticks (for collection summary plots)
+  template <typename ModificationFunc, typename... Args>
+  void modifyHistograms(ModificationFunc modify, Args&&... args) {
+    for (auto h : {h_reco,
+                   h_selectedReco,
+                   h_sim,
+                   h_reconstructableSim,
+                   h_assocSimToReco,
+                   h_assocRecoToSim,
+                   h_assocReconstructableSimToReco,
+                   h_duplicate,
+                   h_chargemisid,
+                   h_pileup}) {
       if (h)
-        modify(h);
+        modify(h, std::forward<Args>(args)...);
     }
   }
 
