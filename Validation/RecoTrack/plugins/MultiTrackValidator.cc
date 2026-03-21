@@ -273,7 +273,7 @@ void MultiTrackValidator::bookHistograms(DQMStore::IBooker& ibook,
 
     if (doSummaryPlots_) {
       histograms.hs_coll.back().book1D(
-          ibook, doSimTrackPlots_, doRecoTrackPlots_, "coll", "Track collection", "Count", nintColl, minColl, maxColl);
+          ibook, doSimTrackPlots_, doRecoTrackPlots_, "coll", "", "Count", nintColl, minColl, maxColl);
       histograms.hs_coll.back().modifyHistograms(binLabels);
     }
 

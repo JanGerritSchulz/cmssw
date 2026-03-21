@@ -357,9 +357,9 @@ void MTVHistoProducerAlgoForTracker::pushbackNewMTVMonitoringElements(Histograms
 }
 
 void MTVHistoProducerAlgoForTracker::bookSimHistos(DQMStore::IBooker& ibook, Histograms& histograms) {
-  histograms.h_ptSIM = make1DIfLogX(ibook, useLogPt, "ptSIM", "generated p_{t}", nintPt, minPt, maxPt);
-  histograms.h_etaSIM = ibook.book1D("etaSIM", "generated pseudorapidity", nintEta, minEta, maxEta);
-  histograms.h_phiSIM = ibook.book1D("phiSIM", "generated phi", nintPhi, minPhi, maxPhi);
+  histograms.h_ptSIM = make1DIfLogX(ibook, useLogPt, "ptSIM", "generated p_{T}", nintPt, minPt, maxPt);
+  histograms.h_etaSIM = ibook.book1D("etaSIM", "generated pseudorapidity #eta", nintEta, minEta, maxEta);
+  histograms.h_phiSIM = ibook.book1D("phiSIM", "generated #phi", nintPhi, minPhi, maxPhi);
   histograms.h_tracksSIM =
       ibook.book1D("tracksSIM", "number of simulated tracks", nintTracks, minTracks, maxTracks * 10);
   histograms.h_vertposSIM =
@@ -370,15 +370,15 @@ void MTVHistoProducerAlgoForTracker::bookSimHistos(DQMStore::IBooker& ibook, His
 void MTVHistoProducerAlgoForTracker::bookSimTrackHistos(DQMStore::IBooker& ibook,
                                                         Histograms& histograms,
                                                         bool doResolutionPlots) {
-  histograms.hs_eta.back().book1D(ibook, true, false, "eta", "Pseudorapidity #eta", "Count", nintEta, minEta, maxEta);
-  histograms.hs_pT.back().book1DIfLogX(ibook, useLogPt, true, false, "pT", "p_T", "Count", nintPt, minPt, maxPt);
+  histograms.hs_eta.back().book1D(ibook, true, false, "eta", "Pseudorapidity #eta", "", nintEta, minEta, maxEta);
+  histograms.hs_pT.back().book1DIfLogX(ibook, useLogPt, true, false, "pT", "p_{T}", "", nintPt, minPt, maxPt);
   histograms.hs_pTvseta.back().book2DIfLogY(ibook,
                                             useLogPt,
                                             true,
                                             false,
                                             "pTvseta",
                                             "Pseudorapidity #eta",
-                                            "p_T",
+                                            "p_{T}",
                                             nintEta,
                                             minEta,
                                             maxEta,
@@ -386,37 +386,37 @@ void MTVHistoProducerAlgoForTracker::bookSimTrackHistos(DQMStore::IBooker& ibook
                                             minPt,
                                             maxPt);
 
-  histograms.hs_hit.back().book1D(ibook, true, false, "hit", "Number of hits", "Count", nintHit, minHit, maxHit);
+  histograms.hs_hit.back().book1D(ibook, true, false, "hit", "Number of hits", "", nintHit, minHit, maxHit);
   histograms.hs_layer.back().book1D(
-      ibook, true, false, "layer", "Number of layers", "Count", nintLayers, minLayers, maxLayers);
+      ibook, true, false, "layer", "Number of layers", "", nintLayers, minLayers, maxLayers);
   histograms.hs_pixellayer.back().book1D(
-      ibook, true, false, "pixellayer", "Number of pixel layers", "Count", nintLayers, minLayers, maxLayers);
+      ibook, true, false, "pixellayer", "Number of pixel layers", "", nintLayers, minLayers, maxLayers);
   histograms.hs_3Dlayer.back().book1D(
-      ibook, true, false, "3Dlayer", "Number of 3D layers", "Count", nintLayers, minLayers, maxLayers);
+      ibook, true, false, "3Dlayer", "Number of 3D layers", "", nintLayers, minLayers, maxLayers);
   histograms.hs_pu.back().book1D(
-      ibook, true, false, "pu", "Number of Primary Vertices / Pileup", "Count", nintPu, minPu, maxPu);
-  histograms.hs_phi.back().book1D(ibook, true, false, "phi", "#phi angle", "Count", nintPhi, minPhi, maxPhi);
+      ibook, true, false, "pu", "Number of Primary Vertices / Pileup", "", nintPu, minPu, maxPu);
+  histograms.hs_phi.back().book1D(ibook, true, false, "phi", "#phi angle", "", nintPhi, minPhi, maxPhi);
   histograms.hs_dxy.back().book1D(
-      ibook, true, false, "dxy", "Transverse impact parameter dxy [cm]", "Count", nintDxy, minDxy, maxDxy);
+      ibook, true, false, "dxy", "Transverse impact parameter d_{xy} [cm]", "", nintDxy, minDxy, maxDxy);
   histograms.hs_dz.back().book1D(
-      ibook, true, false, "dz", "Longitudinal impact parameter dz [cm]", "Count", nintDz, minDz, maxDz);
+      ibook, true, false, "dz", "Longitudinal impact parameter d_{z} [cm]", "", nintDz, minDz, maxDz);
   histograms.hs_vertpos.back().book1DIfLogX(ibook,
                                             useLogVertpos,
                                             true,
                                             false,
                                             "vertpos",
                                             "Radial displacement of production vertex [cm]",
-                                            "Count",
+                                            "",
                                             nintVertpos,
                                             minVertpos,
                                             maxVertpos);
   histograms.hs_zpos.back().book1D(
-      ibook, true, false, "zpos", "z coordinate of production vertex [cm]", "Count", nintZpos, minZpos, maxZpos);
-  histograms.hs_dr.back().book1DLogX(ibook, true, false, "dr", "dR", "Count", nintdr, log10(mindr), log10(maxdr));
+      ibook, true, false, "zpos", "z coordinate of production vertex [cm]", "", nintZpos, minZpos, maxZpos);
+  histograms.hs_dr.back().book1DLogX(ibook, true, false, "dr", "dR", "", nintdr, log10(mindr), log10(maxdr));
   histograms.hs_drj.back().book1DLogX(
-      ibook, true, false, "drj", "dR(TP,jet)", "Count", nintdrj, log10(mindrj), log10(maxdrj));
+      ibook, true, false, "drj", "dR(TP,jet)", "", nintdrj, log10(mindrj), log10(maxdrj));
   histograms.hs_simpvz.back().book1D(
-      ibook, true, false, "simpvz", "z of the simulated PV", "Count", nintPVz, minPVz, maxPVz);
+      ibook, true, false, "simpvz", "z of the simulated PV", "", nintPVz, minPVz, maxPVz);
 
   histograms.nrecHit_vs_nsimHit_sim2rec.push_back(doResolutionPlots ? ibook.book2D("nrecHit_vs_nsimHit_sim2rec",
                                                                                    "nrecHit vs nsimHit (Sim2RecAssoc)",
@@ -444,15 +444,15 @@ void MTVHistoProducerAlgoForTracker::bookSimTrackHistos(DQMStore::IBooker& ibook
 
 void MTVHistoProducerAlgoForTracker::bookSimTrackPVAssociationHistos(DQMStore::IBooker& ibook, Histograms& histograms) {
   histograms.hs_dxypv.back().book1D(
-      ibook, true, false, "dxypv", "Transverse impact parameter dxy wrt PV", "Count", nintDxy, minDxy, maxDxy);
+      ibook, true, false, "dxypv", "Transverse impact parameter d_{xy} wrt PV", "", nintDxy, minDxy, maxDxy);
   histograms.hs_dzpv.back().book1D(
-      ibook, true, false, "dzpv", "Longitudinal impact parameter dz wrt PV", "Count", nintDz, minDz, maxDz);
+      ibook, true, false, "dzpv", "Longitudinal impact parameter d_{z} wrt PV", "", nintDz, minDz, maxDz);
   histograms.hs_dxypvzoomed.back().book1D(ibook,
                                           true,
                                           false,
                                           "dxypvzoomed",
-                                          "Transverse impact parameter dxy wrt P",
-                                          "Count",
+                                          "Transverse impact parameter d_{xy} wrt P",
+                                          "",
                                           nintDxy,
                                           minDxy / dxyDzZoom,
                                           maxDxy / dxyDzZoom);
@@ -460,15 +460,15 @@ void MTVHistoProducerAlgoForTracker::bookSimTrackPVAssociationHistos(DQMStore::I
                                          true,
                                          false,
                                          "dzpvzoomed",
-                                         "Longitudinal impact parameter dz wrt PV",
-                                         "Count",
+                                         "Longitudinal impact parameter d_{z} wrt PV",
+                                         "",
                                          nintDz,
                                          minDz / dxyDzZoom,
                                          maxDz / dxyDzZoom);
 
   if (doDzPVcutPlots_) {
     histograms.hs_dzpvcut.back().book1D(
-        ibook, true, false, "dzpvcut", "Longitudinal impact parameter dz wrt PV", "Count", nintDzpvCum, 0, maxDzpvCum);
+        ibook, true, false, "dzpvcut", "Longitudinal impact parameter d_{z} wrt PV", "", nintDzpvCum, 0, maxDzpvCum);
     histograms.h_simul2_dzpvcut.push_back(ibook.book1D("num_simul2_dzpvcut",
                                                        "N of simulated tracks (associated to any track) from sim PV",
                                                        nintDzpvCum,
@@ -502,15 +502,15 @@ void MTVHistoProducerAlgoForTracker::bookRecoHistos(DQMStore::IBooker& ibook,
   histograms.h_algo.back()->disableAlphanumeric();
 
   /// these are needed to calculate efficiency during the harvesting for the automated validation
-  histograms.hs_eta.back().book1D(ibook, false, true, "eta", "Pseudorapidity #eta", "Count", nintEta, minEta, maxEta);
-  histograms.hs_pT.back().book1DIfLogX(ibook, useLogPt, false, true, "pT", "p_T", "Count", nintPt, minPt, maxPt);
+  histograms.hs_eta.back().book1D(ibook, false, true, "eta", "Pseudorapidity #eta", "", nintEta, minEta, maxEta);
+  histograms.hs_pT.back().book1DIfLogX(ibook, useLogPt, false, true, "pT", "p_{T}", "", nintPt, minPt, maxPt);
   histograms.hs_pTvseta.back().book2DIfLogY(ibook,
                                             useLogPt,
                                             false,
                                             true,
                                             "pTvseta",
                                             "Pseudorapidity #eta",
-                                            "p_T",
+                                            "p_{T}",
                                             nintEta,
                                             minEta,
                                             maxEta,
@@ -518,41 +518,41 @@ void MTVHistoProducerAlgoForTracker::bookRecoHistos(DQMStore::IBooker& ibook,
                                             minPt,
                                             maxPt);
 
-  histograms.hs_hit.back().book1D(ibook, false, true, "hit", "Number of hits", "Count", nintHit, minHit, maxHit);
+  histograms.hs_hit.back().book1D(ibook, false, true, "hit", "Number of hits", "", nintHit, minHit, maxHit);
   histograms.hs_layer.back().book1D(
-      ibook, false, true, "layer", "Number of layers", "Count", nintLayers, minLayers, maxLayers);
+      ibook, false, true, "layer", "Number of layers", "", nintLayers, minLayers, maxLayers);
   histograms.hs_pixellayer.back().book1D(
-      ibook, false, true, "pixellayer", "Number of pixel layers", "Count", nintLayers, minLayers, maxLayers);
+      ibook, false, true, "pixellayer", "Number of pixel layers", "", nintLayers, minLayers, maxLayers);
   histograms.hs_3Dlayer.back().book1D(
-      ibook, false, true, "3Dlayer", "Number of 3D layers", "Count", nintLayers, minLayers, maxLayers);
+      ibook, false, true, "3Dlayer", "Number of 3D layers", "", nintLayers, minLayers, maxLayers);
   histograms.hs_pu.back().book1D(
-      ibook, false, true, "pu", "Number of Primary Vertices / Pileup", "Count", nintPu, minPu, maxPu);
-  histograms.hs_phi.back().book1D(ibook, false, true, "phi", "#phi angle", "Count", nintPhi, minPhi, maxPhi);
+      ibook, false, true, "pu", "Number of Primary Vertices / Pileup", "", nintPu, minPu, maxPu);
+  histograms.hs_phi.back().book1D(ibook, false, true, "phi", "#phi angle", "", nintPhi, minPhi, maxPhi);
   histograms.hs_dxy.back().book1D(
-      ibook, false, true, "dxy", "Transverse impact parameter dxy [cm]", "Count", nintDxy, minDxy, maxDxy);
+      ibook, false, true, "dxy", "Transverse impact parameter d_{xy} [cm]", "", nintDxy, minDxy, maxDxy);
   histograms.hs_dz.back().book1D(
-      ibook, false, true, "dz", "Longitudinal impact parameter dz [cm]", "Count", nintDz, minDz, maxDz);
+      ibook, false, true, "dz", "Longitudinal impact parameter d_{z} [cm]", "", nintDz, minDz, maxDz);
   histograms.hs_vertpos.back().book1DIfLogX(ibook,
                                             useLogVertpos,
                                             false,
                                             true,
                                             "vertpos",
                                             "Radial displacement of production vertex [cm]",
-                                            "Count",
+                                            "",
                                             nintVertpos,
                                             minVertpos,
                                             maxVertpos);
   histograms.hs_zpos.back().book1D(
-      ibook, false, true, "zpos", "z coordinate of production vertex [cm]", "Count", nintZpos, minZpos, maxZpos);
-  histograms.hs_dr.back().book1DLogX(ibook, false, true, "dr", "dR", "Count", nintdr, log10(mindr), log10(maxdr));
+      ibook, false, true, "zpos", "z coordinate of production vertex [cm]", "", nintZpos, minZpos, maxZpos);
+  histograms.hs_dr.back().book1DLogX(ibook, false, true, "dr", "dR", "", nintdr, log10(mindr), log10(maxdr));
   histograms.hs_drj.back().book1DLogX(
-      ibook, false, true, "drj", "dR(TP,jet)", "Count", nintdrj, log10(mindrj), log10(maxdrj));
+      ibook, false, true, "drj", "dR(TP,jet)", "", nintdrj, log10(mindrj), log10(maxdrj));
   histograms.hs_simpvz.back().book1D(
-      ibook, false, true, "simpvz", "z of the simulated PV", "Count", nintPVz, minPVz, maxPVz);
+      ibook, false, true, "simpvz", "z of the simulated PV", "", nintPVz, minPVz, maxPVz);
   histograms.hs_chi2.back().book1D(
-      ibook, false, true, "chi2", "Normalized #chi2 / ndof", "Count", nintChi2, minChi2, maxChi2);
+      ibook, false, true, "chi2", "Normalized #chi^{2} / ndof", "", nintChi2, minChi2, maxChi2);
   histograms.hs_chi2prob.back().book1D(
-      ibook, false, true, "chi2prob", "Probability for given #chi2", "Count", 100, 0., 1.);
+      ibook, false, true, "chi2prob", "Probability for given #chi^{2}", "", 100, 0., 1.);
 
   if (!seedingLayerSetNames.empty()) {
     const auto size = seedingLayerSetNames.size();
@@ -588,11 +588,11 @@ void MTVHistoProducerAlgoForTracker::bookRecoHistos(DQMStore::IBooker& ibook,
   };
 
   bookResolutionPlots1D(histograms.h_eta, "eta", "pseudorapidity residue", 1000, -0.1, 0.1);
-  bookResolutionPlots1D(histograms.h_pt, "pullPt", "pull of p_{t}", 100, -10, 10);
+  bookResolutionPlots1D(histograms.h_pt, "pullPt", "pull of p_{T}", 100, -10, 10);
   bookResolutionPlots1D(histograms.h_pullTheta, "pullTheta", "pull of #theta parameter", 250, -25, 25);
   bookResolutionPlots1D(histograms.h_pullPhi, "pullPhi", "pull of #phi parameter", 250, -25, 25);
-  bookResolutionPlots1D(histograms.h_pullDxy, "pullDxy", "pull of dxy parameter", 250, -25, 25);
-  bookResolutionPlots1D(histograms.h_pullDz, "pullDz", "pull of dz parameter", 250, -25, 25);
+  bookResolutionPlots1D(histograms.h_pullDxy, "pullDxy", "pull of d_{xy} parameter", 250, -25, 25);
+  bookResolutionPlots1D(histograms.h_pullDz, "pullDz", "pull of d_{z} parameter", 250, -25, 25);
   bookResolutionPlots1D(histograms.h_pullQoverp, "pullQoverp", "pull of qoverp parameter", 250, -25, 25);
 
   /* TO BE FIXED -----------
@@ -765,7 +765,7 @@ void MTVHistoProducerAlgoForTracker::bookRecoHistos(DQMStore::IBooker& ibook,
   bookResolutionPlots2D(histograms.ptres_vs_phi,
                         false,
                         "ptres_vs_phi",
-                        "p_{t} res vs #phi",
+                        "p_{T} res vs #phi",
                         nintPhi,
                         minPhi,
                         maxPhi,
@@ -984,15 +984,15 @@ void MTVHistoProducerAlgoForTracker::bookRecoHistos(DQMStore::IBooker& ibook,
 
 void MTVHistoProducerAlgoForTracker::bookRecoPVAssociationHistos(DQMStore::IBooker& ibook, Histograms& histograms) {
   histograms.hs_dxypv.back().book1D(
-      ibook, false, true, "dxypv", "Transverse impact parameter dxy wrt PV", "Count", nintDxy, minDxy, maxDxy);
+      ibook, false, true, "dxypv", "Transverse impact parameter dxy wrt PV", "", nintDxy, minDxy, maxDxy);
   histograms.hs_dzpv.back().book1D(
-      ibook, false, true, "dzpv", "Longitudinal impact parameter dz wrt PV", "Count", nintDz, minDz, maxDz);
+      ibook, false, true, "dzpv", "Longitudinal impact parameter dz wrt PV", "", nintDz, minDz, maxDz);
   histograms.hs_dxypvzoomed.back().book1D(ibook,
                                           true,
                                           false,
                                           "dxypvzoomed",
                                           "Transverse impact parameter dxy wrt P",
-                                          "Count",
+                                          "",
                                           nintDxy,
                                           minDxy / dxyDzZoom,
                                           maxDxy / dxyDzZoom);
@@ -1001,14 +1001,14 @@ void MTVHistoProducerAlgoForTracker::bookRecoPVAssociationHistos(DQMStore::IBook
                                          false,
                                          "dzpvzoomed",
                                          "Longitudinal impact parameter dz wrt PV",
-                                         "Count",
+                                         "",
                                          nintDz,
                                          minDz / dxyDzZoom,
                                          maxDz / dxyDzZoom);
 
   if (doDzPVcutPlots_) {
     histograms.hs_dzpvcut.back().book1D(
-        ibook, false, true, "dzpvcut", "Longitudinal impact parameter dz wrt PV", "Count", nintDzpvCum, 0, maxDzpvCum);
+        ibook, false, true, "dzpvcut", "Longitudinal impact parameter dz wrt PV", "", nintDzpvCum, 0, maxDzpvCum);
     histograms.h_simul2_dzpvcut.push_back(ibook.book1D("num_simul2_dzpvcut",
                                                        "N of simulated tracks (associated to any track) from sim PV",
                                                        nintDzpvCum,
