@@ -21,6 +21,25 @@ generalTpSelectorBlock = cms.PSet(
     invertRapidityCut = cms.bool(False)
 )
 
+TpSelectorForTechnicalEfficiencyBlock = cms.PSet(
+    lip = cms.double(300.0),
+    chargedOnly = cms.bool(True),
+    pdgId = cms.vint32(),
+    signalOnly = cms.bool(True),
+    intimeOnly = cms.bool(False),
+    stableOnly = cms.bool(False),
+    minRapidity = cms.double(-4.5),
+    minHit = cms.int32(3),
+    minLayer = cms.int32(3),
+    ptMin = cms.double(0.05),
+    ptMax = cms.double(1e100),
+    maxRapidity = cms.double(4.5),
+    tip = cms.double(120.0),
+    minPhi = cms.double(-3.2),
+    maxPhi = cms.double(3.2),
+    invertRapidityCut = cms.bool(False)
+)
+
 from Configuration.Eras.Modifier_fastSim_cff import fastSim
 fastSim.toModify(generalTpSelectorBlock, stableOnly = True)
 
@@ -43,7 +62,6 @@ TpSelectorForEfficiencyVsPhiBlock = generalTpSelectorForEfficiencyBlock.clone()
 TpSelectorForEfficiencyVsPtBlock = generalTpSelectorForEfficiencyBlock.clone(ptMin = 0.050 )
 TpSelectorForEfficiencyVsVTXRBlock = generalTpSelectorForEfficiencyBlock.clone(tip = 60.0)
 TpSelectorForEfficiencyVsVTXZBlock = generalTpSelectorForEfficiencyBlock.clone()
-TpSelectorForTechnicalEfficiencyBlock = generalTpSelectorForEfficiencyBlock.clone(minLayer=3)
 
 def _modifyForPhase1(pset):
     pset.minRapidity = -3
@@ -63,7 +81,8 @@ phase2_tracker.toModify(generalTpSelectorBlock, _modifyForPhase2) # for general 
 phase2_tracker.toModify(TpSelectorForEfficiencyVsEtaBlock, _modifyForPhase2) # for efficiency vs eta, also extend eta to full acceptance
 phase2_tracker.toModify(TpSelectorForTechnicalEfficiencyBlock, _modifyForPhase2) # for efficiency vs eta, also extend eta to full acceptance
 
-def _modifyRecableTo4NLayers(pset):
+def _modifyReconstructableTo4NLayers(pset):
     pset.minLayer = 4
+    pset.minHit = 4
 
-phase2_tracker.toModify(TpSelectorForTechnicalEfficiencyBlock, _modifyRecableTo4NLayers) # change requirement for technical efficiency
+phase2_tracker.toModify(TpSelectorForTechnicalEfficiencyBlock, _modifyReconstructableTo4NLayers) # change requirement for technical efficiency
