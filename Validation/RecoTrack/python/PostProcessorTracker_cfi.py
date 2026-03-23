@@ -24,25 +24,27 @@ def makeEfficencyBundle(histoSuffix, label):
     histoSuffix (str): suffix of the histograms used for calculating the efficencies, e.g. `eta` for pseudorapidity since histograms are named  like this `num_simul_eta`.
     label (str): label to put in the plot title for the quantity, e.g. `#eta` for the pseudorapidity.
     """
-    suffix = "_vs_" + histoSuffix
+    suffixEff = "_vs_" + histoSuffix  # for efficiency and fakerate
+    suffixDup = "_" + histoSuffix  # for duplicate and pileup rate (of course not the same, that would be to easy...)
 
     # eta and pT are historically named differently for no good reason...
     if histoSuffix == "eta":
-        suffix = ""
+        suffixEff = ""
+        suffixDup = ""
     elif histoSuffix == "pT":
-        suffix = "_Pt"
+        suffixEff = "Pt"
+        suffixDup = "_Pt"
 
-    strings = (suffix, label, histoSuffix, histoSuffix)
-    # efficiency is again special for pT...
-    stringsEff = (suffix if histoSuffix != "pT" else suffix[1:], label, histoSuffix, histoSuffix)
+    stringsEff = (suffixEff, label, histoSuffix, histoSuffix)
+    stringsDup = (suffixDup, label, histoSuffix, histoSuffix)
 
     effList = [
         "effic%s 'Efficiency vs %s' num_assoc(simToReco)_%s num_simul_%s" % stringsEff,
         "techEffic%s 'Technical efficiency vs %s' num_assoc(reconstructableSimToReco)_%s num_reconstructableSim_%s" % stringsEff,
-        "duplicatesRate%s 'Duplicates Rate vs %s' num_duplicate_%s num_reco_%s" % strings,
-        "chargeMisIdRate%s 'Charge MisID Rate vs %s' num_chargemisid_%s num_reco_%s" % strings,
-        "pileuprate%s 'Pileup Rate vs %s' num_pileup_%s num_reco_%s" % strings,
-        "fakerate%s 'Fake rate vs %s' num_assoc(recoToSim)_%s num_reco_%s fake" % strings,
+        "duplicatesRate%s 'Duplicates Rate vs %s' num_duplicate_%s num_reco_%s" % stringsDup,
+        "chargeMisIdRate%s 'Charge MisID Rate vs %s' num_chargemisid_%s num_reco_%s" % stringsDup,
+        "pileuprate%s 'Pileup Rate vs %s' num_pileup_%s num_reco_%s" % stringsDup,
+        "fakerate%s 'Fake rate vs %s' num_assoc(recoToSim)_%s num_reco_%s fake" % stringsEff,
     ]
 
     return effList
