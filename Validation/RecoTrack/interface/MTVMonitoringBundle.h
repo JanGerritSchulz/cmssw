@@ -1,10 +1,10 @@
-#ifndef Validation_RecoTrack_MTVMonitoringElement_h
-#define Validation_RecoTrack_MTVMonitoringElement_h
+#ifndef Validation_RecoTrack_MTVMonitoringBundle_h
+#define Validation_RecoTrack_MTVMonitoringBundle_h
 
 // Package:    Validation/RecoTrack
-// Class:      MTVMonitoringElement
+// Class:      MTVMonitoringBundle
 //
-/**\class MTVMonitoringElement Validation/RecoTracker/MTVMonitoringElement.h
+/**\class MTVMonitoringBundle Validation/RecoTracker/MTVMonitoringBundle.h
  Description: Bundle of monitoring elements for the MultiTrackValidator to have all histograms 
               for the same variable at one unique place 
               (e.g. the various plots over eta like reco, sim, assocSimToReco, assocRecoToSim, ...)
@@ -16,10 +16,10 @@
 
 // -----------------------------------------------------------------------------------------------------------------
 
-class MTVMonitoringElement {
+class MTVMonitoringBundle {
 public:
-  MTVMonitoringElement() {}
-  virtual ~MTVMonitoringElement() = default;
+  MTVMonitoringBundle() {}
+  virtual ~MTVMonitoringBundle() = default;
 
   template <typename... Args>
   void fillSimTrackHistos(const bool isMatched, const bool isReconstructable, Args... args) {

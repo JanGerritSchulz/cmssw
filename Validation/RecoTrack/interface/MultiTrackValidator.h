@@ -29,7 +29,7 @@
 
 struct MultiTrackValidatorHistograms {
   MTVHistoProducerAlgoForTrackerHistograms histoProducerAlgo;
-  mutable std::vector<MTVMonitoringElement> hs_coll;
+  mutable std::vector<MTVMonitoringBundle> hs_coll;
 };
 
 class MultiTrackValidator : public DQMGlobalEDAnalyzer<MultiTrackValidatorHistograms> {

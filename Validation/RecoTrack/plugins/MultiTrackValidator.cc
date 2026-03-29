@@ -269,7 +269,7 @@ void MultiTrackValidator::bookHistograms(DQMStore::IBooker& ibook,
     // FIXME: these need to be moved to a subdirectory whose name depends on the associator
     ibook.setCurrentFolder(dirName_);
 
-    histograms.hs_coll.push_back(MTVMonitoringElement());
+    histograms.hs_coll.push_back(MTVMonitoringBundle());
 
     if (doSummaryPlots_) {
       histograms.hs_coll.back().book1D(
@@ -301,7 +301,7 @@ void MultiTrackValidator::bookHistograms(DQMStore::IBooker& ibook,
 
       const bool doResolutionPlots = doResolutionPlots_[www];
 
-      histoProducerAlgo_->pushbackNewMTVMonitoringElements(histograms.histoProducerAlgo);
+      histoProducerAlgo_->pushbackNewMTVMonitoringBundles(histograms.histoProducerAlgo);
 
       histoProducerAlgo_->bookSimAndRecoTrackHistos(
           ibook, histograms.histoProducerAlgo, doSimTrackPlots_, doRecoTrackPlots_, doResolutionPlots);

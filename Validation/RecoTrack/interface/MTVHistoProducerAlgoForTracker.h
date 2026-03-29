@@ -22,7 +22,7 @@
 #include "RecoTracker/TkSeedingLayers/interface/SeedingLayerSetsBuilder.h"
 #include "SimDataFormats/TrackingAnalysis/interface/TrackingParticle.h"
 #include "SimTracker/Common/interface/TrackingParticleSelector.h"
-#include "Validation/RecoTrack/interface/MTVMonitoringElement.h"
+#include "Validation/RecoTrack/interface/MTVMonitoringBundle.h"
 #include "Validation/RecoTrack/interface/MTVResolutionBundle.h"
 
 struct MTVHistoProducerAlgoForTrackerHistograms {
@@ -32,7 +32,7 @@ struct MTVHistoProducerAlgoForTrackerHistograms {
 
   //1D
   std::vector<METype> h_tracks, h_fakes, h_hits, h_charge, h_algo, h_seedsFitFailed, h_seedsFitFailedFraction;
-  mutable std::vector<MTVMonitoringElement> hs_eta, hs_pT, hs_pTvseta, hs_hit, hs_layer, hs_pixellayer, hs_3Dlayer,
+  mutable std::vector<MTVMonitoringBundle> hs_eta, hs_pT, hs_pTvseta, hs_hit, hs_layer, hs_pixellayer, hs_3Dlayer,
       hs_pu, hs_phi, hs_dxy, hs_dz, hs_dxypv, hs_dzpv, hs_dxypvzoomed, hs_dzpvzoomed, hs_vertpos, hs_zpos, hs_dr,
       hs_drj, hs_dzpvcut, hs_dzpvsigcut, hs_simpvz, hs_chi2, hs_chi2prob, hs_seedingLayerSet;
   std::vector<METype> h_pt, h_eta, h_pullTheta, h_pullPhi, h_pullDxy, h_pullDz, h_pullQoverp;
@@ -119,7 +119,7 @@ public:
   bool tpIsReconstructable(const TrackingParticle& tp) { return (*TpSelectorForTechnicalEfficiency)(tp); }
 
   using Histograms = MTVHistoProducerAlgoForTrackerHistograms;
-  void pushbackNewMTVMonitoringElements(Histograms& histograms);
+  void pushbackNewMTVMonitoringBundles(Histograms& histograms);
   void bookSimHistos(DQMStore::IBooker& ibook, Histograms& histograms);
   void bookSimAndRecoTrackHistos(DQMStore::IBooker& ibook,
                                  Histograms& histograms,

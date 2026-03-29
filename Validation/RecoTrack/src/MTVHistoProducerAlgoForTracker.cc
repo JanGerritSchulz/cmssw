@@ -329,33 +329,33 @@ std::unique_ptr<RecoTrackSelectorBase> MTVHistoProducerAlgoForTracker::makeRecoT
   return std::make_unique<RecoTrackSelectorBase>(psetTrack);
 }
 
-void MTVHistoProducerAlgoForTracker::pushbackNewMTVMonitoringElements(Histograms& histograms) {
+void MTVHistoProducerAlgoForTracker::pushbackNewMTVMonitoringBundles(Histograms& histograms) {
   // monitoring histograms for reco and sim tracks
-  histograms.hs_eta.push_back(MTVMonitoringElement());
-  histograms.hs_pT.push_back(MTVMonitoringElement());
-  histograms.hs_pTvseta.push_back(MTVMonitoringElement());
-  histograms.hs_hit.push_back(MTVMonitoringElement());
-  histograms.hs_layer.push_back(MTVMonitoringElement());
-  histograms.hs_pixellayer.push_back(MTVMonitoringElement());
-  histograms.hs_3Dlayer.push_back(MTVMonitoringElement());
-  histograms.hs_pu.push_back(MTVMonitoringElement());
-  histograms.hs_phi.push_back(MTVMonitoringElement());
-  histograms.hs_dxy.push_back(MTVMonitoringElement());
-  histograms.hs_dz.push_back(MTVMonitoringElement());
-  histograms.hs_dxypv.push_back(MTVMonitoringElement());
-  histograms.hs_dzpv.push_back(MTVMonitoringElement());
-  histograms.hs_dxypvzoomed.push_back(MTVMonitoringElement());
-  histograms.hs_dzpvzoomed.push_back(MTVMonitoringElement());
-  histograms.hs_vertpos.push_back(MTVMonitoringElement());
-  histograms.hs_zpos.push_back(MTVMonitoringElement());
-  histograms.hs_dr.push_back(MTVMonitoringElement());
-  histograms.hs_drj.push_back(MTVMonitoringElement());
-  histograms.hs_dzpvcut.push_back(MTVMonitoringElement());
-  histograms.hs_dzpvsigcut.push_back(MTVMonitoringElement());
-  histograms.hs_simpvz.push_back(MTVMonitoringElement());
-  histograms.hs_chi2.push_back(MTVMonitoringElement());
-  histograms.hs_chi2prob.push_back(MTVMonitoringElement());
-  histograms.hs_seedingLayerSet.push_back(MTVMonitoringElement());
+  histograms.hs_eta.push_back(MTVMonitoringBundle());
+  histograms.hs_pT.push_back(MTVMonitoringBundle());
+  histograms.hs_pTvseta.push_back(MTVMonitoringBundle());
+  histograms.hs_hit.push_back(MTVMonitoringBundle());
+  histograms.hs_layer.push_back(MTVMonitoringBundle());
+  histograms.hs_pixellayer.push_back(MTVMonitoringBundle());
+  histograms.hs_3Dlayer.push_back(MTVMonitoringBundle());
+  histograms.hs_pu.push_back(MTVMonitoringBundle());
+  histograms.hs_phi.push_back(MTVMonitoringBundle());
+  histograms.hs_dxy.push_back(MTVMonitoringBundle());
+  histograms.hs_dz.push_back(MTVMonitoringBundle());
+  histograms.hs_dxypv.push_back(MTVMonitoringBundle());
+  histograms.hs_dzpv.push_back(MTVMonitoringBundle());
+  histograms.hs_dxypvzoomed.push_back(MTVMonitoringBundle());
+  histograms.hs_dzpvzoomed.push_back(MTVMonitoringBundle());
+  histograms.hs_vertpos.push_back(MTVMonitoringBundle());
+  histograms.hs_zpos.push_back(MTVMonitoringBundle());
+  histograms.hs_dr.push_back(MTVMonitoringBundle());
+  histograms.hs_drj.push_back(MTVMonitoringBundle());
+  histograms.hs_dzpvcut.push_back(MTVMonitoringBundle());
+  histograms.hs_dzpvsigcut.push_back(MTVMonitoringBundle());
+  histograms.hs_simpvz.push_back(MTVMonitoringBundle());
+  histograms.hs_chi2.push_back(MTVMonitoringBundle());
+  histograms.hs_chi2prob.push_back(MTVMonitoringBundle());
+  histograms.hs_seedingLayerSet.push_back(MTVMonitoringBundle());
   // monitoring histograms for resolutions
   histograms.hr_dxy.push_back(MTVResolutionBundle());
   histograms.hr_dz.push_back(MTVResolutionBundle());
