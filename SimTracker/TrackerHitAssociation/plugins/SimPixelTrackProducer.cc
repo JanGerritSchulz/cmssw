@@ -73,6 +73,12 @@
 template <typename TrackerTraits>
 class SimPixelTrackProducer : public edm::stream::EDProducer<> {
 public:
+  // types for SimPixelTrack properties
+  using float_type = SimPixelTrack::float_type;
+  using int_type = SimPixelTrack::int_type;
+  using layer_type = SimPixelTrack::layer_type;
+  using status_type = SimPixelTrack::status_type;
+
   explicit SimPixelTrackProducer(const edm::ParameterSet&);
   static void fillDescriptions(edm::ConfigurationDescriptions&);
 
@@ -209,7 +215,7 @@ void SimPixelTrackProducer<pixelTopology::Phase2>::fillDescriptions(edm::Configu
   desc.add<edm::InputTag>("beamSpotSrc", edm::InputTag("hltOnlineBeamSpot"));
 
   // Extension settings
-  desc.add<bool>("includeOTBarrel", false)->setComment("If true, add barrel layers from the OT extension.");
+  desc.add<bool>("includeOTBarrel", true)->setComment("If true, add barrel layers from the OT extension.");
   desc.add<bool>("includeOTDisks", false)->setComment("If true, add disk layers from the OT extension.");
   desc.add<bool>("dropEvenLayerRecHits", false)
       ->setComment("If true, the RecHits in layers with even index are dropped when building the SimNtuplets.");
@@ -308,9 +314,11 @@ void SimPixelTrackProducer<TrackerTraits>::produce(edm::Event& event, const edm:
   int count_recHits{0}, count_associatedRecHits{0}, count_generalAssociatedRecHits{0}, count_RecHitsInSimPixelTrack{0};
 
   // initialize a couple of variables used in the following loop
-  unsigned int detId, layerId, maxCol;
+  unsigned int detId, maxCol;
+  layer_type layerId;
+  int_type clusterYSize;
   uint16_t pixmx;
-  int moduleId, clusterYSize;
+  int moduleId;
 
   // loop over pixel RecHit collections of the different pixel modules
   for (const auto& detSet : *hits) {
@@ -319,13 +327,13 @@ void SimPixelTrackProducer<TrackerTraits>::produce(edm::Event& event, const edm:
     DetId detIdObject(detId);
 
     // determine layer Id from detector Id
-    layerId = simpixeltracks::getLayerId<TrackerTraits>(detId, trackerTopology_);
+    layerId = simpixeltracks::getLayerId<TrackerTraits, layer_type>(detId, trackerTopology_);
 
     // check if we would like to skip
-    if (dropEvenLayerRecHits_ && (layerId % 2 == 0)) {
+    if (dropEvenLayerRecHits_ && (layerId % 2u == 0u)) {
       continue;
     }
-    if (dropOddLayerRecHits_ && (layerId % 2 == 1)) {
+    if (dropOddLayerRecHits_ && (layerId % 2u == 1u)) {
       continue;
     }
 
@@ -354,7 +362,7 @@ void SimPixelTrackProducer<TrackerTraits>::produce(edm::Event& event, const edm:
           // if the associated TrackingParticle is among the selected ones
           if (selectedTrackingParticleKeys.has(assocTrackingParticle.key())) {
             // determine the cluster size of the RecHit
-            clusterYSize = simpixeltracks::clusterYSize(hit.cluster(), pixmx, maxCol);
+            clusterYSize = simpixeltracks::clusterYSize<int_type>(hit.cluster(), pixmx, maxCol);
             count_associatedRecHits++;
             // loop over collection of SimPixelTrack and find the one of the associated TrackingParticle
             for (auto& simPixelTrack : simPixelTrackCollection) {
@@ -362,6 +370,7 @@ void SimPixelTrackProducer<TrackerTraits>::produce(edm::Event& event, const edm:
               if (assocTrackingParticle.key() == trackingParticleRef.key()) {
                 simPixelTrack.addRecHit(hit, layerId, clusterYSize, detId, moduleId);
                 count_RecHitsInSimPixelTrack++;
+                break;
               }
             }
           }
@@ -396,13 +405,13 @@ void SimPixelTrackProducer<TrackerTraits>::produce(edm::Event& event, const edm:
         continue;
 
       // determine layer Id from detector Id
-      layerId = simpixeltracks::getLayerId<TrackerTraits>(detId, trackerTopology_);
+      layerId = simpixeltracks::getLayerId<TrackerTraits, layer_type>(detId, trackerTopology_);
 
       // check if we would like to skip
-      if (dropEvenLayerRecHits_ && (layerId % 2 == 0)) {
+      if (dropEvenLayerRecHits_ && (layerId % 2u == 0u)) {
         continue;
       }
-      if (dropOddLayerRecHits_ && (layerId % 2 == 1)) {
+      if (dropOddLayerRecHits_ && (layerId % 2u == 1u)) {
         continue;
       }
 

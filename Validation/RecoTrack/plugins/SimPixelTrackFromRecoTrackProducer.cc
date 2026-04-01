@@ -64,6 +64,12 @@
 template <typename TrackerTraits>
 class SimPixelTrackFromRecoTrackProducer : public edm::stream::EDProducer<> {
 public:
+  // types for SimPixelTrack properties
+  using float_type = SimPixelTrack::float_type;
+  using int_type = SimPixelTrack::int_type;
+  using layer_type = SimPixelTrack::layer_type;
+  using status_type = SimPixelTrack::status_type;
+
   explicit SimPixelTrackFromRecoTrackProducer(const edm::ParameterSet&);
   static void fillDescriptions(edm::ConfigurationDescriptions&);
 
@@ -242,9 +248,11 @@ void SimPixelTrackFromRecoTrackProducer<TrackerTraits>::produce(edm::Event& even
   SimPixelTrackCollection simPixelTrackCollection;
 
   // initialize a couple of variables used in the following loop
-  unsigned int detId, layerId, maxCol;
+  unsigned int detId, maxCol;
+  layer_type layerId;
   uint16_t pixmx;
-  int moduleId, clusterYSize{-1};
+  int moduleId;
+  int_type clusterYSize{-1};
 
   // loop over Tracks
   for (auto const& track : trackRefs) {
@@ -270,7 +278,7 @@ void SimPixelTrackFromRecoTrackProducer<TrackerTraits>::produce(edm::Event& even
       DetId detIdObject(detId);
 
       // determine layer Id from detector Id
-      layerId = simpixeltracks::getLayerId<TrackerTraits>(detId, trackerTopology_);
+      layerId = simpixeltracks::getLayerId<TrackerTraits, layer_type>(detId, trackerTopology_);
 
       // determine the module Id
       // const GeomDetUnit* genericDet = geom_->idToDetUnit(detIdObject);
@@ -288,7 +296,7 @@ void SimPixelTrackFromRecoTrackProducer<TrackerTraits>::produce(edm::Event& even
               (std::abs(hitGlobalPos.y() - globalPos.y()) < 1e-4) &&
               (std::abs(hitGlobalPos.z() - globalPos.z()) < 1e-4)) {
             // determine the cluster size of the RecHit
-            clusterYSize = simpixeltracks::clusterYSize(hit.cluster(), pixmx, maxCol);
+            clusterYSize = simpixeltracks::clusterYSize<int_type>(hit.cluster(), pixmx, maxCol);
             break;
           }
         }

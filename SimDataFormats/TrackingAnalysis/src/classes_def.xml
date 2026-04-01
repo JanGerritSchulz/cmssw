@@ -42,7 +42,7 @@
   <class name="edm::Wrapper<SimTrackToTPMap>"/>
 
   <class name="SimPixelTrack" ClassVersion="4">
-   <version ClassVersion="4" checksum="3153507970"/>
+   <version ClassVersion="4" checksum="558654476"/>
     <field name="doublets_" transient="true" />
     <field name="ntuplets_" transient="true" />
     <field name="longestNtupletIndex_" transient="true" />

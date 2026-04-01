@@ -12,10 +12,11 @@
 namespace simpixeltracks {
 
   // Function that determines the number of skipped layers for a given pair of RecHits.
-  int getNumSkippedLayers(std::pair<uint8_t, uint8_t> const& layerIds,
-                          unsigned int const inner_detId,
-                          unsigned int const outer_detId,
-                          const TrackerTopology* trackerTopology) {
+  SimPixelTrack::int_type getNumSkippedLayers(
+      std::pair<SimPixelTrack::layer_type, SimPixelTrack::layer_type> const& layerIds,
+      unsigned int const inner_detId,
+      unsigned int const outer_detId,
+      const TrackerTopology* trackerTopology) {
     // Possibility 0: invalid case (outer layer is not the outer one), set to -1 immediately
     if (layerIds.first >= layerIds.second) {
       return -1;
@@ -59,7 +60,8 @@ namespace simpixeltracks {
   }
 
   // Function that, for a pair of two layers, gives a unique pair Id (innerLayerId * 100 + outerLayerId).
-  int getLayerPairId(std::pair<uint8_t, uint8_t> const& layerIds) {
+  SimPixelTrack::layer_type getLayerPairId(
+      std::pair<SimPixelTrack::layer_type, SimPixelTrack::layer_type> const& layerIds) {
     // calculate the unique layer pair Id as (innerLayerId * 100 + outerLayerId)
     return (layerIds.first * 100 + layerIds.second);
   }
@@ -107,24 +109,24 @@ SimPixelTrack::Doublet::Doublet(SimPixelTrack const& simPixelTrack,
 
 // method to add a RecHit to the SimPixelTrack
 void SimPixelTrack::addRecHit(TrackingRecHit const& recHit,
-                              uint8_t const layerId,
-                              int16_t const clusterYSize,
+                              layer_type const layerId,
+                              int_type const clusterYSize,
                               unsigned int const detId,
                               int const moduleId) {
   recHitsAreSorted_ = false;  // set sorted-bool to false again
 
   // check if the layerId is not present in the layerIdVector yet
-  if (std::find(layerIdVector_.begin(), layerIdVector_.end(), layerId) == layerIdVector_.end()) {
+  if (std::find(hits_.layerIds.begin(), hits_.layerIds.end(), layerId) == hits_.layerIds.end()) {
     // if it does not exist, increment number of layers
     numLayers_++;
   }
 
   // add detId, the corrected hit position, layerId and clusterSize to respective vectors
-  detIdVector_.push_back(detId);
-  moduleIdVector_.push_back(moduleId);
-  globalPositionVector_.push_back(recHit.globalPosition() - beamSpotPosition_);
-  layerIdVector_.push_back(layerId);
-  clusterYSizeVector_.push_back(clusterYSize);
+  hits_.detIds.push_back(detId);
+  hits_.moduleIds.push_back(moduleId);
+  hits_.globalPositions.push_back(recHit.globalPosition() - beamSpotPosition_);
+  hits_.layerIds.push_back(layerId);
+  hits_.clusterYSizes.push_back(clusterYSize);
 }
 
 // method to sort the RecHits according to the position relative to the TP vertex
@@ -139,8 +141,8 @@ void SimPixelTrack::sortRecHits(float const x, float const y, float const z) {
 
   // get the vector of squared magnitudes of the global RecHit positions relative to vertex
   std::vector<double> recHitMag2;
-  recHitMag2.reserve(layerIdVector_.size());
-  for (const auto& globalPosition : globalPositionVector_) {
+  recHitMag2.reserve(hits_.layerIds.size());
+  for (const auto& globalPosition : hits_.globalPositions) {
     // relative RecHit position with respect to the production vertex
     Global3DPoint relativePosition = globalPosition - vertex;
     recHitMag2.push_back(relativePosition.mag2());
@@ -157,45 +159,45 @@ void SimPixelTrack::sortRecHits(float const x, float const y, float const z) {
   std::vector<unsigned int> sorted_detIdVector;
   std::vector<int> sorted_moduleIdVector;
   std::vector<GlobalPoint> sorted_globalPositionVector;
-  std::vector<uint8_t> sorted_layerIdVector;
-  std::vector<int16_t> sorted_clusterYSizeVector;
+  std::vector<layer_type> sorted_layerIdVector;
+  std::vector<int_type> sorted_clusterYSizeVector;
   sorted_detIdVector.reserve(sortedPerm.size());
   sorted_moduleIdVector.reserve(sortedPerm.size());
   sorted_globalPositionVector.reserve(sortedPerm.size());
   sorted_layerIdVector.reserve(sortedPerm.size());
   sorted_clusterYSizeVector.reserve(sortedPerm.size());
   for (size_t i : sortedPerm) {
-    sorted_detIdVector.push_back(detIdVector_[i]);
-    sorted_moduleIdVector.push_back(moduleIdVector_[i]);
-    sorted_globalPositionVector.push_back(globalPositionVector_[i]);
-    sorted_layerIdVector.push_back(layerIdVector_[i]);
-    sorted_clusterYSizeVector.push_back(clusterYSizeVector_[i]);
+    sorted_detIdVector.push_back(hits_.detIds[i]);
+    sorted_moduleIdVector.push_back(hits_.moduleIds[i]);
+    sorted_globalPositionVector.push_back(hits_.globalPositions[i]);
+    sorted_layerIdVector.push_back(hits_.layerIds[i]);
+    sorted_clusterYSizeVector.push_back(hits_.clusterYSizes[i]);
   }
 
   // swap them with the class member
-  detIdVector_.swap(sorted_detIdVector);
-  moduleIdVector_.swap(sorted_moduleIdVector);
-  globalPositionVector_.swap(sorted_globalPositionVector);
-  layerIdVector_.swap(sorted_layerIdVector);
-  clusterYSizeVector_.swap(sorted_clusterYSizeVector);
+  hits_.detIds.swap(sorted_detIdVector);
+  hits_.moduleIds.swap(sorted_moduleIdVector);
+  hits_.globalPositions.swap(sorted_globalPositionVector);
+  hits_.layerIds.swap(sorted_layerIdVector);
+  hits_.clusterYSizes.swap(sorted_clusterYSizeVector);
 
   // set sorted bool to true
   recHitsAreSorted_ = true;
 }
 
 // method to get fishbone alignments
-std::vector<std::pair<uint8_t, double>> SimPixelTrack::fishboneScores() const {
+std::vector<std::pair<SimPixelTrack::layer_type, SimPixelTrack::float_type>> SimPixelTrack::fishboneScores() const {
   // confirm that the RecHits are sorted
   assert(recHitsAreSorted_);
 
-  std::vector<std::pair<uint8_t, double>> fishbones{};
+  std::vector<std::pair<layer_type, float_type>> fishbones{};
 
   if (numRecHits() < 3) {
     return fishbones;
   }
 
   // loop over outer hits
-  for (size_t o{0}; int(o) < numRecHits(); o++) {
+  for (size_t o{0}; o < numRecHits(); o++) {
     auto outerLayerId = layerIds(o);
     auto outerPos = globalPositions(o);
     auto nInnerDoublets = innerDoubletsOfRecHit_.at(o).size();
@@ -218,7 +220,7 @@ std::vector<std::pair<uint8_t, double>> SimPixelTrack::fishboneScores() const {
 
         auto fishboneCut = cos12 * cos12 / (n1 * n2);
 
-        fishbones.emplace_back(std::pair<uint8_t, double>(outerLayerId, fishboneCut));
+        fishbones.emplace_back(std::pair<layer_type, float_type>(outerLayerId, fishboneCut));
       }
     }
   }
@@ -242,24 +244,24 @@ void SimPixelTrack::buildSimDoublets(const TrackerTopology* trackerTopology) con
   size_t nDoublets{0};
 
   // loop over the RecHits/layer Ids
-  for (size_t i = 0; i < layerIdVector_.size(); i++) {
-    uint8_t innerLayerId = layerIdVector_[i];
-    uint8_t outerLayerId{};
-    size_t outerLayerStart{layerIdVector_.size()};
+  for (size_t i = 0; i < hits_.layerIds.size(); i++) {
+    layer_type innerLayerId = hits_.layerIds[i];
+    layer_type outerLayerId{};
+    size_t outerLayerStart{hits_.layerIds.size()};
 
     // find the next layer Id + at which hit this layer starts
-    for (size_t j = i + 1; j < layerIdVector_.size(); j++) {
-      if (innerLayerId != layerIdVector_[j]) {
-        outerLayerId = layerIdVector_[j];
+    for (size_t j = i + 1; j < hits_.layerIds.size(); j++) {
+      if (innerLayerId != hits_.layerIds[j]) {
+        outerLayerId = hits_.layerIds[j];
         outerLayerStart = j;
         break;
       }
     }
 
     // build the doublets of the inner hit i with all outer hits j in the layer outerLayerId
-    for (size_t j = outerLayerStart; j < layerIdVector_.size(); j++) {
+    for (size_t j = outerLayerStart; j < hits_.layerIds.size(); j++) {
       // break if the hit doesn't belong to the outer layer anymore
-      if (outerLayerId != layerIdVector_[j]) {
+      if (outerLayerId != hits_.layerIds[j]) {
         break;
       }
 
@@ -278,12 +280,12 @@ void SimPixelTrack::buildSimDoublets(const TrackerTopology* trackerTopology) con
 // function to recursively build the Ntuplets from a given starting doublet
 // (the building starts from the outside and ends inside)
 // at each addition of a SimDoublet, a new SimNtuplet is stored
-void SimPixelTrack::buildSimNtuplets(SimPixelTrack::Doublet const& doublet,
+void SimPixelTrack::buildSimNtuplets(Doublet const& doublet,
                                      std::vector<bool> const& quadruplets,
                                      size_t numSimDoublets,
-                                     size_t const lastLayerId,
-                                     uint8_t const status,
-                                     uint8_t const numSkippedLayers,
+                                     layer_type const lastLayerId,
+                                     status_type const status,
+                                     int_type const numSkippedLayers,
                                      size_t const minNumDoubletsToPass) const {
   // update the number of SimDoublets once before looping over the actual neighbors to be added
   numSimDoublets++;
@@ -294,7 +296,7 @@ void SimPixelTrack::buildSimNtuplets(SimPixelTrack::Doublet const& doublet,
     auto const& neighborDoublet = doublets_.at(triplet.innerDoubletIndex());
 
     // update the status of the current SimNtuplet by adding the information from the new doublet
-    uint8_t updatedStatus = SimPixelTrack::Ntuplet::updateStatus(
+    status_type updatedStatus = SimPixelTrack::Ntuplet::updateStatus(
         status,                                           // current status
         neighborDoublet.isUndef(),                        // doublet has undefined cuts
         neighborDoublet.isKilledByMissingLayerPair(),     // doublet is not built due to missing layer pair
@@ -305,7 +307,7 @@ void SimPixelTrack::buildSimNtuplets(SimPixelTrack::Doublet const& doublet,
     );
 
     // update number of skipped layers
-    uint8_t updatedNumSkippedLayers = numSkippedLayers + doublet.numSkippedLayers();
+    int_type updatedNumSkippedLayers = numSkippedLayers + doublet.numSkippedLayers();
 
     // add the current state as a new SimNtuplet to the collection
     ntuplets_.emplace_back(SimPixelTrack::Ntuplet(numSimDoublets,
@@ -412,7 +414,7 @@ void SimPixelTrack::buildSimNtuplets(size_t const minNumDoubletsToPass) const {
   // loop over all SimDoublets, using them as starting points for building Ntuplets
   for (auto const& doublet : doublets_) {
     // intialize status according to the doublet properties
-    uint8_t status = SimPixelTrack::Ntuplet::updateStatus(
+    status_type status = SimPixelTrack::Ntuplet::updateStatus(
         0,                                     // current status to be updated
         doublet.isUndef(),                     // doublet has undefined cuts
         doublet.isKilledByMissingLayerPair(),  // doublet is not built due to missing layer pair
@@ -422,7 +424,7 @@ void SimPixelTrack::buildSimNtuplets(size_t const minNumDoubletsToPass) const {
         false                                  // triplet connection is killed by cuts
     );
     // initialize number of skipped layers
-    uint8_t numSkippedLayers = doublet.numSkippedLayers();
+    int_type numSkippedLayers = doublet.numSkippedLayers();
     // build the Ntuplets recursively
     buildSimNtuplets(doublet, {}, 1, doublet.outerLayerId(), status, numSkippedLayers, minNumDoubletsToPass);
   }
