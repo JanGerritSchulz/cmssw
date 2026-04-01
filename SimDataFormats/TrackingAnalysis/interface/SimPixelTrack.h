@@ -59,6 +59,11 @@ public:
     std::vector<float_type> dPhiDrErrs;  // error of dPhi / dR of the stub, -1 for non-stub hit
   };
 
+  struct Fishbone {
+    layer_type layerId;  // outer layer Id of the doublets
+    float_type score;    // fishbone score
+  };
+
   // SimDoublets, SimTriplets and SimNtuplets
   class Doublet;
   class Triplet;
@@ -155,7 +160,7 @@ public:
   Ntuplet const& bestSimNtuplet() const;
 
   // method to get fishbone alignments
-  std::vector<std::pair<layer_type, float_type>> fishboneScores() const;
+  std::vector<Fishbone> fishboneScores() const;
 
   // method to clear the mutable vectors once you finished using them
   void clearMutables() const;

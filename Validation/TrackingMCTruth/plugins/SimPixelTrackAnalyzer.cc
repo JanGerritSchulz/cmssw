@@ -887,10 +887,10 @@ void SimPixelTrackAnalyzer<TrackerTraits>::fillSimDoubletHistograms(SimPixelTrac
 template <typename TrackerTraits>
 void SimPixelTrackAnalyzer<TrackerTraits>::fillFishboneHistograms(SimPixelTrack const& simPixelTrack) {
   for (auto fishbone : simPixelTrack.fishboneScores()) {
-    auto threshold = cellCuts_.fishboneCuts_.at(fishbone.first);
-    auto isMerged = fishbone.second > threshold;
-    hVector_fishbones_.at(fishbone.first).fill(isMerged, 1 - fishbone.second);
-    hVector_fishbones_.at(fishbone.first).fillPassThisCut(isMerged);
+    auto threshold = cellCuts_.fishboneCuts_.at(fishbone.layerId);
+    auto isMerged = fishbone.score > threshold;
+    hVector_fishbones_.at(fishbone.layerId).fill(isMerged, 1 - fishbone.score);
+    hVector_fishbones_.at(fishbone.layerId).fillPassThisCut(isMerged);
   }
 }
 

@@ -98,11 +98,11 @@ void SimPixelTrack::sortRecHits(float const x, float const y, float const z) {
 }
 
 // method to get fishbone alignments
-std::vector<std::pair<SimPixelTrack::layer_type, SimPixelTrack::float_type>> SimPixelTrack::fishboneScores() const {
+std::vector<SimPixelTrack::Fishbone> SimPixelTrack::fishboneScores() const {
   // confirm that the RecHits are sorted
   assert(recHitsAreSorted_);
 
-  std::vector<std::pair<layer_type, float_type>> fishbones{};
+  std::vector<Fishbone> fishbones{};
 
   if (numRecHits() < 3) {
     return fishbones;
@@ -132,7 +132,7 @@ std::vector<std::pair<SimPixelTrack::layer_type, SimPixelTrack::float_type>> Sim
 
         auto fishboneCut = cos12 * cos12 / (n1 * n2);
 
-        fishbones.emplace_back(std::pair<layer_type, float_type>(outerLayerId, fishboneCut));
+        fishbones.emplace_back(Fishbone(outerLayerId, fishboneCut));
       }
     }
   }
