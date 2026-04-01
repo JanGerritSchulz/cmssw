@@ -48,6 +48,9 @@
 #include "Geometry/Records/interface/TrackerTopologyRcd.h"
 
 #include "SimDataFormats/TrackingAnalysis/interface/SimPixelTrack.h"
+#include "SimDataFormats/TrackingAnalysis/interface/SimDoublet.h"
+#include "SimDataFormats/TrackingAnalysis/interface/SimTriplet.h"
+#include "SimDataFormats/TrackingAnalysis/interface/SimNtuplet.h"
 
 #include <vector>
 #include <string>

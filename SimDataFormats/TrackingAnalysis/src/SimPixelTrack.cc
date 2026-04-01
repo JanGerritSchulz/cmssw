@@ -1,111 +1,23 @@
 #include "SimDataFormats/TrackingAnalysis/interface/SimPixelTrack.h"
-#include <cstddef>
-#include <cstdint>
+#include "SimDataFormats/TrackingAnalysis/interface/SimDoublet.h"
+#include "SimDataFormats/TrackingAnalysis/interface/SimTriplet.h"
+#include "SimDataFormats/TrackingAnalysis/interface/SimNtuplet.h"
 
 #include "SimDataFormats/TrackingAnalysis/interface/TrackingParticle.h"
-#include "DataFormats/GeometryVector/interface/GlobalVector.h"
-#include "DataFormats/GeometryCommonDetAlgo/interface/MeasurementPoint.h"
-#include "DataFormats/SiPixelDetId/interface/PixelSubdetector.h"
-#include "DataFormats/SiStripDetId/interface/SiStripEnums.h"
-// #include "DataFormats/SiPixelCluster/interface/SiPixelCluster.h"
 
-namespace simpixeltracks {
-
-  // Function that determines the number of skipped layers for a given pair of RecHits.
-  SimPixelTrack::int_type getNumSkippedLayers(
-      std::pair<SimPixelTrack::layer_type, SimPixelTrack::layer_type> const& layerIds,
-      unsigned int const inner_detId,
-      unsigned int const outer_detId,
-      const TrackerTopology* trackerTopology) {
-    // Possibility 0: invalid case (outer layer is not the outer one), set to -1 immediately
-    if (layerIds.first >= layerIds.second) {
-      return -1;
-    }
-
-    // get the detector Ids of the two RecHits
-    DetId innerDetId(inner_detId);
-    DetId outerDetId(outer_detId);
-
-    // determine where the RecHits are
-    bool innerInBarrel = (innerDetId.subdetId() == PixelSubdetector::PixelBarrel);
-    bool outerInBarrel = (outerDetId.subdetId() == PixelSubdetector::PixelBarrel);
-    bool innerInOTExtension = (innerDetId.subdetId() == SiStripSubdetector::TOB);
-    bool outerInOTExtension = (outerDetId.subdetId() == SiStripSubdetector::TOB);
-    bool innerInBackward = (!innerInBarrel) && (!innerInOTExtension) && (trackerTopology->pxfSide(innerDetId) == 1);
-    bool outerInBackward = (!outerInBarrel) && (!outerInOTExtension) && (trackerTopology->pxfSide(outerDetId) == 1);
-    bool innerInForward = (!innerInBarrel) && (!innerInOTExtension) && (trackerTopology->pxfSide(innerDetId) == 2);
-    bool outerInForward = (!outerInBarrel) && (!outerInOTExtension) && (trackerTopology->pxfSide(outerDetId) == 2);
-
-    // Possibility 1: both RecHits lie in the same detector part (barrel, forward, backward, extension)
-    if ((innerInBarrel && outerInBarrel) || (innerInForward && outerInForward) ||
-        (innerInBackward && outerInBackward) || (innerInOTExtension && outerInOTExtension)) {
-      return (layerIds.second - layerIds.first - 1);
-    }
-    // Possibility 2: the inner RecHit is in the barrel while the outer is in extension
-    else if (innerInBarrel && outerInOTExtension) {
-      return (trackerTopology->tobLayer(outerDetId) - trackerTopology->pxbLayer(innerDetId) + 3);
-    }
-    // Possibility 3: the inner RecHit is in the encaps while the outer is in extension
-    else if (outerInOTExtension) {
-      return (trackerTopology->tobLayer(outerDetId) - 1);
-    }
-    // Possibility 4: the inner RecHit is in the barrel while the outer is in either forward or backward
-    else if (innerInBarrel) {
-      return (trackerTopology->pxfDisk(outerDetId) - 1);
-    }
-    // Possibility 5: invalid case (one is forward and the other in backward), set to -1
-    else {
-      return -1;
-    }
-  }
-
-  // Function that, for a pair of two layers, gives a unique pair Id (innerLayerId * 100 + outerLayerId).
-  SimPixelTrack::layer_type getLayerPairId(
-      std::pair<SimPixelTrack::layer_type, SimPixelTrack::layer_type> const& layerIds) {
-    // calculate the unique layer pair Id as (innerLayerId * 100 + outerLayerId)
-    return (layerIds.first * 100 + layerIds.second);
-  }
-}  // end namespace simpixeltracks
-
-// ------------------------------------------------------------------------------------------------------
-// SimPixelTrack::Doublet class member functions
-// ------------------------------------------------------------------------------------------------------
+// default contructor
+SimPixelTrack::SimPixelTrack() = default;
 
 // constructor
-SimPixelTrack::Doublet::Doublet(SimPixelTrack const& simPixelTrack,
-                                size_t const innerIndex,
-                                size_t const outerIndex,
-                                const TrackerTopology* trackerTopology,
-                                std::vector<size_t> const& innerNeighborsIndices)
-    : moduleIds_(std::make_pair(simPixelTrack.moduleIds(innerIndex), simPixelTrack.moduleIds(outerIndex))),
-      globalPositions_(
-          std::make_pair(simPixelTrack.globalPositions(innerIndex), simPixelTrack.globalPositions(outerIndex))),
-      layerIds_(std::make_pair(simPixelTrack.layerIds(innerIndex), simPixelTrack.layerIds(outerIndex))),
-      clusterYSizes_(std::make_pair(simPixelTrack.clusterYSizes(innerIndex), simPixelTrack.clusterYSizes(outerIndex))),
-      status_(SimPixelTrack::Doublet::Status::undef) {
-  // determine number of skipped layers
-  numSkippedLayers_ = simpixeltracks::getNumSkippedLayers(
-      layerIds_, simPixelTrack.detIds(innerIndex), simPixelTrack.detIds(outerIndex), trackerTopology);
+SimPixelTrack::SimPixelTrack(TrackingParticleRef const trackingParticleRef, reco::BeamSpot const& beamSpot)
+    : trackingParticleRef_(trackingParticleRef), beamSpotPosition_(beamSpot.x0(), beamSpot.y0(), beamSpot.z0()) {}
+SimPixelTrack::SimPixelTrack(reco::TrackBaseRef const trackRef, reco::BeamSpot const& beamSpot)
+    : trackRef_(trackRef), beamSpotPosition_(beamSpot.x0(), beamSpot.y0(), beamSpot.z0()) {}
+SimPixelTrack::SimPixelTrack(reco::BeamSpot const& beamSpot)
+    : beamSpotPosition_(beamSpot.x0(), beamSpot.y0(), beamSpot.z0()) {}
 
-  // determine Id of the layer pair
-  layerPairId_ = simpixeltracks::getLayerPairId(layerIds_);
-
-  // fill the inner Triplets
-  for (size_t const index : innerNeighborsIndices) {
-    innerTriplets_.emplace_back(
-        SimPixelTrack::Doublet::Triplet(index, simPixelTrack.getSimDoublet(index).numInnerTriplets()));
-  }
-
-  // if there are Triplets, get their inner layerId
-  if (!innerNeighborsIndices.empty()) {
-    size_t index = innerNeighborsIndices.at(0);
-    innerTripletsInnerLayerId_ = simPixelTrack.getSimDoublet(index).innerLayerId();
-  }
-}
-
-// ------------------------------------------------------------------------------------------------------
-// SimPixelTrack class member functions
-// ------------------------------------------------------------------------------------------------------
+// destructor
+SimPixelTrack::~SimPixelTrack() = default;
 
 // method to add a RecHit to the SimPixelTrack
 void SimPixelTrack::addRecHit(TrackingRecHit const& recHit,
@@ -392,7 +304,6 @@ void SimPixelTrack::buildSimNtuplets(Doublet const& doublet,
                      updatedStatus,
                      updatedNumSkippedLayers,
                      minNumDoubletsToPass);
-
     i++;
   }
 }
@@ -428,4 +339,38 @@ void SimPixelTrack::buildSimNtuplets(size_t const minNumDoubletsToPass) const {
     // build the Ntuplets recursively
     buildSimNtuplets(doublet, {}, 1, doublet.outerLayerId(), status, numSkippedLayers, minNumDoubletsToPass);
   }
+}
+
+size_t SimPixelTrack::numDoublets() const { return doublets_.size(); }
+
+SimPixelTrack::Doublet const& SimPixelTrack::getSimDoublet(size_t const index) const { return doublets_.at(index); }
+
+std::vector<SimPixelTrack::Doublet>& SimPixelTrack::getSimDoublets() const { return doublets_; }
+std::vector<SimPixelTrack::Doublet>& SimPixelTrack::buildAndGetSimDoublets(
+    const TrackerTopology* trackerTopology) const {
+  buildSimDoublets(trackerTopology);
+  return doublets_;
+}
+
+std::vector<SimPixelTrack::Ntuplet>& SimPixelTrack::getSimNtuplets() const { return ntuplets_; };
+std::vector<SimPixelTrack::Ntuplet>& SimPixelTrack::buildAndGetSimNtuplets(size_t const minNumDoubletsToPass = 0) const {
+  buildSimNtuplets(minNumDoubletsToPass);
+  return ntuplets_;
+};
+
+bool SimPixelTrack::hasSimNtuplet() const { return longestNtupletIndex_.has_value(); }
+bool SimPixelTrack::hasAliveSimNtuplet() const { return longestAliveNtupletIndex_.has_value(); }
+
+SimPixelTrack::Ntuplet const& SimPixelTrack::longestSimNtuplet() const { return ntuplets_.at(*longestNtupletIndex_); }
+SimPixelTrack::Ntuplet const& SimPixelTrack::longestAliveSimNtuplet() const {
+  return ntuplets_.at(*longestAliveNtupletIndex_);
+}
+SimPixelTrack::Ntuplet const& SimPixelTrack::bestSimNtuplet() const { return ntuplets_.at(*bestNtupletIndex_); }
+
+void SimPixelTrack::clearMutables() const {
+  doublets_.clear();
+  ntuplets_.clear();
+  longestNtupletIndex_.reset();
+  longestAliveNtupletIndex_.reset();
+  bestNtupletIndex_.reset();
 }
