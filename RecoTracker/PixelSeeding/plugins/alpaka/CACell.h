@@ -22,7 +22,6 @@
 #include "RecoTracker/PixelSeeding/interface/CAPairSoA.h"
 
 #include "CAStructures.h"
-#include "RecoTracker/PixelSeeding/interface/NeighborCell.h"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
@@ -57,12 +56,14 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
     using TmpTuple = cms::alpakatools::VecArray<uint32_t, TrackerTraits::maxLayersPerTrack>;
     using HitContainer = caStructures::SequentialContainer;
-    using CellToCell = caStructures::NeighborCellContainer;
+    using CellToCell = caStructures::GenericContainer;
     using CellToTracks = caStructures::GenericContainer;
     using CAPairSoAView = caStructures::CAPairSoAView;
 
     using Quality = ::pixelTrack::Quality;
     static constexpr auto bad = ::pixelTrack::Quality::bad;
+
+    static constexpr float kUninitializeCurvature = std::numeric_limits<float>::max();
 
     enum class StatusBit : uint16_t { kUsed = 1, kInTrack = 2, kKilled = 1 << 15 };
 
@@ -157,20 +158,29 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
       auto curvature = eq.curvature();
 
-      struct result {
-        bool passes;
-        float curvature;
-      };
-
       if (std::abs(curvature) > maxCurv)
-        return result{false, curvature};
+        return false;
 
-      return result{std::abs(eq.dca0()) < region_origin_radius_plus_tolerance * std::abs(curvature), curvature};
+      return std::abs(eq.dca0()) < region_origin_radius_plus_tolerance * std::abs(curvature);
     }
 
     ALPAKA_FN_ACC ALPAKA_FN_INLINE auto quadrupletCut(const float innerCurvature,
-                                                      const float outerCurvature,
-                                                      const ::reco::CALayersSoAConstView& ll) const {
+                                                      float& outerCurvature,
+                                                      const ::reco::CALayersSoAConstView& ll,
+                                                      const HitsConstView& hh,
+                                                      const float x1,
+                                                      const float y1) const {
+      // calculate curvature for the XY plane cuts
+      float x2 = inner_x(hh);
+      float y2 = inner_y(hh);
+      float x3 = outer_x(hh);
+      float y3 = outer_y(hh);
+      CircleEq<float> eq(x1, y1, x2, y2, x3, y3);
+      outerCurvature = eq.curvature();
+
+      if (innerCurvature == kUninitializeCurvature)
+        return false;
+
       auto maxDCurv = ll[theOuterLayer_].caDCurvCut();
       auto dCurv0 = ll[theOuterLayer_].caDCurv0();
 
@@ -195,6 +205,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
     template <int DEPTH>
     ALPAKA_FN_ACC ALPAKA_FN_INLINE void find_ntuplets(Acc1D const& acc,
+                                                      const HitsConstView& hh,
                                                       const ::reco::CALayersSoAConstView& ll,
                                                       CACell* __restrict__ cells,
                                                       HitContainer& foundNtuplets,
@@ -208,7 +219,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                                       float* __restrict__ pt,
                                                       TmpTuple& tmpNtuplet,
                                                       const unsigned int minHitsPerNtuplet,
-                                                      const float preCurvature = 0.) const {
+                                                      const float preCurvature = kUninitializeCurvature) const {
       // the building process for a track ends if:
       // it has no right neighbor
       // it has no compatible neighbor
@@ -235,12 +246,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
             break;
 
           // FIXME implement alpaka::ldg and use it here? or is it const* __restrict__ enough?
-          auto [otherCell, thisCurvature] = neighborCells[idx];
+          auto otherCell = neighborCells[idx];
           if (cells[otherCell].isKilled())
             continue;
 
-          // check compatiblity of triplets
-          if (tripletOrMore && cells[otherCell].quadrupletCut(preCurvature, thisCurvature, ll))
+          // check compatiblity of triplets and calculate this triplets curvature
+          float thisCurvature{kUninitializeCurvature};
+          if (cells[otherCell].quadrupletCut(preCurvature, thisCurvature, ll, hh, inner_x(hh), inner_y(hh)))
             continue;
 #ifdef CA_DEBUG
           printf("Doublet no. %d %d doubletId: %ld -> %d (isKilled %d) (%d,%d) -> (%d,%d) %d %d\n",
@@ -259,6 +271,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
           foundNeighbor = true;
           cells[otherCell].template find_ntuplets<DEPTH - 1>(acc,
+                                                             hh,
                                                              ll,
                                                              cells,
                                                              foundNtuplets,

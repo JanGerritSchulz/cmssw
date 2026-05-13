@@ -11,6 +11,5 @@
 
 namespace caStructures {
   using CAPairHost = PortableHostCollection<CAPairSoA>;
-  using CACellPairHost = PortableHostCollection<CACellPairSoA>;
 }  // namespace caStructures
 #endif  // RecoTracker_PixelSeeding_interface_CAPairHost_h

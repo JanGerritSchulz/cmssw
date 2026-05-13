@@ -56,7 +56,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::caHitNtupletGeneratorKernels {
   using HitContainer = caStructures::SequentialContainer;
   using TupleMultiplicity = caStructures::GenericContainer;
   using HitToCell = caStructures::GenericContainer;
-  using CellToCell = caStructures::NeighborCellContainer;
+  using CellToCell = caStructures::GenericContainer;
   using CellToTrack = caStructures::GenericContainer;
 
   using namespace cms::alpakatools;
@@ -119,7 +119,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::caHitNtupletGeneratorKernels {
                                   uint32_t const *__restrict__ nCells,
                                   uint32_t const *__restrict__ nTrips,
                                   uint32_t const *__restrict__ nCellTracks,
-                                  caStructures::CACellPairSoAConstView cellCell,
+                                  caStructures::CAPairSoAConstView cellCell,
                                   caStructures::CAPairSoAConstView cellTrack,
                                   int32_t nHits,
                                   uint32_t maxNumberOfDoublets,
@@ -379,7 +379,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::caHitNtupletGeneratorKernels {
                                   HitsConstView hh,
                                   reco::CALayersSoAConstView ll,
                                   reco::CAGraphSoAConstView cc,
-                                  caStructures::CACellPairSoAView cn,
+                                  caStructures::CAPairSoAView cn,
                                   CACell<TrackerTraits> *cells,
                                   uint32_t const *nCells,
                                   uint32_t *nTrips,
@@ -428,8 +428,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::caHitNtupletGeneratorKernels {
           auto dcaCut = ll[oc.innerLayer()].caDCACut();
           bool aligned = Cell::areAlignedRZ(r1, z1, ri, zi, ro, zo, params.ptmin_, thetaCut);
           if (aligned) {
-            auto [compatibleXY, curvature] = thisCell.dcaCut(hh, oc, dcaCut, params.hardCurvCut_);
-            if (compatibleXY) {
+            if (thisCell.dcaCut(hh, oc, dcaCut, params.hardCurvCut_)) {
               auto t_ind = alpaka::atomicAdd(acc, nTrips, 1u, alpaka::hierarchy::Blocks{});
 #ifdef CA_DEBUG
               printf("Triplet no. %d %.5f %.5f (%d %d) - %d %d -> (%d, %d, %d, %d) \n",
@@ -464,7 +463,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::caHitNtupletGeneratorKernels {
               cellNeighborsHisto->count(acc, bin);
 
               cn[t_ind].inner() = bin;
-              cn[t_ind].outer() = {cellIndex, curvature};
+              cn[t_ind].outer() = cellIndex;
               thisCell.setStatusBits(Cell::StatusBit::kUsed);
               oc.setStatusBits(Cell::StatusBit::kUsed);
             }
@@ -508,6 +507,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::caHitNtupletGeneratorKernels {
   class Kernel_find_ntuplets {
   public:
     ALPAKA_FN_ACC void operator()(Acc1D const &acc,
+                                  HitsConstView hh,
                                   const ::reco::CALayersSoAConstView &ll,
                                   const ::reco::CAGraphSoAConstView &cc,
                                   TkSoAView tracks_view,
@@ -568,6 +568,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::caHitNtupletGeneratorKernels {
 
           stack.reset();
           thisCell.template find_ntuplets<maxDepth>(acc,
+                                                    hh,
                                                     ll,
                                                     cells,
                                                     *foundNtuplets,

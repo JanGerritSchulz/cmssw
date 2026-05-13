@@ -19,14 +19,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   using CAPairSoACollection =
       std::conditional_t<std::is_same_v<Device, alpaka::DevCpu>, CAPairHost, CAPairDevice<Device>>;
 
-  using ::caStructures::CACellPairDevice;
-  using ::caStructures::CACellPairHost;
-  using CACellPairSoACollection =
-      std::conditional_t<std::is_same_v<Device, alpaka::DevCpu>, CACellPairHost, CACellPairDevice<Device>>;
-
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE
 
 ASSERT_DEVICE_MATCHES_HOST_COLLECTION(CAPairSoACollection, ::caStructures::CAPairHost);
-ASSERT_DEVICE_MATCHES_HOST_COLLECTION(CACellPairSoACollection, ::caStructures::CACellPairHost);
 
 #endif  // RecoTracker_PixelSeeding_interface_CAPairSoACollection_h
