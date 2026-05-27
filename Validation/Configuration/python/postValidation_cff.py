@@ -23,6 +23,7 @@ from Validation.L1T.postProcessorL1Gen_cff import *
 from Validation.SiPixelPhase1ConfigV.SiPixelPhase1OfflineDQM_harvestingV_cff import *
 from DQMOffline.RecoB.dqmCollector_cff import *
 from Validation.SiTrackerPhase2V.Phase2TrackerMCHarvesting_cff import *
+from Validation.TrackingMCTruth.PostProcessorSimPixelTrack_cff import *
 
 postValidationTracking = cms.Sequence(
       postProcessorTrackSequence
@@ -78,6 +79,10 @@ postValidation_common = cms.Sequence()
 postValidation_trackingOnly = cms.Sequence(
       postProcessorTrackSequenceTrackingOnly
     + postProcessorVertexSequence
+)
+
+postValidation_simPixelTracks = cms.Sequence(
+    postProcessorSimPixelTrackSequence
 )
 
 postValidation_muons = cms.Sequence(

@@ -405,6 +405,12 @@ namespace simdoublets {
         ->setComment(
             "Threshold for merging aligned doublets in fishbone cleaning. Depends on the layer of the outer RecHit. "
             "Warning: this will be a float in the final algorithm, therefore 0.9999999 will become 1 == no merging!");
+    geometryParams
+        .add<std::vector<unsigned int>>("skipsLayers",
+                                        std::vector<unsigned int>(TrackerTraits::nPairsForQuadruplets, 0U))
+        ->setComment(
+            "List of bools idicating whether layer pairs are skipping layers or not (0 means non-skipping, 1 means "
+            "skipping). This is relevant for the N-tuplet building as non-skipping ones are prioritized.");
     // cells params
     geometryParams
         .add<std::vector<unsigned int>>(
@@ -474,7 +480,8 @@ namespace simdoublets {
   }
 
   // Function that, for a pair of two layers, gives a unique pair Id (innerLayerId * 100 + outerLayerId).
-  SimPixelTrack::layer_type getLayerPairId(SimPixelTrack::layer_type const innerLayerId, SimPixelTrack::layer_type const outerLayerId) {
+  SimPixelTrack::layer_type getLayerPairId(SimPixelTrack::layer_type const innerLayerId,
+                                           SimPixelTrack::layer_type const outerLayerId) {
     // calculate the unique layer pair Id as (innerLayerId * 100 + outerLayerId)
     return (innerLayerId * 100 + outerLayerId);
   }
@@ -507,7 +514,8 @@ SimPixelTrackAnalyzer<TrackerTraits>::SimPixelTrackAnalyzer(const edm::Parameter
   std::vector<size_t> layerPairs{convertVec<size_t>(geometryConfig.getParameter<std::vector<uint>>("pairGraph"))};
 
   // get staring layer pairs from configuration
-  std::vector<size_t> startingPairs{convertVec<size_t>(geometryConfig.getParameter<std::vector<uint>>("startingPairs"))};
+  std::vector<size_t> startingPairs{
+      convertVec<size_t>(geometryConfig.getParameter<std::vector<uint>>("startingPairs"))};
 
   // number of configured layer pairs
   size_t numLayerPairs = layerPairs.size() / 2;
@@ -575,8 +583,10 @@ void SimPixelTrackAnalyzer<TrackerTraits>::applyCuts(
   //  apply cuts for doublet creation
   // -------------------------------------------------------------------------
 
-  float_type inner = cellCuts_.isBarrel_[doublet.innerLayerId()] ? cellCutVariables.inner_z() : cellCutVariables.inner_r();
-  float_type outer = cellCuts_.isBarrel_[doublet.outerLayerId()] ? cellCutVariables.outer_z() : cellCutVariables.outer_r();
+  float_type inner =
+      cellCuts_.isBarrel_[doublet.innerLayerId()] ? cellCutVariables.inner_z() : cellCutVariables.inner_r();
+  float_type outer =
+      cellCuts_.isBarrel_[doublet.outerLayerId()] ? cellCutVariables.outer_z() : cellCutVariables.outer_r();
 
   bool passInner{true}, passYsize{true}, passOuter{true}, passDPhi{true}, passDR{true}, passDZ{true}, passDYsize{true},
       passPt{true}, passZ0{true};

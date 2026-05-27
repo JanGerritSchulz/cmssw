@@ -31,6 +31,7 @@ from Validation.RecoParticleFlow.miniAODValidation_cff import *
 from Validation.RecoEgamma.photonMiniAODValidationSequence_cff import *
 from Validation.RecoEgamma.egammaValidationMiniAOD_cff import *
 from Validation.RecoTau.RecoTauValidation_cff import *
+from Validation.TrackingMCTruth.simPixelTrackValidation_cff import *
 from DQMOffline.RecoB.bTagMiniDQM_cff import *
 
 prevalidationNoHLT = cms.Sequence( cms.SequencePlaceholder("mix") * globalPrevalidation * metPreValidSeq * jetPreValidSeq )
