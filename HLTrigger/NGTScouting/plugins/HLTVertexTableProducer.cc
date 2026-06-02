@@ -70,7 +70,8 @@ HLTVertexTableProducer::HLTVertexTableProducer(const edm::ParameterSet& params)
       dlenMin_(params.getParameter<double>("dlenMin")),
       dlenSigMin_(params.getParameter<double>("dlenSigMin")) {
   produces<nanoaod::FlatTable>("PV");
-  produces<nanoaod::FlatTable>("SV");
+  if (doSVs_)
+    produces<nanoaod::FlatTable>("SV");
 }
 
 //
@@ -302,9 +303,6 @@ void HLTVertexTableProducer::produce(edm::Event& iEvent, const edm::EventSetup& 
     svTable->addColumn<float>("phi", v_sv_phi, "phi", 12);
     svTable->addColumn<float>("mass", v_sv_mass, "mass", 10);
 
-    iEvent.put(std::move(svTable), "SV");
-  } else {
-    auto svTable = std::make_unique<nanoaod::FlatTable>(0, svName_, true);
     iEvent.put(std::move(svTable), "SV");
   }
 }
