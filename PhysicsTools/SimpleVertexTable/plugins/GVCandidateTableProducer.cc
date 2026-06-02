@@ -78,9 +78,10 @@ GenVertexCandidateProducer::GenVertexCandidateProducer(const edm::ParameterSet& 
       dlenSigMin_(iConfig.getParameter<double>("dlenSigMin")),
       dR_max_(iConfig.getParameter<double>("dR_max")),
       relPt_max_(iConfig.getParameter<double>("relPt_max")) {
-  produces<nanoaod::FlatTable>("GVTable");
-  produces<nanoaod::FlatTable>("GVDaughtersTable");
-  produces<nanoaod::FlatTable>("SVDaughtersTable");
+  produces<nanoaod::FlatTable>("GenPV");
+  produces<nanoaod::FlatTable>("GV");
+  produces<nanoaod::FlatTable>("GVDaughters");
+  produces<nanoaod::FlatTable>("SVDaughters");
 }
 
 void GenVertexCandidateProducer::produce(edm::Event& iEvent, const edm::EventSetup&) {
@@ -95,6 +96,7 @@ void GenVertexCandidateProducer::produce(edm::Event& iEvent, const edm::EventSet
 
   // Output vectors
   std::vector<float> Hadron_pt, Hadron_eta, Hadron_phi;
+  std::vector<float> Hadron_GVdlen, Hadron_GVdxy;
   std::vector<float> SV_x, SV_y, SV_z;
   std::vector<float> Hadron_GVx, Hadron_GVy, Hadron_GVz;
   std::vector<float> Hadron_GVx_i, Hadron_GVy_i, Hadron_GVz_i;
@@ -105,6 +107,23 @@ void GenVertexCandidateProducer::produce(edm::Event& iEvent, const edm::EventSet
   VertexDistance3D vdist;
 
   //const reco::VertexCompositePtrCandidate* vcand;
+
+  // Use the first GenPart to get the PV position
+  const reco::Candidate* particle0 = &(*genParticles)[0];
+  float xGenPV, yGenPV, zGenPV;
+  // find the direct daughter in order to use its production vertex as the GenPV (particle0 only has (0,0,0))
+  for (size_t j = 0; j < genParticles->size(); ++j) {
+    const reco::Candidate* dau = &(*genParticles)[j];
+    if (dau == particle0)
+      continue;
+    auto GV = isAncestor(particle0, dau);  //takes the x,y,z of the daughter (decay point of the hadron)
+    if (GV.has_value()) {
+      std::tie(xGenPV, yGenPV, zGenPV) = *GV;
+      if (!std::isnan(xGenPV)) {
+        break;
+      }
+    }
+  }
 
   const auto& PV0 = pvsIn->front();
   // save coordinates of SV (will be used for matching with GV)
@@ -198,6 +217,9 @@ void GenVertexCandidateProducer::produce(edm::Event& iEvent, const edm::EventSet
       Hadron_GVx_i.push_back(hadron->vx());  // point of origin of the hadron
       Hadron_GVy_i.push_back(hadron->vy());  // point of origin of the hadron
       Hadron_GVz_i.push_back(hadron->vz());  // point of origin of the hadron
+      Hadron_GVdlen.push_back(
+          std::sqrt((vx - xGenPV) * (vx - xGenPV) + (vy - yGenPV) * (vy - yGenPV) + (vz - zGenPV) * (vz - zGenPV)));
+      Hadron_GVdxy.push_back(std::sqrt((vx - xGenPV) * (vx - xGenPV) + (vy - yGenPV) * (vy - yGenPV)));
 
       // Save daughters
       Daughters_pt.insert(Daughters_pt.end(), temp_pt.begin(), temp_pt.end());
@@ -235,7 +257,7 @@ void GenVertexCandidateProducer::produce(edm::Event& iEvent, const edm::EventSet
 
   // Compute matrix of distances between SV and GV
   auto distances = computeDistanceMatrix(SV_x, SV_y, SV_z, Hadron_GVx, Hadron_GVy, Hadron_GVz);
-  //printDistanceMatrix(distances);
+  // printDistanceMatrix(distances);
 
   std::vector<int> Hadron_SVIdx(ngv, -1);         //
   std::vector<float> Hadron_SVDistance(ngv, -1);  //
@@ -258,12 +280,23 @@ void GenVertexCandidateProducer::produce(edm::Event& iEvent, const edm::EventSet
   Hadron_SVIdx = result.first;
   Hadron_SVDistance = result.second;
 
+  std::vector<float> xGenPV_vec(1, xGenPV);
+  std::vector<float> yGenPV_vec(1, yGenPV);
+  std::vector<float> zGenPV_vec(1, zGenPV);
+
   //  Build FlatTables
+
+  auto genPVTable = std::make_unique<nanoaod::FlatTable>(1, "GenPV", true);
+  genPVTable->addColumn<float>("x", xGenPV_vec, "Gen PV x coordinate");
+  genPVTable->addColumn<float>("y", yGenPV_vec, "Gen PV y coordinate");
+  genPVTable->addColumn<float>("z", zGenPV_vec, "Gen PV z coordinate");
 
   auto gvTable = std::make_unique<nanoaod::FlatTable>(ngv, "GV", false);
   gvTable->addColumn<float>("pt", Hadron_pt, "Hadron pt");
   gvTable->addColumn<float>("eta", Hadron_eta, "Hadron eta");
   gvTable->addColumn<float>("phi", Hadron_phi, "Hadron phi");
+  gvTable->addColumn<float>("dlen", Hadron_GVdlen, "GV decay length");
+  gvTable->addColumn<float>("dxy", Hadron_GVdxy, "GV 2D decay length in xy");
   gvTable->addColumn<float>("x", Hadron_GVx, "GV x");
   gvTable->addColumn<float>("y", Hadron_GVy, "GV y");
   gvTable->addColumn<float>("z", Hadron_GVz, "GV z");
@@ -294,9 +327,10 @@ void GenVertexCandidateProducer::produce(edm::Event& iEvent, const edm::EventSet
   svdauTable->addColumn<int>("SVIdx", SVtrk_SVidx, "Hadron index");
 
   //
-  iEvent.put(std::move(gvTable), "GVTable");
-  iEvent.put(std::move(dauTable), "GVDaughtersTable");
-  iEvent.put(std::move(svdauTable), "SVDaughtersTable");
+  iEvent.put(std::move(genPVTable), "GenPV");
+  iEvent.put(std::move(gvTable), "GV");
+  iEvent.put(std::move(dauTable), "GVDaughters");
+  iEvent.put(std::move(svdauTable), "SVDaughters");
 }
 
 //  checkPDG()
