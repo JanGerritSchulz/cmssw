@@ -101,7 +101,7 @@ void GenVertexCandidateProducer::produce(edm::Event& iEvent, const edm::EventSet
   std::vector<float> Hadron_GVx, Hadron_GVy, Hadron_GVz;
   std::vector<float> Hadron_GVx_i, Hadron_GVy_i, Hadron_GVz_i;
   std::vector<int> Hadron_pdgClass, Hadron_isB, Hadron_isD;
-  std::vector<int> Hadron_pdgId;
+  std::vector<int> Hadron_pdgId, Hadron_nDaughters;
   std::vector<float> Daughters_pt, Daughters_eta, Daughters_phi;
   std::vector<int> Daughters_charge, Daughters_GVidx;
   VertexDistance3D vdist;
@@ -211,6 +211,7 @@ void GenVertexCandidateProducer::produce(edm::Event& iEvent, const edm::EventSet
       if (hadPDG == 4) {
         ngv_tau++;
       }
+      Hadron_nDaughters.push_back(nPack);    // number of daughters
       Hadron_GVx.push_back(vx);              // point of decay of the hadron
       Hadron_GVy.push_back(vy);              // point of decay of the hadron
       Hadron_GVz.push_back(vz);              // point of decay of the hadron
@@ -305,6 +306,7 @@ void GenVertexCandidateProducer::produce(edm::Event& iEvent, const edm::EventSet
   gvTable->addColumn<float>("z_i", Hadron_GVz_i, "Born z coordinate of GV ");
   gvTable->addColumn<int>("Hadron_SVIdx", Hadron_SVIdx, "SVIdx");
   gvTable->addColumn<int>("Hadron_pdgId", Hadron_pdgId, "Hadron_pdgId");
+  gvTable->addColumn<int>("Hadron_nDaughters", Hadron_nDaughters, "Number of daughters");
   // new class
   gvTable->addColumn<int>("isB", Hadron_isB, "isB");
   gvTable->addColumn<int>("isD", Hadron_isD, "isD");
