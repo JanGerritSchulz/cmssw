@@ -1,10 +1,12 @@
 #include <CLHEP/Units/SystemOfUnits.h>
+#include "DataFormats/ParticleFlowCandidate/interface/PFCandidate.h"
 #include "SimTracker/VertexAssociation/interface/VertexAssociatorByPositionAndTracks.h"
 #include "SimTracker/VertexAssociation/interface/calculateVertexSharedTracks.h"
 
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 
-VertexAssociatorByPositionAndTracks::VertexAssociatorByPositionAndTracks(
+template <typename VertexCollection>
+VertexAssociatorByPositionAndTracks<VertexCollection>::VertexAssociatorByPositionAndTracks(
     const edm::EDProductGetter *productGetter,
     double absZ,
     double sigmaZ,
@@ -36,7 +38,9 @@ VertexAssociatorByPositionAndTracks::VertexAssociatorByPositionAndTracks(
     throw cms::Exception("Configuration") << "VertexAssociatorByPositionAndTracks: Invalid weightMethod '"
                                           << weightMethod << "' (should be 'none', 'pt2' or 'dzError')";
 }
-VertexAssociatorByPositionAndTracks::VertexAssociatorByPositionAndTracks(
+
+template <typename VertexCollection>
+VertexAssociatorByPositionAndTracks<VertexCollection>::VertexAssociatorByPositionAndTracks(
     const edm::EDProductGetter *productGetter,
     double absZ,
     double sigmaZ,
@@ -63,11 +67,13 @@ VertexAssociatorByPositionAndTracks::VertexAssociatorByPositionAndTracks(
     useWeightDzErr_ = true;
 }
 
-reco::VertexRecoToSimCollection VertexAssociatorByPositionAndTracks::associateRecoToSim(
-    const edm::Handle<edm::View<reco::Vertex>> &vCH, const edm::Handle<TrackingVertexCollection> &tVCH) const {
-  reco::VertexRecoToSimCollection ret(productGetter_);
+template <typename VertexCollection>
+typename VertexAssociatorByPositionAndTracks<VertexCollection>::RecoToSimCollection
+VertexAssociatorByPositionAndTracks<VertexCollection>::associateRecoToSim(
+    const edm::Handle<edm::View<VertexType>> &vCH, const edm::Handle<TrackingVertexCollection> &tVCH) const {
+  RecoToSimCollection ret(productGetter_);
 
-  const edm::View<reco::Vertex> &recoVertices = *vCH;
+  const edm::View<VertexType> &recoVertices = *vCH;
   const TrackingVertexCollection &simVertices = *tVCH;
 
   LogDebug("VertexAssociation") << "VertexAssociatorByPositionAndTracks::"
@@ -146,11 +152,13 @@ reco::VertexRecoToSimCollection VertexAssociatorByPositionAndTracks::associateRe
   return ret;
 }
 
-reco::VertexSimToRecoCollection VertexAssociatorByPositionAndTracks::associateSimToReco(
-    const edm::Handle<edm::View<reco::Vertex>> &vCH, const edm::Handle<TrackingVertexCollection> &tVCH) const {
-  reco::VertexSimToRecoCollection ret(productGetter_);
+template <typename VertexCollection>
+typename VertexAssociatorByPositionAndTracks<VertexCollection>::SimToRecoCollection
+VertexAssociatorByPositionAndTracks<VertexCollection>::associateSimToReco(
+    const edm::Handle<edm::View<VertexType>> &vCH, const edm::Handle<TrackingVertexCollection> &tVCH) const {
+  SimToRecoCollection ret(productGetter_);
 
-  const edm::View<reco::Vertex> &recoVertices = *vCH;
+  const edm::View<VertexType> &recoVertices = *vCH;
   const TrackingVertexCollection &simVertices = *tVCH;
 
   LogDebug("VertexAssociation") << "VertexAssociatorByPositionAndTracks::"
@@ -218,3 +226,5 @@ reco::VertexSimToRecoCollection VertexAssociatorByPositionAndTracks::associateSi
 
   return ret;
 }
+
+template class VertexAssociatorByPositionAndTracks<std::vector<reco::Vertex>>;
