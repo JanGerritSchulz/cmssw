@@ -6,3 +6,4 @@ reco::VertexToTrackingVertexAssociator<VertexCollection>::VertexToTrackingVertex
     : m_impl{std::move(iImpl)} {}
 
 template class reco::VertexToTrackingVertexAssociator<std::vector<reco::Vertex>>;
+template class reco::VertexToTrackingVertexAssociator<std::vector<reco::VertexCompositePtrCandidate>>;

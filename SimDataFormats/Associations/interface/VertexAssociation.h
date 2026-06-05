@@ -1,6 +1,7 @@
 #ifndef SimDataFormats_Associations_VertexAssociation_h
 #define SimDataFormats_Associations_VertexAssociation_h
 
+#include "DataFormats/Candidate/interface/VertexCompositePtrCandidate.h"
 #include "DataFormats/Common/interface/AssociationMap.h"
 #include "DataFormats/Common/interface/OneToManyWithQualityGeneric.h"
 #include "DataFormats/Common/interface/View.h"
