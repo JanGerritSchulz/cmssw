@@ -7,8 +7,8 @@
   <class name="reco::MuonToTrackingParticleAssociator" persistent="false"/>
   <class name="edm::Wrapper<reco::MuonToTrackingParticleAssociator>" persistent="false"/>
 
-  <class name="reco::VertexToTrackingVertexAssociator" persistent="false"/>
-  <class name="edm::Wrapper<reco::VertexToTrackingVertexAssociator>" persistent="false"/>
+  <class name="reco::VertexToTrackingVertexAssociator<std::vector<reco::Vertex>>" persistent="false"/>
+  <class name="edm::Wrapper<reco::VertexToTrackingVertexAssociator<std::vector<reco::Vertex>>>" persistent="false"/>
 
   <class name="ticl::LayerClusterToCaloParticleAssociatorT<reco::CaloClusterCollection>" persistent="false"/>
   <class name="edm::Wrapper<ticl::LayerClusterToCaloParticleAssociatorT<reco::CaloClusterCollection>>" persistent="false"/>
