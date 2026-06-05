@@ -17,6 +17,7 @@
 
 #include "SimDataFormats/Associations/interface/VertexToTrackingVertexAssociator.h"
 
+template <typename VertexCollection>
 class VertexAssociatorByPositionAndTracksProducer : public edm::global::EDProducer<> {
 public:
   explicit VertexAssociatorByPositionAndTracksProducer(const edm::ParameterSet &);
@@ -41,7 +42,9 @@ private:
   const std::string weightMethod_;
 };
 
-VertexAssociatorByPositionAndTracksProducer::VertexAssociatorByPositionAndTracksProducer(const edm::ParameterSet &config)
+template <typename VertexCollection>
+VertexAssociatorByPositionAndTracksProducer<VertexCollection>::VertexAssociatorByPositionAndTracksProducer(
+    const edm::ParameterSet &config)
     : absZ_(config.getParameter<double>("absZ")),
       sigmaZ_(config.getParameter<double>("sigmaZ")),
       maxRecoZ_(config.getParameter<double>("maxRecoZ")),
@@ -54,12 +57,15 @@ VertexAssociatorByPositionAndTracksProducer::VertexAssociatorByPositionAndTracks
       trackSimToRecoAssociationToken_(
           consumes<reco::SimToRecoCollection>(config.getParameter<edm::InputTag>("trackAssociation"))),
       weightMethod_(config.getParameter<std::string>("weightMethod")) {
-  produces<reco::VertexToTrackingVertexAssociator>();
+  produces<reco::VertexToTrackingVertexAssociator<VertexCollection>>();
 }
 
-VertexAssociatorByPositionAndTracksProducer::~VertexAssociatorByPositionAndTracksProducer() {}
+template <typename VertexCollection>
+VertexAssociatorByPositionAndTracksProducer<VertexCollection>::~VertexAssociatorByPositionAndTracksProducer() {}
 
-void VertexAssociatorByPositionAndTracksProducer::fillDescriptions(edm::ConfigurationDescriptions &descriptions) {
+template <typename VertexCollection>
+void VertexAssociatorByPositionAndTracksProducer<VertexCollection>::fillDescriptions(
+    edm::ConfigurationDescriptions &descriptions) {
   edm::ParameterSetDescription desc;
 
   // Matching conditions
@@ -78,16 +84,17 @@ void VertexAssociatorByPositionAndTracksProducer::fillDescriptions(edm::Configur
   descriptions.add("VertexAssociatorByPositionAndTracks", desc);
 }
 
-void VertexAssociatorByPositionAndTracksProducer::produce(edm::StreamID,
-                                                          edm::Event &iEvent,
-                                                          const edm::EventSetup &) const {
+template <typename VertexCollection>
+void VertexAssociatorByPositionAndTracksProducer<VertexCollection>::produce(edm::StreamID,
+                                                                            edm::Event &iEvent,
+                                                                            const edm::EventSetup &) const {
   edm::Handle<reco::RecoToSimCollection> recotosimCollectionH;
   iEvent.getByToken(trackRecoToSimAssociationToken_, recotosimCollectionH);
 
   edm::Handle<reco::SimToRecoCollection> simtorecoCollectionH;
   iEvent.getByToken(trackSimToRecoAssociationToken_, simtorecoCollectionH);
 
-  std::unique_ptr<VertexAssociatorByPositionAndTracks> impl;
+  std::unique_ptr<VertexAssociatorByPositionAndTracks<VertexCollection>> impl;
 
   if (!recotosimCollectionH.isValid() || !simtorecoCollectionH.isValid()) {
     if (!recotosimCollectionH.isValid())
@@ -97,30 +104,30 @@ void VertexAssociatorByPositionAndTracksProducer::produce(edm::StreamID,
     return;
   }
   if (sigmaT_ < 0.0) {
-    impl = std::make_unique<VertexAssociatorByPositionAndTracks>(&(iEvent.productGetter()),
-                                                                 absZ_,
-                                                                 sigmaZ_,
-                                                                 maxRecoZ_,
-                                                                 sharedTrackFraction_,
-                                                                 recotosimCollectionH.product(),
-                                                                 simtorecoCollectionH.product(),
-                                                                 weightMethod_);
+    impl = std::make_unique<VertexAssociatorByPositionAndTracks<VertexCollection>>(&(iEvent.productGetter()),
+                                                                                   absZ_,
+                                                                                   sigmaZ_,
+                                                                                   maxRecoZ_,
+                                                                                   sharedTrackFraction_,
+                                                                                   recotosimCollectionH.product(),
+                                                                                   simtorecoCollectionH.product(),
+                                                                                   weightMethod_);
   } else {
-    impl = std::make_unique<VertexAssociatorByPositionAndTracks>(&(iEvent.productGetter()),
-                                                                 absZ_,
-                                                                 sigmaZ_,
-                                                                 maxRecoZ_,
-                                                                 absT_,
-                                                                 sigmaT_,
-                                                                 maxRecoT_,
-                                                                 sharedTrackFraction_,
-                                                                 recotosimCollectionH.product(),
-                                                                 simtorecoCollectionH.product(),
-                                                                 weightMethod_);
+    impl = std::make_unique<VertexAssociatorByPositionAndTracks<VertexCollection>>(&(iEvent.productGetter()),
+                                                                                   absZ_,
+                                                                                   sigmaZ_,
+                                                                                   maxRecoZ_,
+                                                                                   absT_,
+                                                                                   sigmaT_,
+                                                                                   maxRecoT_,
+                                                                                   sharedTrackFraction_,
+                                                                                   recotosimCollectionH.product(),
+                                                                                   simtorecoCollectionH.product(),
+                                                                                   weightMethod_);
   }
 
-  auto toPut = std::make_unique<reco::VertexToTrackingVertexAssociator>(std::move(impl));
+  auto toPut = std::make_unique<reco::VertexToTrackingVertexAssociator<VertexCollection>>(std::move(impl));
   iEvent.put(std::move(toPut));
 }
 
-DEFINE_FWK_MODULE(VertexAssociatorByPositionAndTracksProducer);
+DEFINE_FWK_MODULE(VertexAssociatorByPositionAndTracksProducer<std::vector<reco::Vertex>>);
