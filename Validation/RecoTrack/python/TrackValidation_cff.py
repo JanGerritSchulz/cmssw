@@ -746,7 +746,7 @@ trackingParticleHIPixelTrackAssociation = trackingParticleRecoTrackAsssociation.
 #         associator = "quickTrackAssociatorByHitsPreSplitting")
 
 HIPixelVertexAssociatorByPositionAndTracks = vertexAssociatorByPositionAndTracksProducer.clone(
-    trackAssociation = "trackingParticleHIPixelTrackAssociation"
+    trackAssociations = ["trackingParticleHIPixelTrackAssociation"]
 )
 
 pp_on_AA.toReplaceWith(tracksValidationTruth, cms.Task(
@@ -1081,7 +1081,7 @@ trackingParticlePixelTrackAsssociation = trackingParticleRecoTrackAsssociation.c
     associator = "quickTrackAssociatorByHitsPreSplitting",
 )
 PixelVertexAssociatorByPositionAndTracks = vertexAssociatorByPositionAndTracksProducer.clone(
-    trackAssociation = "trackingParticlePixelTrackAsssociation"
+    trackAssociations = ["trackingParticlePixelTrackAsssociation"]
 )
 
 _pixelTracksCustom = dict(

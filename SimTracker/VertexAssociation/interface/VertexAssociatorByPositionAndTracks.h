@@ -3,6 +3,7 @@
 
 #include "SimDataFormats/Associations/interface/TrackAssociation.h"
 #include "SimDataFormats/Associations/interface/VertexToTrackingVertexAssociatorBaseImpl.h"
+#include "SimTracker/VertexAssociation/interface/calculateVertexSharedTracks.h"
 
 /**
  * This class associates reco vertex collections and TrackingVertices by their
@@ -26,6 +27,13 @@
  *   std::vector<reco::Vertex>                      (track-based PVs and SVs)
  *   std::vector<reco::VertexCompositePtrCandidate>  (PF-candidate-based SVs)
  *
+ * Multiple track association maps may be provided to correctly handle vertices
+ * whose constituent tracks originate from different collections (e.g. PF-based
+ * SVs where charged hadrons reference generalTracks and electrons reference
+ * gsfTracks). Each track is looked up across all provided maps; the first map
+ * containing the track is used. Single-map callers may pass a one-element
+ * vector for identical behaviour to the previous single-pointer interface.
+ *
  * The SimVertex filter applied in the PV case (keeping only the first
  * TrackingVertex per event at BX=0) is controlled via the filterSimVerticesForPVs
  * flag. It should be enabled for PV association and disabled for SV
@@ -43,6 +51,10 @@ public:
   static constexpr double kCheckDisabled = std::numeric_limits<double>::max();
 
   /// Full constructor including timing parameters.
+  /// trackRecoToSimAssociations and trackSimToRecoAssociations are vectors of
+  /// pointers to association maps, one per track collection. The vectors must
+  /// have the same size and be ordered consistently (i.e. element i of
+  /// RecoToSim and element i of SimToReco must cover the same track collection).
   VertexAssociatorByPositionAndTracks(const edm::EDProductGetter *productGetter,
                                       double sigmaX,
                                       double sigmaY,
@@ -53,8 +65,8 @@ public:
                                       double absT,
                                       double maxRecoT,
                                       double sharedTrackFraction,
-                                      const reco::RecoToSimCollection *trackRecoToSimAssociation,
-                                      const reco::SimToRecoCollection *trackSimToRecoAssociation,
+                                      RecoToSimCollectionVec trackRecoToSimAssociations,
+                                      SimToRecoCollectionVec trackSimToRecoAssociations,
                                       const std::string &weightMethod,
                                       bool filterSimVerticesForPVs = true);
 
@@ -66,8 +78,8 @@ public:
                                       double absZ,
                                       double maxRecoZ,
                                       double sharedTrackFraction,
-                                      const reco::RecoToSimCollection *trackRecoToSimAssociation,
-                                      const reco::SimToRecoCollection *trackSimToRecoAssociation,
+                                      RecoToSimCollectionVec trackRecoToSimAssociations,
+                                      SimToRecoCollectionVec trackSimToRecoAssociations,
                                       const std::string &weightMethod,
                                       bool filterSimVerticesForPVs = true);
 
@@ -108,11 +120,12 @@ private:
   double recoVertexTError(const VertexType &vertex) const;
 
   // Computes the shared-track fraction between a reco vertex and a sim vertex.
-  // Specialised per VertexType in the .cc file to handle the different
-  // track-access patterns of reco::Vertex and reco::VertexCompositePtrCandidate.
+  // Shared implementation in the .cc file; delegates to calculateVertexSharedTracks
+  // passing the full association map vectors.
   float sharedTrackFractionForVertex(const VertexType &recoVertex, const TrackingVertex &simVertex) const;
 
-  // Returns different ref types depending on the reco vertex collection which is required by the association map.
+  // Returns the appropriate ref type for the association map depending on the
+  // reco vertex collection type.
   auto makeVertexRef(const edm::Handle<edm::View<VertexType>> &handle, size_t index) const;
 
   // ----- member data -----
@@ -128,8 +141,11 @@ private:
   const double maxRecoT_;
   const double sharedTrackFraction_;
 
-  const reco::RecoToSimCollection *trackRecoToSimAssociation_;
-  const reco::SimToRecoCollection *trackSimToRecoAssociation_;
+  // One entry per track collection. Indexed consistently: element i of
+  // trackRecoToSimAssociations_ and element i of trackSimToRecoAssociations_
+  // must cover the same underlying track collection.
+  const RecoToSimCollectionVec trackRecoToSimAssociations_;
+  const SimToRecoCollectionVec trackSimToRecoAssociations_;
 
   bool useWeightPtSum2_;
   bool useWeightDzErr_;
