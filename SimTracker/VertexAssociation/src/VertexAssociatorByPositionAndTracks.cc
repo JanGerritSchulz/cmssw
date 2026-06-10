@@ -16,6 +16,24 @@
 // Constructors
 // =============================================================================
 
+namespace {
+  void parseWeightMethod(const std::string &weightMethod,
+                         bool &useWeightPtSum2,
+                         bool &useWeightDzErr,
+                         bool &useNSharedTracks) {
+    if (weightMethod == "pt2")
+      useWeightPtSum2 = true;
+    else if (weightMethod == "dzError")
+      useWeightDzErr = true;
+    else if (weightMethod == "nSharedTracks")
+      useNSharedTracks = true;
+    else if (weightMethod != "none")
+      throw cms::Exception("Configuration")
+          << "VertexAssociatorByPositionAndTracks: Invalid weightMethod '" << weightMethod
+          << "' (should be 'none', 'pt2', 'dzError' or 'nSharedTracks')";
+  }
+}  // namespace
+
 template <typename VertexCollection>
 VertexAssociatorByPositionAndTracks<VertexCollection>::VertexAssociatorByPositionAndTracks(
     const edm::EDProductGetter *productGetter,
@@ -28,8 +46,8 @@ VertexAssociatorByPositionAndTracks<VertexCollection>::VertexAssociatorByPositio
     double absT,
     double maxRecoT,
     double sharedTrackFraction,
-    const reco::RecoToSimCollection *trackRecoToSimAssociation,
-    const reco::SimToRecoCollection *trackSimToRecoAssociation,
+    RecoToSimCollectionVec trackRecoToSimAssociations,
+    SimToRecoCollectionVec trackSimToRecoAssociations,
     const std::string &weightMethod,
     bool filterSimVerticesForPVs)
     : productGetter_(productGetter),
@@ -42,22 +60,13 @@ VertexAssociatorByPositionAndTracks<VertexCollection>::VertexAssociatorByPositio
       absT_(getValueIfEnable(absT)),
       maxRecoT_(getValueIfEnable(maxRecoT)),
       sharedTrackFraction_(sharedTrackFraction),
-      trackRecoToSimAssociation_(trackRecoToSimAssociation),
-      trackSimToRecoAssociation_(trackSimToRecoAssociation),
+      trackRecoToSimAssociations_(std::move(trackRecoToSimAssociations)),
+      trackSimToRecoAssociations_(std::move(trackSimToRecoAssociations)),
       useWeightPtSum2_(false),
       useWeightDzErr_(false),
       useNSharedTracks_(false),
       filterSimVerticesForPVs_(filterSimVerticesForPVs) {
-  if (weightMethod == "pt2")
-    useWeightPtSum2_ = true;
-  else if (weightMethod == "dzError")
-    useWeightDzErr_ = true;
-  else if (weightMethod == "nSharedTracks")
-    useNSharedTracks_ = true;
-  else if (weightMethod != "none")
-    throw cms::Exception("Configuration")
-        << "VertexAssociatorByPositionAndTracks: Invalid weightMethod '" << weightMethod
-        << "' (should be 'none', 'pt2', 'dzError' or 'nSharedTracks')";
+  parseWeightMethod(weightMethod, useWeightPtSum2_, useWeightDzErr_, useNSharedTracks_);
 }
 
 template <typename VertexCollection>
@@ -69,8 +78,8 @@ VertexAssociatorByPositionAndTracks<VertexCollection>::VertexAssociatorByPositio
     double absZ,
     double maxRecoZ,
     double sharedTrackFraction,
-    const reco::RecoToSimCollection *trackRecoToSimAssociation,
-    const reco::SimToRecoCollection *trackSimToRecoAssociation,
+    RecoToSimCollectionVec trackRecoToSimAssociations,
+    SimToRecoCollectionVec trackSimToRecoAssociations,
     const std::string &weightMethod,
     bool filterSimVerticesForPVs)
     : productGetter_(productGetter),
@@ -83,22 +92,13 @@ VertexAssociatorByPositionAndTracks<VertexCollection>::VertexAssociatorByPositio
       absT_(kCheckDisabled),
       maxRecoT_(kCheckDisabled),
       sharedTrackFraction_(sharedTrackFraction),
-      trackRecoToSimAssociation_(trackRecoToSimAssociation),
-      trackSimToRecoAssociation_(trackSimToRecoAssociation),
+      trackRecoToSimAssociations_(std::move(trackRecoToSimAssociations)),
+      trackSimToRecoAssociations_(std::move(trackSimToRecoAssociations)),
       useWeightPtSum2_(false),
       useWeightDzErr_(false),
       useNSharedTracks_(false),
       filterSimVerticesForPVs_(filterSimVerticesForPVs) {
-  if (weightMethod == "pt2")
-    useWeightPtSum2_ = true;
-  else if (weightMethod == "dzError")
-    useWeightDzErr_ = true;
-  else if (weightMethod == "nSharedTracks")
-    useNSharedTracks_ = true;
-  else if (weightMethod != "none")
-    throw cms::Exception("Configuration")
-        << "VertexAssociatorByPositionAndTracks: Invalid weightMethod '" << weightMethod
-        << "' (should be 'none', 'pt2', 'dzError' or 'nSharedTracks')";
+  parseWeightMethod(weightMethod, useWeightPtSum2_, useWeightDzErr_, useNSharedTracks_);
 }
 
 // =============================================================================
@@ -194,14 +194,12 @@ double VertexAssociatorByPositionAndTracks<std::vector<reco::VertexCompositePtrC
 template <>
 double VertexAssociatorByPositionAndTracks<std::vector<reco::VertexCompositePtrCandidate>>::recoVertexYError(
     const reco::VertexCompositePtrCandidate &vtx) const {
-  // vertexCovariance(i,j): indices 0=x, 1=y, 2=z
   return std::sqrt(vtx.vertexCovariance(1, 1));
 }
 
 template <>
 double VertexAssociatorByPositionAndTracks<std::vector<reco::VertexCompositePtrCandidate>>::recoVertexZError(
     const reco::VertexCompositePtrCandidate &vtx) const {
-  // vertexCovariance(i,j): indices 0=x, 1=y, 2=z
   return std::sqrt(vtx.vertexCovariance(2, 2));
 }
 
@@ -227,7 +225,7 @@ double VertexAssociatorByPositionAndTracks<std::vector<reco::VertexCompositePtrC
 template <typename VertexCollection>
 float VertexAssociatorByPositionAndTracks<VertexCollection>::sharedTrackFractionForVertex(
     const VertexType &recoVertex, const TrackingVertex &simVertex) const {
-  auto sharedTracksAndFraction = calculateVertexSharedTracks(recoVertex, simVertex, *trackRecoToSimAssociation_);
+  auto sharedTracksAndFraction = calculateVertexSharedTracks(recoVertex, simVertex, trackRecoToSimAssociations_);
   if (useWeightPtSum2_)
     return sharedTracksAndFraction.sharedPt2Fraction_;
   if (useWeightDzErr_)
@@ -265,20 +263,18 @@ VertexAssociatorByPositionAndTracks<VertexCollection>::associateRecoToSim(
   const bool useSigmaY = sigmaY_ != kCheckDisabled;
 
   // Build the list of sim vertex indices to consider.
-  // For PV association (filterSimVerticesForPVs_=true) only the first TrackingVertex
-  // per in-time pileup event is kept, consistent with the original behaviour.
-  // For SV association (filterSimVerticesForPVs_=false) all in-time TrackingVertices are
-  // considered.
+  // For PV association (filterSimVerticesForPVs_=true) only the first
+  // TrackingVertex per in-time pileup event is kept.
+  // For SV association (filterSimVerticesForPVs_=false) all in-time
+  // TrackingVertices are considered.
   std::vector<size_t> simIndicesToConsider;
   simIndicesToConsider.reserve(simVertices.size());
   {
     int current_event = -1;
     for (size_t iSim = 0; iSim != simVertices.size(); ++iSim) {
       const TrackingVertex &simVertex = simVertices[iSim];
-
       if (simVertex.eventId().bunchCrossing() != 0)
         continue;
-
       if (filterSimVerticesForPVs_) {
         if (simVertex.eventId().event() != current_event) {
           current_event = simVertex.eventId().event();
@@ -308,9 +304,6 @@ VertexAssociatorByPositionAndTracks<VertexCollection>::associateRecoToSim(
 
     for (const size_t iSim : simIndicesToConsider) {
       const TrackingVertex &simVertex = simVertices[iSim];
-
-      // LogTrace("VertexAssociation") << "  Considering TrackingVertex at X,Y,Z " << simVertex.position().x() << ","
-      //                               << simVertex.position().y() << "," << simVertex.position().z();
 
       const double xdiff = useSigmaX ? std::abs(recoVertexX(recoVertex) - simVertex.position().x()) : 0.;
       const double ydiff = useSigmaY ? std::abs(recoVertexY(recoVertex) - simVertex.position().y()) : 0.;
@@ -360,6 +353,7 @@ VertexAssociatorByPositionAndTracks<VertexCollection>::associateSimToReco(
 
   const bool useSigmaX = sigmaX_ != kCheckDisabled;
   const bool useSigmaY = sigmaY_ != kCheckDisabled;
+
   int current_event = -1;
   for (size_t iSim = 0; iSim != simVertices.size(); ++iSim) {
     const TrackingVertex &simVertex = simVertices[iSim];
@@ -387,9 +381,6 @@ VertexAssociatorByPositionAndTracks<VertexCollection>::associateSimToReco(
       const double recoZ = recoVertexZ(recoVertex);
       if (std::abs(recoZ) > maxRecoZ_)
         continue;
-
-      // LogTrace("VertexAssociation") << "  Considering reco vertex at X,Y,Z " << recoVertexX(recoVertex) << ","
-      //                               << recoVertexY(recoVertex) << "," << recoZ;
 
       const double recoT = recoVertexT(recoVertex);
       const bool useTiming = (absT_ != kCheckDisabled && recoT != 0.);

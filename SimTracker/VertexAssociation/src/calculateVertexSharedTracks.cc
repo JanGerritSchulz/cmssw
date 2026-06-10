@@ -48,15 +48,42 @@ namespace {
     return refs;
   }
 
+  /// Look up a TrackBaseRef across a vector of RecoToSimCollections.
+  /// Returns a pointer to the matched value range in the first map that
+  /// contains the key, or nullptr if no map covers this track.
+  /// Maps covering a different track collection return end() harmlessly.
+  const reco::RecoToSimCollection::result_type *findInRecoToSimCollections(const reco::TrackBaseRef &trkRef,
+                                                                           const RecoToSimCollectionVec &maps) {
+    for (const reco::RecoToSimCollection *map : maps) {
+      auto found = map->find(trkRef);
+      if (found != map->end())
+        return &found->val;
+    }
+    return nullptr;
+  }
+
+  /// Look up a TrackingParticleRef across a vector of SimToRecoCollections.
+  /// Returns a pointer to the matched value range in the first map that
+  /// contains the key, or nullptr if no map covers this TrackingParticle.
+  const reco::SimToRecoCollection::result_type *findInSimToRecoCollections(const TrackingParticleRef &tpRef,
+                                                                           const SimToRecoCollectionVec &maps) {
+    for (const reco::SimToRecoCollection *map : maps) {
+      auto found = map->find(tpRef);
+      if (found != map->end())
+        return &found->val;
+    }
+    return nullptr;
+  }
+
 }  // namespace
 
 // =============================================================================
-// reco::Vertex overloads
+// reco::Vertex overloads — multi-collection
 // =============================================================================
 
 SharedTracksAndFractions calculateVertexSharedTracks(const reco::Vertex &recoV,
                                                      const TrackingVertex &simV,
-                                                     const reco::RecoToSimCollection &trackRecoToSimAssociation) {
+                                                     const RecoToSimCollectionVec &trackRecoToSimAssociations) {
   unsigned int nSharedTracks = 0;
   float sharedTracksWeightPtSum2 = 0;
   float totalTracksWeightPtSum2 = 0;
@@ -64,22 +91,21 @@ SharedTracksAndFractions calculateVertexSharedTracks(const reco::Vertex &recoV,
   float totalTracksWeightDzError = 0;
 
   for (auto iTrack = recoV.tracks_begin(); iTrack != recoV.tracks_end(); ++iTrack) {
-    auto found = trackRecoToSimAssociation.find(*iTrack);
-
     totalTracksWeightDzError += 1.0 / ((*iTrack)->dzError() * (*iTrack)->dzError());
     totalTracksWeightPtSum2 += (*iTrack)->pt() * (*iTrack)->pt();
 
-    if (found == trackRecoToSimAssociation.end())
+    const auto *tpCandidates = findInRecoToSimCollections(reco::TrackBaseRef(*iTrack), trackRecoToSimAssociations);
+    if (!tpCandidates)
       continue;
 
     // matched TP equal to any TP of sim vertex => increase counter
-    for (const auto &tp : found->val) {
+    for (const auto &tp : *tpCandidates) {
       if (std::find_if(simV.daughterTracks_begin(), simV.daughterTracks_end(), [&](const TrackingParticleRef &vtp) {
             return tp.first == vtp;
           }) != simV.daughterTracks_end()) {
         nSharedTracks += 1;
         sharedTracksWeightDzError += 1.0 / ((*iTrack)->dzError() * (*iTrack)->dzError());
-        sharedTracksWeightPtSum2 += ((*iTrack)->pt() * (*iTrack)->pt());
+        sharedTracksWeightPtSum2 += (*iTrack)->pt() * (*iTrack)->pt();
         break;
       }
     }
@@ -95,32 +121,32 @@ SharedTracksAndFractions calculateVertexSharedTracks(const reco::Vertex &recoV,
 
 SharedTracksAndFractions calculateVertexSharedTracks(const TrackingVertex &simV,
                                                      const reco::Vertex &recoV,
-                                                     const reco::SimToRecoCollection &trackSimToRecoAssociation) {
+                                                     const SimToRecoCollectionVec &trackSimToRecoAssociations) {
   unsigned int nSharedTracks = 0;
   float sharedTracksWeightPtSum2 = 0;
   float totalTracksWeightPtSum2 = 0;
   float sharedTracksWeightDzError = 0;
   float totalTracksWeightDzError = 0;
 
+  // Total weights computed from reco side — denominator is always reco tracks.
   for (auto iTrack = recoV.tracks_begin(); iTrack != recoV.tracks_end(); ++iTrack) {
-    totalTracksWeightPtSum2 += ((*iTrack)->pt() * (*iTrack)->pt());
+    totalTracksWeightPtSum2 += (*iTrack)->pt() * (*iTrack)->pt();
     totalTracksWeightDzError += 1.0 / ((*iTrack)->dzError() * (*iTrack)->dzError());
   }
 
   for (auto iTP = simV.daughterTracks_begin(); iTP != simV.daughterTracks_end(); ++iTP) {
-    auto found = trackSimToRecoAssociation.find(*iTP);
-
-    if (found == trackSimToRecoAssociation.end())
+    const auto *tkCandidates = findInSimToRecoCollections(*iTP, trackSimToRecoAssociations);
+    if (!tkCandidates)
       continue;
 
     // matched track equal to any track of reco vertex => increase counter
-    for (const auto &tk : found->val) {
+    for (const auto &tk : *tkCandidates) {
       if (std::find_if(recoV.tracks_begin(), recoV.tracks_end(), [&](const reco::TrackBaseRef &vtk) {
-            return ((tk.first.id() == vtk.id()) && (tk.first.key() == vtk.key()));
+            return (tk.first.id() == vtk.id()) && (tk.first.key() == vtk.key());
           }) != recoV.tracks_end()) {
         nSharedTracks += 1;
         sharedTracksWeightDzError += 1.0 / (tk.first->dzError() * tk.first->dzError());
-        sharedTracksWeightPtSum2 += (tk.first->pt() * tk.first->pt());
+        sharedTracksWeightPtSum2 += tk.first->pt() * tk.first->pt();
         break;
       }
     }
@@ -135,12 +161,12 @@ SharedTracksAndFractions calculateVertexSharedTracks(const TrackingVertex &simV,
 }
 
 // =============================================================================
-// reco::VertexCompositePtrCandidate overloads
+// reco::VertexCompositePtrCandidate overloads — multi-collection
 // =============================================================================
 
 SharedTracksAndFractions calculateVertexSharedTracks(const reco::VertexCompositePtrCandidate &recoV,
                                                      const TrackingVertex &simV,
-                                                     const reco::RecoToSimCollection &trackRecoToSimAssociation) {
+                                                     const RecoToSimCollectionVec &trackRecoToSimAssociations) {
   unsigned int nSharedTracks = 0;
   float sharedTracksWeightPtSum2 = 0;
   float totalTracksWeightPtSum2 = 0;
@@ -154,12 +180,14 @@ SharedTracksAndFractions calculateVertexSharedTracks(const reco::VertexComposite
     totalTracksWeightPtSum2 += trkRef->pt() * trkRef->pt();
     totalTracksWeightDzError += 1.0 / (trkRef->dzError() * trkRef->dzError());
 
-    auto found = trackRecoToSimAssociation.find(reco::TrackBaseRef(trkRef));
-    if (found == trackRecoToSimAssociation.end())
+    // Search across all provided maps — covers the case where PF candidates
+    // in the same vertex reference different track collections.
+    const auto *tpCandidates = findInRecoToSimCollections(reco::TrackBaseRef(trkRef), trackRecoToSimAssociations);
+    if (!tpCandidates)
       continue;
 
     // Check whether any matched TP is a daughter of the sim vertex.
-    for (const auto &tp : found->val) {
+    for (const auto &tp : *tpCandidates) {
       if (std::find_if(simV.daughterTracks_begin(), simV.daughterTracks_end(), [&](const TrackingParticleRef &vtp) {
             return tp.first == vtp;
           }) != simV.daughterTracks_end()) {
@@ -185,20 +213,17 @@ SharedTracksAndFractions calculateVertexSharedTracks(const reco::VertexComposite
 
 SharedTracksAndFractions calculateVertexSharedTracks(const TrackingVertex &simV,
                                                      const reco::VertexCompositePtrCandidate &recoV,
-                                                     const reco::SimToRecoCollection &trackSimToRecoAssociation) {
+                                                     const SimToRecoCollectionVec &trackSimToRecoAssociations) {
   unsigned int nSharedTracks = 0;
   float sharedTracksWeightPtSum2 = 0;
   float totalTracksWeightPtSum2 = 0;
   float sharedTracksWeightDzError = 0;
   float totalTracksWeightDzError = 0;
 
-  // Collect reco tracks once and build a lookup set by (id, key) for
-  // O(n) matching below, consistent with the reco::Vertex overload's intent
-  // (which uses std::find_if over the track range for the same purpose).
+  // Collect reco tracks once.
   const std::vector<reco::TrackRef> recoTracks = extractTrackRefs(recoV);
 
-  // Total weights are computed from the reco side — consistent with the
-  // reco::Vertex overload where the denominator is always the reco track set.
+  // Total weights computed from reco side — denominator is always reco tracks.
   for (const reco::TrackRef &trkRef : recoTracks) {
     totalTracksWeightPtSum2 += trkRef->pt() * trkRef->pt();
     totalTracksWeightDzError += 1.0 / (trkRef->dzError() * trkRef->dzError());
@@ -206,14 +231,15 @@ SharedTracksAndFractions calculateVertexSharedTracks(const TrackingVertex &simV,
 
   // Iterate from the sim side, mirroring the reco::Vertex overload.
   for (auto iTP = simV.daughterTracks_begin(); iTP != simV.daughterTracks_end(); ++iTP) {
-    auto found = trackSimToRecoAssociation.find(*iTP);
-    if (found == trackSimToRecoAssociation.end())
+    const auto *tkCandidates = findInSimToRecoCollections(*iTP, trackSimToRecoAssociations);
+    if (!tkCandidates)
       continue;
 
     // Check whether any matched reco track appears in the reco vertex.
-    for (const auto &tk : found->val) {
+    // The reco vertex may mix track collections so compare by (id, key).
+    for (const auto &tk : *tkCandidates) {
       if (std::find_if(recoTracks.begin(), recoTracks.end(), [&](const reco::TrackRef &vtk) {
-            return ((tk.first.id() == vtk.id()) && (tk.first.key() == vtk.key()));
+            return (tk.first.id() == vtk.id()) && (tk.first.key() == vtk.key());
           }) != recoTracks.end()) {
         nSharedTracks += 1;
         sharedTracksWeightPtSum2 += tk.first->pt() * tk.first->pt();
