@@ -16,7 +16,7 @@ tpToHLTGeneralTrackAssociation = tpToHLTpixelTrackAssociation.clone(
     label_tr = "hltGeneralTracks"
 )
 hltPVAssociatorByPositionAndTracks4GeneralTracks = _VertexAssociatorByPositionAndTracks.clone(
-    trackAssociation = "tpToHLTGeneralTrackAssociation",
+    trackAssociations = ["tpToHLTGeneralTrackAssociation"],
     sharedTrackFraction = 0.5, # requires optimization
     weightMethod = "dzError",
     sigmaZ = 10e6
@@ -24,13 +24,13 @@ hltPVAssociatorByPositionAndTracks4GeneralTracks = _VertexAssociatorByPositionAn
 
 # -------------- PVs from hltPixelTracks -----------------------------------------------------------------------------
 hltPVAssociatorByPositionAndTracks4PixelTracks = _VertexAssociatorByPositionAndTracks.clone(
-    trackAssociation = "tpToHLTpixelTrackAssociation",
+    trackAssociations = ["tpToHLTpixelTrackAssociation"],
     sharedTrackFraction = -1, # requires optimization
     weightMethod = "dzError",
     sigmaZ = 10e6
 )
 hltPVAssociatorByPositionAndTracks4ExtendedPixelTracks = hltPVAssociatorByPositionAndTracks4PixelTracks.clone(
-    trackAssociation = "tpToHLTpixelTracksCAExtAssociation",
+    trackAssociations = ["tpToHLTpixelTracksCAExtAssociation"],
 )
 
 # -------------- PVs from hltPFMuonMerging ---------------------------------------------------------------------------
@@ -45,12 +45,12 @@ tpToHLTpfMuonMergingTrackAssociation = tpToHLTpixelTrackAssociation.clone(
     associator = cms.InputTag('hltOtherTrackAssociatorByHits')
 )
 hltPVAssociatorByPositionAndTracks4pfMuonMergingTracks = _VertexAssociatorByPositionAndTracks.clone(
-    trackAssociation = "tpToHLTpfMuonMergingTrackAssociation"
+    trackAssociations = ["tpToHLTpfMuonMergingTrackAssociation"]
 )
 
 # -------------- SVs from hltGeneralTracks ---------------------------------------------------------------------------
 hltSVAssociatorByPositionAndTracks4GeneralTracks = _SecondaryVertexAssociatorByPositionAndTracks.clone(
-    trackAssociation = "tpToHLTGeneralTrackAssociation"
+    trackAssociations = ["tpToHLTGeneralTrackAssociation"]
 )
 hltSVAssociation = _VertexAssociationCPC.clone(
     recoVertices = cms.InputTag("hltDeepInclusiveMergedVerticesPF"),
