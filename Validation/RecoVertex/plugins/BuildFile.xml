@@ -1,0 +1,23 @@
+<use name="FWCore/Framework"/>
+<use name="FWCore/MessageLogger"/>
+<use name="FWCore/ParameterSet"/>
+<use name="FWCore/Utilities"/>
+<use name="CommonTools/UtilAlgos"/>
+<use name="DataFormats/Math"/>
+<use name="DataFormats/TrackReco"/>
+<use name="DataFormats/VertexReco"/>
+<use name="DQMServices/Core"/>
+<use name="RecoVertex/PrimaryVertexProducer"/>
+<use name="RecoVertex/VertexPrimitives"/>
+<use name="SimDataFormats/Associations"/>
+<use name="SimDataFormats/PileupSummaryInfo"/>
+<use name="SimDataFormats/TrackingAnalysis"/>
+<use name="SimDataFormats/Vertex"/>
+<use name="SimTracker/VertexAssociation"/>
+<use name="Validation/RecoTrack"/>
+<lib name="MathMore"/>
+<use name="clhep"/>
+<use name="root"/>
+<library file="*.cc" name="ValidationRecoVertexPlugins">
+  <flags EDM_PLUGIN="1"/>
+</library>

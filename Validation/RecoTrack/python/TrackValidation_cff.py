@@ -10,7 +10,7 @@ import Validation.RecoTrack.cutsRecoTracks_cfi as cutsRecoTracks_cfi
 #from . import cutsRecoTracks_cfi
 
 from SimTracker.TrackerHitAssociation.tpClusterProducer_cfi import *
-from SimTracker.VertexAssociation.VertexAssociatorByPositionAndTracks_cfi import *
+from SimTracker.VertexAssociation.vertexAssociatorByPositionAndTracksProducer_cfi import *
 from CommonTools.RecoAlgos.trackingParticleRefSelector_cfi import trackingParticleRefSelector as _trackingParticleRefSelector
 from CommonTools.RecoAlgos.trackingParticleConversionRefSelector_cfi import trackingParticleConversionRefSelector as _trackingParticleConversionRefSelector
 from SimTracker.TrackHistory.trackingParticleBHadronRefSelector_cfi import trackingParticleBHadronRefSelector as _trackingParticleBHadronRefSelector
@@ -727,7 +727,7 @@ tracksValidationTruth = cms.Task(
     quickTrackAssociatorByHits,
     quickTrackAssociatorByHitsPreSplitting,
     trackingParticleRecoTrackAsssociation,
-    VertexAssociatorByPositionAndTracks,
+    vertexAssociatorByPositionAndTracksProducer,
     trackingParticleNumberOfLayersProducer
 )
 
@@ -745,7 +745,7 @@ trackingParticleHIPixelTrackAssociation = trackingParticleRecoTrackAsssociation.
 # pixelNtupletFit.toModify(trackingParticleHIPixelTrackAssociation,
 #         associator = "quickTrackAssociatorByHitsPreSplitting")
 
-HIPixelVertexAssociatorByPositionAndTracks = VertexAssociatorByPositionAndTracks.clone(
+HIPixelVertexAssociatorByPositionAndTracks = vertexAssociatorByPositionAndTracksProducer.clone(
     trackAssociation = "trackingParticleHIPixelTrackAssociation"
 )
 
@@ -1080,7 +1080,7 @@ trackingParticlePixelTrackAsssociation = trackingParticleRecoTrackAsssociation.c
     label_tr = "pixelTracks",
     associator = "quickTrackAssociatorByHitsPreSplitting",
 )
-PixelVertexAssociatorByPositionAndTracks = VertexAssociatorByPositionAndTracks.clone(
+PixelVertexAssociatorByPositionAndTracks = vertexAssociatorByPositionAndTracksProducer.clone(
     trackAssociation = "trackingParticlePixelTrackAsssociation"
 )
 
@@ -1178,7 +1178,7 @@ trackValidatorBHadronPixelTrackingOnly = trackValidatorPixelTrackingOnly.clone(
 
 tracksValidationTruthPixelTrackingOnly = tracksValidationTruth.copy()
 tracksValidationTruthPixelTrackingOnly.replace(trackingParticleRecoTrackAsssociation, trackingParticlePixelTrackAsssociation)
-tracksValidationTruthPixelTrackingOnly.replace(VertexAssociatorByPositionAndTracks, PixelVertexAssociatorByPositionAndTracks)
+tracksValidationTruthPixelTrackingOnly.replace(vertexAssociatorByPositionAndTracksProducer, PixelVertexAssociatorByPositionAndTracks)
 tracksValidationTruthPixelTrackingOnly.add(trackingParticlesBHadron)
 tracksValidationTruthPixelTrackingOnly.add( pixelTracks3hits )
 tracksValidationTruthPixelTrackingOnly.add( pixelTracks4hits )
