@@ -19,17 +19,20 @@
 #include "SimDataFormats/TrackingAnalysis/interface/TrackingVertex.h"
 #include "SimDataFormats/TrackingAnalysis/interface/TrackingVertexContainer.h"
 
-// #define VERTEX_ASSOC_DEBUG
-
 /**
- * Fetches a VertexToTrackingVertexAssociator wrapper from the event (produced
- * by VertexAssociatorByPositionAndTracksProducer) and runs both association
- * directions, putting the resulting maps into the event.
+ * Fetches a VertexToTrackingVertexAssociator wrapper from the event and runs
+ * both association directions, putting the resulting maps into the event.
+ *
+ * This module is intentionally associator-agnostic: it consumes any
+ * VertexToTrackingVertexAssociator wrapper regardless of the underlying
+ * implementation (single-map, multi-map, by-tracks, by-position, etc.).
+ * All algorithm-specific configuration lives in the producer that creates
+ * the wrapper (e.g. VertexAssociatorByPositionAndTracksProducer).
  *
  * This is the vertex-association analogue of TrackAssociatorEDProducer.
  *
  * Registered plugins:
- *   VertexAssociatorEDProducerBaseRV
+ *   VertexAssociatorEDProducer
  *       for std::vector<reco::Vertex>
  *   VertexCompositePtrCandidateAssociatorEDProducer
  *       for std::vector<reco::VertexCompositePtrCandidate>
@@ -66,7 +69,6 @@ VertexAssociatorEDProducerBase<VertexCollection>::VertexAssociatorEDProducerBase
     : recoVertexToken_(consumes<edm::View<VertexType>>(pset.getParameter<edm::InputTag>("recoVertices"))),
       simVertexToken_(consumes<TrackingVertexCollection>(pset.getParameter<edm::InputTag>("simVertices"))),
       associatorToken_(consumes<AssociatorWrapper>(pset.getParameter<edm::InputTag>("associator"))) {
-  std::cout << "\nYYYYYY VertexAssociatorEDProducerBase: Producer initanciated YYYYYY";
   produces<RecoToSimCollection>();
   produces<SimToRecoCollection>();
 }
@@ -79,10 +81,6 @@ template <typename VertexCollection>
 void VertexAssociatorEDProducerBase<VertexCollection>::produce(edm::StreamID,
                                                                edm::Event &iEvent,
                                                                const edm::EventSetup &) const {
-#ifdef VERTEX_ASSOC_DEBUG
-  std::cout << "VertexAssociatorEDProducerBase: trying to run the association" << std::endl;
-#endif
-
   edm::Handle<edm::View<VertexType>> recoVertices;
   iEvent.getByToken(recoVertexToken_, recoVertices);
 
@@ -92,21 +90,16 @@ void VertexAssociatorEDProducerBase<VertexCollection>::produce(edm::StreamID,
   edm::Handle<AssociatorWrapper> associator;
   iEvent.getByToken(associatorToken_, associator);
 
-#ifdef VERTEX_ASSOC_DEBUG
-  std::cout << "VertexAssociatorEDProducerBase: running the association: associating " << (*simVertices).size()
-            << " TrackingVertices to " << (*recoVertices).size() << " reco vertices" << std::endl;
-#endif
+  LogTrace("VertexAssociation") << "VertexAssociatorEDProducer: associating " << recoVertices->size()
+                                << " reco vertices to " << simVertices->size() << " TrackingVertices";
 
-  LogTrace("VertexAssociation") << "VertexAssociatorEDProducerBase: calling associateRecoToSim\n";
   auto recoToSim = associator->associateRecoToSim(recoVertices, simVertices);
-
-  LogTrace("VertexAssociation") << "VertexAssociatorEDProducerBase: calling associateSimToReco\n";
   auto simToReco = associator->associateSimToReco(recoVertices, simVertices);
 
   iEvent.put(std::make_unique<RecoToSimCollection>(std::move(recoToSim)));
   iEvent.put(std::make_unique<SimToRecoCollection>(std::move(simToReco)));
 
-  LogTrace("VertexAssociation") << "VertexAssociatorEDProducerBase: done\n";
+  LogTrace("VertexAssociation") << "VertexAssociatorEDProducer: done\n";
 }
 
 // =============================================================================
@@ -121,8 +114,9 @@ void VertexAssociatorEDProducerBase<VertexCollection>::fillDescriptions(edm::Con
   desc.add<edm::InputTag>("simVertices")->setComment("TrackingVertex (sim truth) collection.");
   desc.add<edm::InputTag>("associator")
       ->setComment(
-          "VertexToTrackingVertexAssociator wrapper, as produced by "
-          "VertexAssociatorByPositionAndTracksProducer.");
+          "VertexToTrackingVertexAssociator wrapper produced by any vertex "
+          "associator producer (e.g. VertexAssociatorByPositionAndTracksProducer). "
+          "This module is agnostic to the underlying associator implementation.");
 
   descriptions.addWithDefaultLabel(desc);
 }
