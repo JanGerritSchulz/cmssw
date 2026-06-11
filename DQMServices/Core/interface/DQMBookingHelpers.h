@@ -42,6 +42,7 @@
 */
 
 #include "DQMServices/Core/interface/DQMStore.h"
+#include "DQMServices/Core/interface/MonitorElement.h"
 
 #include <memory>
 #include <string>
