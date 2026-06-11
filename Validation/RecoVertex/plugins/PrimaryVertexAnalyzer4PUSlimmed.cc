@@ -1,4 +1,4 @@
-#include "Validation/RecoVertex/interface/PrimaryVertexAnalyzer4PUSlimmed.h"
+#include "PrimaryVertexAnalyzer4PUSlimmed.h"
 
 #include "FWCore/Framework/interface/Event.h"
 #include "FWCore/Framework/interface/EventSetup.h"
@@ -1421,3 +1421,6 @@ void PrimaryVertexAnalyzer4PUSlimmed::computePairDistance(const T& collection, M
     }
   }
 }
+
+#include "FWCore/Framework/interface/MakerMacros.h"
+DEFINE_FWK_MODULE(PrimaryVertexAnalyzer4PUSlimmed);
