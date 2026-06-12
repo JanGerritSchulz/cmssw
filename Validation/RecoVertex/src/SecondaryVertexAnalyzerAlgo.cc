@@ -20,7 +20,7 @@ SecondaryVertexAnalyzerAlgo::SecondaryVertexAnalyzerAlgo(const Config &cfg) : cf
 // isReconstructable
 // =============================================================================
 
-bool SecondaryVertexAnalyzerAlgo::isReconstructable(const simSecondaryVertex &sv, uint32_t skipCuts) const {
+bool SecondaryVertexAnalyzerAlgo::isReconstructable(const SimSecondaryVertex &sv, uint32_t skipCuts) const {
   if (!(skipCuts & kDecayLength) && sv.decayLength < cfg_.minDecayLength)
     return false;
   if (!(skipCuts & kNDaughters) && sv.nCharged < cfg_.minReconstructableDaughters)
@@ -139,6 +139,30 @@ void SecondaryVertexAnalyzerAlgo::bookHistograms(IBooker &ibook, const std::vect
 // Sim vertex building
 // =============================================================================
 
+void SecondaryVertexAnalyzerAlgo::buildSimSVs(const TrackingVertexCollection &simVertices) {
+  allSimSVs_ = buildAllSimSVs(simVertices);
+  signalSimSVs_ = buildSignalSimSVs();
+
+  if (cfg_.verbose) {
+    LogDebug("SecondaryVertexAnalyzer") << "SimSecondaryVertex overview: " << allSimSVs_.size() << " all sim SVs, "
+                                        << signalSimSVs_.size() << " signal sim SVs";
+  }
+}
+
+void SecondaryVertexAnalyzerAlgo::resetSimSVs() {
+  for (auto &sv : allSimSVs_) {
+    sv.num_matched_reco_vertices = 0;
+    sv.average_match_quality = 0.0;
+    sv.matched_reco_shared_fractions.clear();
+  }
+}
+
+void SecondaryVertexAnalyzerAlgo::clearSimSVs() {
+  allSimSVs_.clear();
+  signalSimSVs_.clear();
+}
+
+// TODO: fix this according to the logic I developed in the other package
 int SecondaryVertexAnalyzerAlgo::motherPdgId(const TrackingVertex &tv) const {
   // Walk the first TrackingParticle's parent chain looking for a B or D hadron.
   // Fall back to the direct parent PDG ID if none found.
@@ -173,34 +197,25 @@ int SecondaryVertexAnalyzerAlgo::motherPdgId(const TrackingVertex &tv) const {
   return lastPdgId;
 }
 
-double SecondaryVertexAnalyzerAlgo::decayLength(const TrackingVertex &tv,
-                                                const TrackingVertexCollection &allSimVertices) const {
-  // Find the hard-scatter primary vertex: first TrackingVertex with BX=0
-  // and event index 0.
-  const TrackingVertex *pvPtr = nullptr;
-  for (const auto &sv : allSimVertices) {
-    if (sv.eventId().bunchCrossing() == 0 && sv.eventId().event() == 0) {
-      pvPtr = &sv;
-      break;
-    }
-  }
-  if (!pvPtr)
-    return -1.;
-
+double SecondaryVertexAnalyzerAlgo::decayLength(const TrackingVertex &tv, const TrackingVertex &pv) const {
   const auto &svPos = tv.position();
-  const auto &pvPos = pvPtr->position();
+  const auto &pvPos = pv.position();
   const double dx = svPos.x() - pvPos.x();
   const double dy = svPos.y() - pvPos.y();
   const double dz = svPos.z() - pvPos.z();
   return std::sqrt(dx * dx + dy * dy + dz * dz);
 }
 
-std::vector<simSecondaryVertex> SecondaryVertexAnalyzerAlgo::buildAllSimSVs(
+std::vector<SimSecondaryVertex> SecondaryVertexAnalyzerAlgo::buildAllSimSVs(
     const TrackingVertexCollection &simVertices) const {
-  std::vector<simSecondaryVertex> result;
+  std::vector<SimSecondaryVertex> result;
   result.reserve(simVertices.size());
 
-  for (size_t i = 0; i < simVertices.size(); ++i) {
+  // get the PV for the decay length calculation
+  const TrackingVertex &pv = simVertices[0];
+
+  // skip the PV in the SimSV filling
+  for (size_t i = 1; i < simVertices.size(); ++i) {
     const TrackingVertex &tv = simVertices[i];
 
     // Skip the hard-scatter primary vertex (event 0, BX 0, first vertex)
@@ -210,17 +225,11 @@ std::vector<simSecondaryVertex> SecondaryVertexAnalyzerAlgo::buildAllSimSVs(
     // Skip vertices with no outgoing daughter tracks — these are not SVs
     if (tv.nDaughterTracks() == 0)
       continue;
-    // Heuristic PV exclusion: the hard-scatter PV is the first vertex of
-    // event 0. Vertices from pileup events are kept (isFromPileup=true).
-    const bool isPV = (tv.eventId().event() == 0 && i == 0);
-    if (isPV)
-      continue;
 
     const auto &pos = tv.position();
-    simSecondaryVertex sv(pos.x(), pos.y(), pos.z());
+    SimSecondaryVertex sv(pos.x(), pos.y(), pos.z());
 
-    sv.decayLength = decayLength(tv, simVertices);
-    sv.decayLengthSignificance = -1.;  // filled below if covariance available
+    sv.decayLength = decayLength(tv, pv);
     sv.motherPdgId = motherPdgId(tv);
     sv.isFromPileup = (tv.eventId().event() != 0);
     sv.eventId = tv.eventId();
@@ -239,23 +248,21 @@ std::vector<simSecondaryVertex> SecondaryVertexAnalyzerAlgo::buildAllSimSVs(
       }
     }
 
-    // Decay length significance: requires position covariance from the sim
-    // vertex, which is not always populated. Skip if not available.
-    // TODO: populate decayLengthSignificance when covariance is present.
-
     // Store ref for later association lookup
-    sv.sim_vertex = TrackingVertexRef(edm::Ref<TrackingVertexCollection>(&simVertices, i));
+    sv.simVertex = TrackingVertexRef(edm::Ref<TrackingVertexCollection>(&simVertices, i));
 
     result.push_back(std::move(sv));
   }
   return result;
 }
 
-std::vector<simSecondaryVertex *> SecondaryVertexAnalyzerAlgo::buildSignalSimSVs(
-    std::vector<simSecondaryVertex> &allSimSVs) const {
-  std::vector<simSecondaryVertex *> result;
-  result.reserve(allSimSVs.size());
-  for (auto &sv : allSimSVs) {
+std::vector<SimSecondaryVertex *> SecondaryVertexAnalyzerAlgo::buildSignalSimSVs() {
+  std::vector<SimSecondaryVertex *> result;
+  result.reserve(allSimSVs_.size());
+  for (auto &sv : allSimSVs_) {
+    // Since vertices from the signal interaction come first, break after the first PU vertex
+    if (sv.isFromPileup)
+      break;
     // Apply all cuts (no suppression — this is the global signal selection,
     // not the per-bundle variable-blind filling path).
     if (isReconstructable(sv, kNone))
@@ -268,36 +275,38 @@ std::vector<simSecondaryVertex *> SecondaryVertexAnalyzerAlgo::buildSignalSimSVs
 // Reco vertex building
 // =============================================================================
 
-std::vector<recoSecondaryVertex> SecondaryVertexAnalyzerAlgo::buildRecoSVs(
+std::vector<RecoSecondaryVertex> SecondaryVertexAnalyzerAlgo::buildRecoSVs(
     const edm::View<reco::Vertex> &recoVertices) const {
-  std::vector<recoSecondaryVertex> result;
+  std::vector<RecoSecondaryVertex> result;
   result.reserve(recoVertices.size());
-  for (const auto &vtx : recoVertices) {
+  for (size_t i = 0; i < recoVertices.size(); ++i) {
+    const auto &vtx = recoVertices[i];
     if (vtx.isFake() || !vtx.isValid() || vtx.ndof() < 0.)
       continue;
-    recoSecondaryVertex rv(vtx.x(), vtx.y(), vtx.z());
+    RecoSecondaryVertex rv(vtx.x(), vtx.y(), vtx.z());
     rv.chi2 = vtx.chi2();
     rv.ndof = vtx.ndof();
     rv.nTracks = static_cast<int>(vtx.tracksSize());
-    rv.recVtxPtr = static_cast<const void *>(&vtx);
+    rv.recoVertexRef = recoVertices.refAt(i);
     result.push_back(std::move(rv));
   }
   return result;
 }
 
-std::vector<recoSecondaryVertex> SecondaryVertexAnalyzerAlgo::buildRecoSVs(
+std::vector<RecoSecondaryVertex> SecondaryVertexAnalyzerAlgo::buildRecoSVs(
     const edm::View<reco::VertexCompositePtrCandidate> &recoVertices) const {
-  std::vector<recoSecondaryVertex> result;
+  std::vector<RecoSecondaryVertex> result;
   result.reserve(recoVertices.size());
-  for (const auto &vtx : recoVertices) {
+  for (size_t i = 0; i < recoVertices.size(); ++i) {
+    const auto &vtx = recoVertices[i];
     if (vtx.numberOfDaughters() == 0)
       continue;
-    recoSecondaryVertex rv(vtx.vx(), vtx.vy(), vtx.vz());
+    RecoSecondaryVertex rv(vtx.vx(), vtx.vy(), vtx.vz());
     rv.chi2 = vtx.vertexChi2();
     rv.ndof = vtx.vertexNdof();
     rv.nTracks = static_cast<int>(vtx.numberOfDaughters());
-    rv.mass = static_cast<float>(vtx.mass());
-    rv.recVtxPtr = static_cast<const void *>(&vtx);
+    rv.mass = vtx.mass();
+    rv.recoVertexCPCRef = recoVertices.refAt(i);
     result.push_back(std::move(rv));
   }
   return result;
@@ -307,12 +316,12 @@ std::vector<recoSecondaryVertex> SecondaryVertexAnalyzerAlgo::buildRecoSVs(
 // Association and matching
 // =============================================================================
 
-void SecondaryVertexAnalyzerAlgo::matchSim2RecoVertices(std::vector<simSecondaryVertex> &allSimSVs,
-                                                        const reco::VertexSimToRecoCollection &simToReco) const {
-  for (auto &sv : allSimSVs) {
-    if (sv.sim_vertex.isNull())
+template <typename AssociatorType>
+void SecondaryVertexAnalyzerAlgo::matchSim2RecoVertices(const AssociatorType &simToReco) {
+  for (auto &sv : allSimSVs_) {
+    if (sv.simVertex.isNull())
       continue;
-    auto it = simToReco.find(sv.sim_vertex);
+    auto it = simToReco.find(sv.simVertex);
     if (it == simToReco.end())
       continue;
     sv.num_matched_reco_vertices = static_cast<int>(it->val.size());
@@ -327,19 +336,24 @@ void SecondaryVertexAnalyzerAlgo::matchSim2RecoVertices(std::vector<simSecondary
   }
 }
 
-void SecondaryVertexAnalyzerAlgo::matchReco2SimVertices(std::vector<recoSecondaryVertex> &recoSVs,
-                                                        const reco::VertexRecoToSimCollection &recoToSim,
-                                                        const std::vector<simSecondaryVertex> &allSimSVs,
-                                                        const std::vector<simSecondaryVertex *> &signalSimSVs) const {
-  // Build a lookup set of signal sim SV pointers for O(1) membership test.
-  std::set<const simSecondaryVertex *> signalSet(signalSimSVs.begin(), signalSimSVs.end());
+template <typename AssociatorType>
+void SecondaryVertexAnalyzerAlgo::matchReco2SimVertices(std::vector<RecoSecondaryVertex> &recoSVs,
+                                                        const AssociatorType &recoToSim) const {
+  // key_type is the edm::RefToBase, and value_type either reco::Vertex or reco::VertexCompositePtrCandidate
+  using VertexType = AssociatorType::key_type::value_type;
 
-  // Build a map from TrackingVertexRef key to simSecondaryVertex* for
+  // Build a lookup set of signal sim SV pointers for O(1) membership test.
+  std::set<const SimSecondaryVertex *> signalSet(signalSimSVs_.begin(), signalSimSVs_.end());
+
+  // Create lookup set for keeping track of reconstructed SimSVs and identify duplicates
+  std::set<const SimSecondaryVertex *> reconstructedSimSVs;
+
+  // Build a map from TrackingVertexRef key to SimSecondaryVertex* for
   // reverse lookup from the association map results.
-  std::map<unsigned int, const simSecondaryVertex *> keyToSimSV;
-  for (const auto &sv : allSimSVs) {
-    if (sv.sim_vertex.isNonnull())
-      keyToSimSV[sv.sim_vertex.key()] = &sv;
+  std::map<unsigned int, const SimSecondaryVertex *> keyToSimSV;
+  for (const auto &sv : allSimSVs_) {
+    if (sv.simVertex.isNonnull())
+      keyToSimSV[sv.simVertex.key()] = &sv;
   }
 
   for (auto &rv : recoSVs) {
@@ -347,19 +361,16 @@ void SecondaryVertexAnalyzerAlgo::matchReco2SimVertices(std::vector<recoSecondar
     // We stored the raw reco vertex pointer in rv.recVtxPtr; the association
     // map ref must be looked up by the plugin using the original handle index.
     // Here we iterate all map entries and match by pointer identity.
-    // TODO: pass the ref directly from the plugin to avoid the linear scan.
-    const reco::VertexRecoToSimCollection::const_iterator it =
-        std::find_if(recoToSim.begin(), recoToSim.end(), [&rv](const auto &entry) {
-          return static_cast<const void *>(entry.key.get()) == rv.recVtxPtr;
-        });
+    // TODO: use the SV index in the collection for the association map
+    auto it = recoToSim.find(rv.recoVertex<VertexType>());
 
     if (it == recoToSim.end()) {
       // No sim match found → fake
-      rv.kind_of_vertex |= recoSecondaryVertex::FAKE;
+      rv.kind_of_vertex |= RecoSecondaryVertex::FAKE;
       continue;
     }
 
-    rv.kind_of_vertex |= recoSecondaryVertex::MATCHED;
+    rv.kind_of_vertex |= RecoSecondaryVertex::MATCHED;
     rv.num_matched_sim_vertices = static_cast<int>(it->val.size());
 
     bool anySignal = false;
@@ -370,7 +381,7 @@ void SecondaryVertexAnalyzerAlgo::matchReco2SimVertices(std::vector<recoSecondar
       auto simIt = keyToSimSV.find(key);
       if (simIt == keyToSimSV.end())
         continue;
-      const simSecondaryVertex *svPtr = simIt->second;
+      const SimSecondaryVertex *svPtr = simIt->second;
       rv.sim_vertices.push_back(svPtr);
       rv.sim_vertices_shared_fraction.push_back(simAndQuality.second);
 
@@ -381,42 +392,24 @@ void SecondaryVertexAnalyzerAlgo::matchReco2SimVertices(std::vector<recoSecondar
     }
 
     if (rv.sim_vertices.size() > 1)
-      rv.kind_of_vertex |= recoSecondaryVertex::MERGED;
+      rv.kind_of_vertex |= RecoSecondaryVertex::MERGED;
 
     // A reco SV is flagged as pileup if ALL its matched sim SVs are pileup.
     // If at least one match is signal, it is not flagged as pileup.
     if (anyPileup && !anySignal)
       rv.isFromPileup = true;
 
-    // Duplicate: this reco SV shares its best-matched sim SV with another
-    // reco SV that has a higher association quality. Filled in a second pass
-    // below after all reco SVs have been matched.
-    //
-    // Propagate mother PDG ID and decay length from the best-quality sim match.
+    // Propagate mother PDG ID from the best-quality sim match.
     if (!rv.sim_vertices.empty()) {
-      const simSecondaryVertex *bestSim = rv.sim_vertices.front();
+      const SimSecondaryVertex *bestSim = rv.sim_vertices.front();
       rv.motherPdgId = bestSim->motherPdgId;
-      rv.decayLength = bestSim->decayLength;
-      rv.decayLengthSignificance = bestSim->decayLengthSignificance;
-    }
-  }
 
-  // Second pass: flag duplicates.
-  // A reco SV is a duplicate if its best-matched sim SV has already been
-  // claimed by a reco SV earlier in the collection with a higher quality.
-  std::map<const simSecondaryVertex *, float> bestQualityForSimSV;
-  for (const auto &rv : recoSVs) {
-    if (rv.sim_vertices.empty())
-      continue;
-    const simSecondaryVertex *bestSim = rv.sim_vertices.front();
-    const float quality = rv.sim_vertices_shared_fraction.empty() ? 0.f : rv.sim_vertices_shared_fraction.front();
-    auto [it2, inserted] = bestQualityForSimSV.emplace(bestSim, quality);
-    if (!inserted && quality <= it2->second) {
-      // Another reco SV already claimed this sim SV with equal or better
-      // quality — this one is a duplicate.
-      const_cast<recoSecondaryVertex &>(rv).kind_of_vertex |= recoSecondaryVertex::DUPLICATE;
-    } else if (!inserted) {
-      it2->second = quality;
+      // Duplicate check
+      auto [it2, inserted] = reconstructedSimSVs.emplace(bestSim);
+      if (!inserted) {
+        // Another reco SV already claimed this sim SV — this one is a duplicate.
+        rv.kind_of_vertex |= RecoSecondaryVertex::DUPLICATE;
+      }
     }
   }
 }
@@ -425,7 +418,7 @@ void SecondaryVertexAnalyzerAlgo::matchReco2SimVertices(std::vector<recoSecondar
 // Histogram filling
 // =============================================================================
 
-void SecondaryVertexAnalyzerAlgo::fillSimVertexHistograms(const std::string &label, const simSecondaryVertex &sv) {
+void SecondaryVertexAnalyzerAlgo::fillSimVertexHistograms(const std::string &label, const SimSecondaryVertex &sv) {
   const bool isMatched = (sv.num_matched_reco_vertices > 0);
   auto &ch = collectionHistos_.at(label);
 
@@ -447,7 +440,6 @@ void SecondaryVertexAnalyzerAlgo::fillSimVertexHistograms(const std::string &lab
   };
 
   fillBundle(ch.h_decayLength, sv.decayLength);
-  fillBundle(ch.h_decayLengthSig, sv.decayLengthSignificance);
   fillBundle(ch.h_r, sv.r);
   fillBundle(ch.h_nTracks, sv.nCharged);
 
@@ -456,11 +448,11 @@ void SecondaryVertexAnalyzerAlgo::fillSimVertexHistograms(const std::string &lab
   fillBundle(ch.h_eta, eta);
 }
 
-void SecondaryVertexAnalyzerAlgo::fillRecoVertexHistograms(const std::string &label, const recoSecondaryVertex &rv) {
-  const bool isMatched = (rv.kind_of_vertex & recoSecondaryVertex::MATCHED) != 0;
-  const bool isDuplicate = (rv.kind_of_vertex & recoSecondaryVertex::DUPLICATE) != 0;
-  const bool isFake = (rv.kind_of_vertex & recoSecondaryVertex::FAKE) != 0;
-  const bool isMerged = (rv.kind_of_vertex & recoSecondaryVertex::MERGED) != 0;
+void SecondaryVertexAnalyzerAlgo::fillRecoVertexHistograms(const std::string &label, const RecoSecondaryVertex &rv) {
+  const bool isMatched = (rv.kind_of_vertex & RecoSecondaryVertex::MATCHED) != 0;
+  const bool isDuplicate = (rv.kind_of_vertex & RecoSecondaryVertex::DUPLICATE) != 0;
+  const bool isFake = (rv.kind_of_vertex & RecoSecondaryVertex::FAKE) != 0;
+  const bool isMerged = (rv.kind_of_vertex & RecoSecondaryVertex::MERGED) != 0;
   const bool isPileup = rv.isFromPileup;
 
   auto &ch = collectionHistos_.at(label);
@@ -483,8 +475,8 @@ void SecondaryVertexAnalyzerAlgo::fillRecoVertexHistograms(const std::string &la
 }
 
 void SecondaryVertexAnalyzerAlgo::fillResolutionHistograms(const std::string &label,
-                                                           const recoSecondaryVertex &rv,
-                                                           const simSecondaryVertex &sv) {
+                                                           const RecoSecondaryVertex &rv,
+                                                           const SimSecondaryVertex &sv) {
   auto &ch = collectionHistos_.at(label);
 
   const double decayLen = sv.decayLength;
@@ -510,10 +502,16 @@ void SecondaryVertexAnalyzerAlgo::fillResolutionHistograms(const std::string &la
 
   // Decay length residual and significance residual
   const double lRes = rv.decayLength - sv.decayLength;
-  const double lPull = lRes;  // placeholder
-  const double lSigRes = rv.decayLengthSignificance - sv.decayLengthSignificance;
+  const double lPull = lRes;        // placeholder
+  const double lSigRes = 0.;        //rv.decayLengthSignificance - sv.decayLengthSignificance;
   const double lSigPull = lSigRes;  // placeholder
-  ch.h_decayLengthRes.fill(nTrk, eta, lRes, lPull, lSigRes, lSigPull);
+  ch.h_decayLengthRes.fill(
+      nTrk,
+      eta,
+      lRes,
+      lPull,
+      lSigRes,
+      lSigPull);  // TODO: fix the decayLength residual histogram bundle, makes no sense to me especially the dlenSig...
 
   // Mass residual — only for CPC vertices
   if (rv.mass.has_value() && sv.decayLength > 0.) {
@@ -527,26 +525,15 @@ void SecondaryVertexAnalyzerAlgo::fillResolutionHistograms(const std::string &la
 // analyzeImpl — shared logic for both vertex types
 // =============================================================================
 
-template <typename VertexCollection, typename AssociatorType>
-void SecondaryVertexAnalyzerAlgo::analyzeImpl(std::vector<recoSecondaryVertex> recoSVs,
+template <typename AssociatorType>
+void SecondaryVertexAnalyzerAlgo::analyzeImpl(std::vector<RecoSecondaryVertex> recoSVs,
                                               const TrackingVertexCollection &simVertices,
                                               const AssociatorType &associator,
                                               const reco::RecoToSimCollection & /*trackRecoToSim*/,
                                               const reco::SimToRecoCollection & /*trackSimToReco*/,
                                               const std::string &collectionLabel) {
   // ------------------------------------------------------------------
-  // 1. Build sim vertex collections
-  // ------------------------------------------------------------------
-  std::vector<simSecondaryVertex> allSimSVs = buildAllSimSVs(simVertices);
-  std::vector<simSecondaryVertex *> signalSimSVs = buildSignalSimSVs(allSimSVs);
-
-  if (cfg_.verbose) {
-    LogDebug("SecondaryVertexAnalyzer") << collectionLabel << ": " << allSimSVs.size() << " all sim SVs, "
-                                        << signalSimSVs.size() << " signal sim SVs, " << recoSVs.size() << " reco SVs";
-  }
-
-  // ------------------------------------------------------------------
-  // 2. Run association (produces sim↔reco maps for this collection)
+  // 1. Run association (produces sim↔reco maps for this collection)
   // ------------------------------------------------------------------
   // Note: the associator here is the VertexToTrackingVertexAssociator
   // wrapper fetched from the event by the plugin. We need edm::Handle
@@ -559,12 +546,14 @@ void SecondaryVertexAnalyzerAlgo::analyzeImpl(std::vector<recoSecondaryVertex> r
   // the association and stored results in the event; the vertex-level
   // maps are fetched below via the associator wrapper.
   //
+  resetSimSVs();
   // Placeholder: direct calls will be wired in when the plugin passes
   // handles through analyzeImpl.
   (void)associator;
+  // TODO: make sure the sorting according to the matching quality is performed
 
   // ------------------------------------------------------------------
-  // 3. Build reco↔sim matching using pre-produced association maps
+  // 2. Build reco↔sim matching using pre-produced association maps
   // ------------------------------------------------------------------
   // matchSim2RecoVertices and matchReco2SimVertices are called after the
   // association maps are available. In the current architecture, the maps
@@ -578,32 +567,32 @@ void SecondaryVertexAnalyzerAlgo::analyzeImpl(std::vector<recoSecondaryVertex> r
   reco::VertexSimToRecoCollection simToReco;
   reco::VertexRecoToSimCollection recoToSim;
 
-  matchSim2RecoVertices(allSimSVs, simToReco);
-  matchReco2SimVertices(recoSVs, recoToSim, allSimSVs, signalSimSVs);
+  matchSim2RecoVertices(simToReco);
+  matchReco2SimVertices(recoSVs, recoToSim);
 
   // ------------------------------------------------------------------
-  // 4. Fill generic sim histograms (collection-independent, first call only)
+  // 3. Fill generic sim histograms (collection-independent, first call only)
   // ------------------------------------------------------------------
   if (cfg_.doGenericSimPlots && genericSimHistos_.h_numAllSimSVs) {
-    genericSimHistos_.h_numAllSimSVs->Fill(allSimSVs.size());
-    genericSimHistos_.h_numSignalSimSVs->Fill(signalSimSVs.size());
+    genericSimHistos_.h_numAllSimSVs->Fill(allSimSVs_.size());
+    genericSimHistos_.h_numSignalSimSVs->Fill(signalSimSVs_.size());
   }
 
   auto &me = mes_.at(collectionLabel);
   me.at("numRecoSVs")->Fill(recoSVs.size());
-  me.at("numSimSVsAll")->Fill(allSimSVs.size());
-  me.at("numSimSVsSignal")->Fill(signalSimSVs.size());
+  me.at("numSimSVsAll")->Fill(allSimSVs_.size());
+  me.at("numSimSVsSignal")->Fill(signalSimSVs_.size());
 
   // ------------------------------------------------------------------
-  // 5. Fill sim-side histograms
+  // 4. Fill sim-side histograms
   //    Signal sim SVs → efficiency numerator/denominator.
   //    All sim SVs → generic sim plots already filled above.
   // ------------------------------------------------------------------
-  for (const simSecondaryVertex *sv : signalSimSVs)
+  for (const SimSecondaryVertex *sv : signalSimSVs_)
     fillSimVertexHistograms(collectionLabel, *sv);
 
   // ------------------------------------------------------------------
-  // 6. Fill reco-side histograms and resolution plots
+  // 5. Fill reco-side histograms and resolution plots
   // ------------------------------------------------------------------
   for (const auto &rv : recoSVs) {
     fillRecoVertexHistograms(collectionLabel, rv);
@@ -630,8 +619,7 @@ void SecondaryVertexAnalyzerAlgo::analyze(
     const reco::RecoToSimCollection &trackRecoToSim,
     const reco::SimToRecoCollection &trackSimToReco,
     const std::string &collectionLabel) {
-  analyzeImpl<std::vector<reco::Vertex>>(
-      buildRecoSVs(recoVertices), simVertices, associator, trackRecoToSim, trackSimToReco, collectionLabel);
+  analyzeImpl(buildRecoSVs(recoVertices), simVertices, associator, trackRecoToSim, trackSimToReco, collectionLabel);
 }
 
 void SecondaryVertexAnalyzerAlgo::analyze(
@@ -641,6 +629,5 @@ void SecondaryVertexAnalyzerAlgo::analyze(
     const reco::RecoToSimCollection &trackRecoToSim,
     const reco::SimToRecoCollection &trackSimToReco,
     const std::string &collectionLabel) {
-  analyzeImpl<std::vector<reco::VertexCompositePtrCandidate>>(
-      buildRecoSVs(recoVertices), simVertices, associator, trackRecoToSim, trackSimToReco, collectionLabel);
+  analyzeImpl(buildRecoSVs(recoVertices), simVertices, associator, trackRecoToSim, trackSimToReco, collectionLabel);
 }

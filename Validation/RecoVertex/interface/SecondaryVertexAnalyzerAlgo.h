@@ -119,7 +119,7 @@ public:
 
   /// Returns true if sv passes the reconstructability criteria, optionally
   /// suppressing individual cuts as indicated by skipCuts.
-  bool isReconstructable(const simSecondaryVertex &sv, uint32_t skipCuts = kNone) const;
+  bool isReconstructable(const SimSecondaryVertex &sv, uint32_t skipCuts = kNone) const;
 
   // =========================================================================
   // Public interface
@@ -147,6 +147,13 @@ public:
                const reco::SimToRecoCollection &trackSimToReco,
                const std::string &collectionLabel);
 
+  /// Build both the full sim SV list and a reference list for the subset used for efficiency calculation.
+  /// Exposed as a public function so it be called only once for all reco SV collections together.
+  void buildSimSVs(const TrackingVertexCollection &simVertices);
+
+  /// Clear the SimVertex SVs at the end of the event.
+  void clearSimSVs();
+
 private:
   // =========================================================================
   // Sim vertex building
@@ -155,40 +162,43 @@ private:
   /// Build the full sim SV list: all non-PV TrackingVertices with decay
   /// length and mother PDG ID populated. No signal selection applied.
   /// Used as truth reference for fake/duplicate/pileup rate estimates.
-  std::vector<simSecondaryVertex> buildAllSimSVs(const TrackingVertexCollection &simVertices) const;
+  std::vector<SimSecondaryVertex> buildAllSimSVs(const TrackingVertexCollection &simVertices) const;
 
-  /// Apply signal selection to allSimSVs to produce the efficiency
+  /// Apply signal selection to allSimSVs_ to produce the efficiency
   /// denominator. Applies minDecayLength, minReconstructableDaughters,
   /// absEtaMax, and signalPdgIds from Config.
-  std::vector<simSecondaryVertex *> buildSignalSimSVs(std::vector<simSecondaryVertex> &allSimSVs) const;
+  std::vector<SimSecondaryVertex *> buildSignalSimSVs();
+
+  /// Reset all the reco-matching-dependent information in the SimVertex SVs.
+  /// Should be called everytime a new RecoVertex collection is analyzed.
+  void resetSimSVs();
 
   /// Walk the TrackingParticle parent chain to find the PDG ID of the
   /// decaying mother particle (stopping at B/D hadron level).
   int motherPdgId(const TrackingVertex &tv) const;
 
   /// Compute 3D decay length w.r.t. the hard-scatter primary vertex.
-  /// Returns -1 if no PV can be identified in the sim collection.
-  double decayLength(const TrackingVertex &tv, const TrackingVertexCollection &allSimVertices) const;
+  double decayLength(const TrackingVertex &tv, const TrackingVertex &pv) const;
 
   // =========================================================================
   // Reco vertex building
   // =========================================================================
 
-  std::vector<recoSecondaryVertex> buildRecoSVs(const edm::View<reco::Vertex> &recoVertices) const;
+  std::vector<RecoSecondaryVertex> buildRecoSVs(const edm::View<reco::Vertex> &recoVertices) const;
 
-  std::vector<recoSecondaryVertex> buildRecoSVs(const edm::View<reco::VertexCompositePtrCandidate> &recoVertices) const;
+  std::vector<RecoSecondaryVertex> buildRecoSVs(const edm::View<reco::VertexCompositePtrCandidate> &recoVertices) const;
 
   // =========================================================================
   // Association and matching
   // =========================================================================
 
-  /// Sim→Reco direction: populates simSecondaryVertex::num_matched_reco_vertices
+  /// Sim→Reco direction: populates SimSecondaryVertex::num_matched_reco_vertices
   /// and matched_reco_shared_fractions. Operates on allSimSVs so that all
   /// true SVs, including pileup, are considered for matching.
-  void matchSim2RecoVertices(std::vector<simSecondaryVertex> &allSimSVs,
-                             const reco::VertexSimToRecoCollection &simToReco) const;
+  template <typename AssociatorType>
+  void matchSim2RecoVertices(const AssociatorType &simToReco);
 
-  /// Reco→Sim direction: populates recoSecondaryVertex::kind_of_vertex,
+  /// Reco→Sim direction: populates RecoSecondaryVertex::kind_of_vertex,
   /// sim_vertices, and sim_vertices_shared_fraction.
   ///
   /// The full allSimSVs collection is used here so that:
@@ -199,34 +209,32 @@ private:
   ///
   /// The signalSimSVs pointer set is used only to distinguish, for matched
   /// reco SVs, whether the matched sim SV is a signal vertex or not.
-  void matchReco2SimVertices(std::vector<recoSecondaryVertex> &recoSVs,
-                             const reco::VertexRecoToSimCollection &recoToSim,
-                             const std::vector<simSecondaryVertex> &allSimSVs,
-                             const std::vector<simSecondaryVertex *> &signalSimSVs) const;
+  template <typename AssociatorType>
+  void matchReco2SimVertices(std::vector<RecoSecondaryVertex> &recoSVs, const AssociatorType &recoToSim) const;
 
   // =========================================================================
   // Histogram filling
   // =========================================================================
 
-  /// Fill sim-side histograms for one simSecondaryVertex.
+  /// Fill sim-side histograms for one SimSecondaryVertex.
   /// Each bundle is filled with its associated SkipCuts mask applied to the
   /// reconstructability evaluation — this is the variable-blind mechanism.
-  void fillSimVertexHistograms(const std::string &label, const simSecondaryVertex &sv);
+  void fillSimVertexHistograms(const std::string &label, const SimSecondaryVertex &sv);
 
-  /// Fill reco-side histograms for one recoSecondaryVertex.
-  void fillRecoVertexHistograms(const std::string &label, const recoSecondaryVertex &rv);
+  /// Fill reco-side histograms for one RecoSecondaryVertex.
+  void fillRecoVertexHistograms(const std::string &label, const RecoSecondaryVertex &rv);
 
   /// Fill resolution/pull histograms for a matched reco-sim pair.
-  void fillResolutionHistograms(const std::string &label, const recoSecondaryVertex &rv, const simSecondaryVertex &sv);
+  void fillResolutionHistograms(const std::string &label, const RecoSecondaryVertex &rv, const SimSecondaryVertex &sv);
 
   // =========================================================================
   // Shared implementation
   // =========================================================================
 
   /// Internal template called by both public analyze() overloads after
-  /// type-specific buildRecoSVs() has been called.
-  template <typename VertexCollection, typename AssociatorType>
-  void analyzeImpl(std::vector<recoSecondaryVertex> recoSVs,
+  /// type-specific buildRecoSVs(), buildAllSimSVs() and matchReco2SimVertices() have been called.
+  template <typename AssociatorType>
+  void analyzeImpl(std::vector<RecoSecondaryVertex> recoSVs,
                    const TrackingVertexCollection &simVertices,
                    const AssociatorType &associator,
                    const reco::RecoToSimCollection &trackRecoToSim,
@@ -236,12 +244,6 @@ private:
   // =========================================================================
   // Histogram storage
   // =========================================================================
-
-  Config cfg_;
-
-  // Plain MonitorElement* histograms not belonging to a bundle,
-  // keyed by [collectionLabel][histogramName].
-  std::map<std::string, std::map<std::string, dqm::reco::MonitorElement *>> mes_;
 
   // Per-collection bundle structs. Each SVMonitoringBundle is associated
   // with a SkipCuts mask that is applied when evaluating reconstructability
@@ -272,8 +274,6 @@ private:
     SVResolutionBundle h_massRes;  // CPC only
   };
 
-  std::map<std::string, CollectionHistograms> collectionHistos_;
-
   // Generic sim-side histograms booked once (collection-independent).
   // Only populated when cfg_.doGenericSimPlots is true.
   struct GenericSimHistograms {
@@ -283,7 +283,22 @@ private:
     dqm::reco::MonitorElement *h_motherPdgId = nullptr;
     dqm::reco::MonitorElement *h_numAllSimSVs = nullptr;
     dqm::reco::MonitorElement *h_numSignalSimSVs = nullptr;
-  } genericSimHistos_;
+  };
+
+  // =========================================================================
+  // Class members
+  // =========================================================================
+
+  const Config cfg_;
+
+  // MonitorElements and bundles keyed by [collectionLabel][histogramName].
+  std::map<std::string, std::map<std::string, dqm::reco::MonitorElement *>> mes_;
+  std::map<std::string, CollectionHistograms> collectionHistos_;
+  GenericSimHistograms genericSimHistos_;
+
+  // MC truth SimVertcies for SVs (built once for all collections together and then reused)
+  std::vector<SimSecondaryVertex> allSimSVs_;
+  std::vector<SimSecondaryVertex *> signalSimSVs_;
 };
 
 #endif  // Validation_RecoVertex_SecondaryVertexAnalyzerAlgo_h
