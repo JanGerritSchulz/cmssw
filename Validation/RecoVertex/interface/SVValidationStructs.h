@@ -24,20 +24,19 @@
 #include "SimDataFormats/TrackingAnalysis/interface/TrackingVertexContainer.h"
 
 // =============================================================================
-// simSecondaryVertex
+// SimSecondaryVertex
 //
 // Represents a TrackingVertex that is considered as a secondary vertex truth
 // candidate. Built from a TrackingVertexRef in SecondaryVertexAnalyzer::getSimSVs().
 // =============================================================================
 
-struct simSecondaryVertex {
-  simSecondaryVertex(double x1, double y1, double z1)
+struct SimSecondaryVertex {
+  SimSecondaryVertex(double x1, double y1, double z1)
       : x(x1),
         y(y1),
         z(z1),
         r(std::sqrt(x1 * x1 + y1 * y1)),
         decayLength(-1.),
-        decayLengthSignificance(-1.),
         nCharged(0),
         nReconstructable(0),
         num_matched_reco_vertices(0),
@@ -50,12 +49,11 @@ struct simSecondaryVertex {
   double r;  // transverse decay radius
 
   // Decay geometry — filled after PV association
-  double decayLength;             // 3D decay length [cm]
-  double decayLengthSignificance; // decayLength / its uncertainty
+  double decayLength;  // 3D decay length [cm]
 
   // Daughter track multiplicity
-  int nCharged;         // number of charged daughter TrackingParticles
-  int nReconstructable; // number of daughters with sufficient hits to be reconstructable
+  int nCharged;          // number of charged daughter TrackingParticles
+  int nReconstructable;  // number of daughters with sufficient hits to be reconstructable
 
   // Matching to reco
   int num_matched_reco_vertices;
@@ -70,28 +68,28 @@ struct simSecondaryVertex {
   EncodedEventId eventId;
 
   // Reference to the underlying TrackingVertex
-  TrackingVertexRef sim_vertex;
+  TrackingVertexRef simVertex;
 };
 
 // =============================================================================
-// recoSecondaryVertex
+// RecoSecondaryVertex
 //
 // Represents a reconstructed secondary vertex. Templated on the underlying
 // CMSSW type so the same struct can be used for both reco::Vertex (track-based)
 // and reco::VertexCompositePtrCandidate (PF-based).
 // =============================================================================
 
-struct recoSecondaryVertex {
+struct RecoSecondaryVertex {
   // Bitmask flags — consistent with PrimaryVertexAnalyzer4PUSlimmed conventions
   enum VertexProperties {
-    NONE      = 0,
-    MATCHED   = 1,
+    NONE = 0,
+    MATCHED = 1,
     DUPLICATE = 2,
-    FAKE      = 4,
-    MERGED    = 8,
+    FAKE = 4,
+    MERGED = 8,
   };
 
-  recoSecondaryVertex(double x1, double y1, double z1)
+  RecoSecondaryVertex(double x1, double y1, double z1)
       : x(x1),
         y(y1),
         z(z1),
@@ -125,23 +123,26 @@ struct recoSecondaryVertex {
 
   // Matching to sim
   int num_matched_sim_vertices;
-  std::vector<const simSecondaryVertex *> sim_vertices;
+  std::vector<const SimSecondaryVertex *> sim_vertices;
   std::vector<float> sim_vertices_shared_fraction;
 
   // Classification flags (bitmask of VertexProperties)
   int kind_of_vertex;
 
   // Optional fields — populated for VertexCompositePtrCandidate only
-  std::optional<float> mass;
+  std::optional<double> mass;
 
   // Optional fields — populated after MC truth matching
   std::optional<int> motherPdgId;
   bool isFromPileup;
 
-  // Reference to the underlying reco vertex (type-erased as void* to avoid
-  // templating the struct; the analyzer casts back to the correct type).
-  // recVtxRef holds a reco::VertexBaseRef or VertexCompositePtrCandidateRef.
-  const void *recVtxPtr = nullptr;
+  // Reference to the underlying reco vertex:
+  // reco::VertexBaseRef or VertexCompositePtrCandidateRef.
+  std::optional<edm::RefToBase<reco::Vertex>> recoVertexRef;
+  std::optional<edm::RefToBase<reco::VertexCompositePtrCandidate>> recoVertexCPCRef;
+
+  template <typename VertexType>
+  edm::RefToBase<VertexType> recoVertex() const;
 };
 
 #endif  // Validation_RecoVertex_SVValidationStructs_h
