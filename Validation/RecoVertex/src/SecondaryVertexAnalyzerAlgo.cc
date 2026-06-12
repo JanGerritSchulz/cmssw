@@ -525,32 +525,15 @@ void SecondaryVertexAnalyzerAlgo::fillResolutionHistograms(const std::string &la
 // analyzeImpl — shared logic for both vertex types
 // =============================================================================
 
-template <typename AssociatorType>
+template <typename SimToRecoAssociationType, typename RecoToSimAssociationType>
 void SecondaryVertexAnalyzerAlgo::analyzeImpl(std::vector<RecoSecondaryVertex> recoSVs,
-                                              const TrackingVertexCollection &simVertices,
-                                              const AssociatorType &associator,
-                                              const reco::RecoToSimCollection & /*trackRecoToSim*/,
-                                              const reco::SimToRecoCollection & /*trackSimToReco*/,
+                                              const RecoToSimAssociationType &recoToSim,
+                                              const SimToRecoAssociationType &simToReco,
                                               const std::string &collectionLabel) {
   // ------------------------------------------------------------------
-  // 1. Run association (produces sim↔reco maps for this collection)
+  // 1. Reset the reco dependent members of Sim SVs
   // ------------------------------------------------------------------
-  // Note: the associator here is the VertexToTrackingVertexAssociator
-  // wrapper fetched from the event by the plugin. We need edm::Handle
-  // views for the call — these are provided by the plugin; for now
-  // the association maps produced upstream are passed directly.
-  // TODO: thread the edm::Handle<edm::View<VertexType>> through to
-  // call associator.associateRecoToSim / associateSimToReco directly
-  // here, rather than relying on pre-produced maps.
-  // For the current draft the plugin is expected to have already run
-  // the association and stored results in the event; the vertex-level
-  // maps are fetched below via the associator wrapper.
-  //
   resetSimSVs();
-  // Placeholder: direct calls will be wired in when the plugin passes
-  // handles through analyzeImpl.
-  (void)associator;
-  // TODO: make sure the sorting according to the matching quality is performed
 
   // ------------------------------------------------------------------
   // 2. Build reco↔sim matching using pre-produced association maps
@@ -560,13 +543,6 @@ void SecondaryVertexAnalyzerAlgo::analyzeImpl(std::vector<RecoSecondaryVertex> r
   // are produced upstream and consumed by the plugin, which passes the
   // already-fetched map handles. The matching functions below receive the
   // collection-level SimToReco / RecoToSim maps.
-  //
-  // For now: construct empty maps as placeholders.
-  // TODO: accept VertexSimToRecoCollection and VertexRecoToSimCollection
-  // as arguments to analyzeImpl once the plugin wires them through.
-  reco::VertexSimToRecoCollection simToReco;
-  reco::VertexRecoToSimCollection recoToSim;
-
   matchSim2RecoVertices(simToReco);
   matchReco2SimVertices(recoSVs, recoToSim);
 
@@ -612,22 +588,16 @@ void SecondaryVertexAnalyzerAlgo::analyzeImpl(std::vector<RecoSecondaryVertex> r
 // Public analyze() overloads
 // =============================================================================
 
-void SecondaryVertexAnalyzerAlgo::analyze(
-    const edm::View<reco::Vertex> &recoVertices,
-    const TrackingVertexCollection &simVertices,
-    const reco::VertexToTrackingVertexAssociator<std::vector<reco::Vertex>> &associator,
-    const reco::RecoToSimCollection &trackRecoToSim,
-    const reco::SimToRecoCollection &trackSimToReco,
-    const std::string &collectionLabel) {
-  analyzeImpl(buildRecoSVs(recoVertices), simVertices, associator, trackRecoToSim, trackSimToReco, collectionLabel);
+void SecondaryVertexAnalyzerAlgo::analyze(const edm::View<reco::Vertex> &recoVertices,
+                                          const RecoToSimCollectionVtx &recoToSim,
+                                          const SimToRecoCollectionVtx &simToReco,
+                                          const std::string &collectionLabel) {
+  analyzeImpl(buildRecoSVs(recoVertices), recoToSim, simToReco, collectionLabel);
 }
 
-void SecondaryVertexAnalyzerAlgo::analyze(
-    const edm::View<reco::VertexCompositePtrCandidate> &recoVertices,
-    const TrackingVertexCollection &simVertices,
-    const reco::VertexToTrackingVertexAssociator<std::vector<reco::VertexCompositePtrCandidate>> &associator,
-    const reco::RecoToSimCollection &trackRecoToSim,
-    const reco::SimToRecoCollection &trackSimToReco,
-    const std::string &collectionLabel) {
-  analyzeImpl(buildRecoSVs(recoVertices), simVertices, associator, trackRecoToSim, trackSimToReco, collectionLabel);
+void SecondaryVertexAnalyzerAlgo::analyze(const edm::View<reco::VertexCompositePtrCandidate> &recoVertices,
+                                          const RecoToSimCollectionCPC &recoToSim,
+                                          const SimToRecoCollectionCPC &simToReco,
+                                          const std::string &collectionLabel) {
+  analyzeImpl(buildRecoSVs(recoVertices), recoToSim, simToReco, collectionLabel);
 }

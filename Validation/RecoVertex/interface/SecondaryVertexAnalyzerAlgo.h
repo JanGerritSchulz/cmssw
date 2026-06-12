@@ -75,6 +75,12 @@
 class SecondaryVertexAnalyzerAlgo {
 public:
   using IBooker = dqm::reco::DQMStore::IBooker;
+  using AssociatorVtx = reco::VertexToTrackingVertexAssociator<std::vector<reco::Vertex>>;
+  using RecoToSimCollectionVtx = AssociatorVtx::RecoToSimCollection;
+  using SimToRecoCollectionVtx = AssociatorVtx::SimToRecoCollection;
+  using AssociatorCPC = reco::VertexToTrackingVertexAssociator<std::vector<reco::VertexCompositePtrCandidate>>;
+  using RecoToSimCollectionCPC = AssociatorCPC::RecoToSimCollection;
+  using SimToRecoCollectionCPC = AssociatorCPC::SimToRecoCollection;
 
   // =========================================================================
   // Configuration
@@ -133,18 +139,14 @@ public:
 
   /// Per-event entry point for reco::Vertex collections (track-based SVs).
   void analyze(const edm::View<reco::Vertex> &recoVertices,
-               const TrackingVertexCollection &simVertices,
-               const reco::VertexToTrackingVertexAssociator<std::vector<reco::Vertex>> &associator,
-               const reco::RecoToSimCollection &trackRecoToSim,
-               const reco::SimToRecoCollection &trackSimToReco,
+               const RecoToSimCollectionVtx &recoToSim,
+               const SimToRecoCollectionVtx &simToReco,
                const std::string &collectionLabel);
 
   /// Per-event entry point for reco::VertexCompositePtrCandidate collections.
   void analyze(const edm::View<reco::VertexCompositePtrCandidate> &recoVertices,
-               const TrackingVertexCollection &simVertices,
-               const reco::VertexToTrackingVertexAssociator<std::vector<reco::VertexCompositePtrCandidate>> &associator,
-               const reco::RecoToSimCollection &trackRecoToSim,
-               const reco::SimToRecoCollection &trackSimToReco,
+               const RecoToSimCollectionCPC &recoToSim,
+               const SimToRecoCollectionCPC &simToReco,
                const std::string &collectionLabel);
 
   /// Build both the full sim SV list and a reference list for the subset used for efficiency calculation.
@@ -233,12 +235,10 @@ private:
 
   /// Internal template called by both public analyze() overloads after
   /// type-specific buildRecoSVs(), buildAllSimSVs() and matchReco2SimVertices() have been called.
-  template <typename AssociatorType>
+  template <typename SimToRecoAssociationType, typename RecoToSimAssociationType>
   void analyzeImpl(std::vector<RecoSecondaryVertex> recoSVs,
-                   const TrackingVertexCollection &simVertices,
-                   const AssociatorType &associator,
-                   const reco::RecoToSimCollection &trackRecoToSim,
-                   const reco::SimToRecoCollection &trackSimToReco,
+                   const RecoToSimAssociationType &recoToSim,
+                   const SimToRecoAssociationType &simToReco,
                    const std::string &collectionLabel);
 
   // =========================================================================

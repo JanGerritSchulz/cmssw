@@ -181,8 +181,14 @@ void SecondaryVertexAnalyzerBase<VertexCollection>::analyze(const edm::Event &iE
       continue;
     }
 
+    // Associate SimVertices <-> RecoVertices
+    const auto& vertexAssociator = *(associator.product());
+    auto recoToSim = vertexAssociator.associateRecoToSim(recoVertices, simVertices);
+    auto simToReco = vertexAssociator.associateSimToReco(recoVertices, simVertices);
+
+    // Analyze the given collection of RecoVertices
     algo_.analyze(
-        *recoVertices, *simVertices, *associator, *trackRecoToSim, *trackSimToReco, recoVertexTags_[i].label());
+        *recoVertices, recoToSim, simToReco, recoVertexTags_[i].label());
   }
 
   algo_.clearEventTruth();
