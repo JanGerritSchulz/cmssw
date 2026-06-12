@@ -139,7 +139,7 @@ void SecondaryVertexAnalyzerAlgo::bookHistograms(IBooker &ibook, const std::vect
 // Sim vertex building
 // =============================================================================
 
-void SecondaryVertexAnalyzerAlgo::buildSimSVs(const TrackingVertexCollection &simVertices) {
+void SecondaryVertexAnalyzerAlgo::prepareEventTruth(const TrackingVertexCollection &simVertices) {
   allSimSVs_ = buildAllSimSVs(simVertices);
   signalSimSVs_ = buildSignalSimSVs();
 
@@ -157,7 +157,7 @@ void SecondaryVertexAnalyzerAlgo::resetSimSVs() {
   }
 }
 
-void SecondaryVertexAnalyzerAlgo::clearSimSVs() {
+void SecondaryVertexAnalyzerAlgo::clearEventTruth() {
   allSimSVs_.clear();
   signalSimSVs_.clear();
 }

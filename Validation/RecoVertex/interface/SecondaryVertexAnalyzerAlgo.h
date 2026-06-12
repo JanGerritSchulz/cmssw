@@ -149,10 +149,10 @@ public:
 
   /// Build both the full sim SV list and a reference list for the subset used for efficiency calculation.
   /// Exposed as a public function so it be called only once for all reco SV collections together.
-  void buildSimSVs(const TrackingVertexCollection &simVertices);
+  void prepareEventTruth(const TrackingVertexCollection &simVertices);
 
   /// Clear the SimVertex SVs at the end of the event.
-  void clearSimSVs();
+  void clearEventTruth();
 
 private:
   // =========================================================================

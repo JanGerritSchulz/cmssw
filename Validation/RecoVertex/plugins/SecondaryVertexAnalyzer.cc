@@ -160,7 +160,7 @@ void SecondaryVertexAnalyzerBase<VertexCollection>::analyze(const edm::Event &iE
     return;
   }
 
-  algo_.buildSimSVs(*simVertices);
+  algo_.prepareEventTruth(*simVertices);
 
   // Loop over configured reco vertex collections
   for (size_t i = 0; i < recoVertexTokens_.size(); ++i) {
@@ -185,7 +185,7 @@ void SecondaryVertexAnalyzerBase<VertexCollection>::analyze(const edm::Event &iE
         *recoVertices, *simVertices, *associator, *trackRecoToSim, *trackSimToReco, recoVertexTags_[i].label());
   }
 
-  algo_.clearSimSVs();
+  algo_.clearEventTruth();
 }
 
 // =============================================================================
