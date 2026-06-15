@@ -28,11 +28,20 @@ bool SecondaryVertexAnalyzerAlgo::isReconstructable(const SimSecondaryVertex &sv
     return false;
   if (!(skipCuts & kEta) && std::abs(std::atanh(sv.z / std::hypot(sv.r, sv.z))) > cfg_.absEtaMax)
     return false;
-  if (!(skipCuts & kPdgId) && !cfg_.signalPdgIds.empty()) {
-    const int absPdg = std::abs(sv.motherPdgId);
-    const bool found = std::find(cfg_.signalPdgIds.begin(), cfg_.signalPdgIds.end(), absPdg) != cfg_.signalPdgIds.end();
-    if (!found)
+  if (!(skipCuts & kPdgId)) {
+    const int pdgId = sv.motherPdgId;
+    if (!(cfg_.bHadrons) && sim::isBHadron(pdgId))
       return false;
+    if (!(cfg_.cHadrons) && sim::isCHadron(pdgId))
+      return false;
+    if (!(cfg_.otherHadrons) && !(sim::isBHadron(pdgId) || sim::isCHadron(pdgId)))
+      return false;
+    if (!cfg_.signalPdgIds.empty()) {
+      const bool found =
+          std::find(cfg_.signalPdgIds.begin(), cfg_.signalPdgIds.end(), std::abs(pdgId)) != cfg_.signalPdgIds.end();
+      if (!found)
+        return false;
+    }
   }
   return true;
 }
