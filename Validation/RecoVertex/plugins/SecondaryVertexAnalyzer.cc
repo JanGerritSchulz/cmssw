@@ -107,6 +107,9 @@ SecondaryVertexAnalyzerBase<VertexCollection>::SecondaryVertexAnalyzerBase(const
           pset.getParameter<double>("minDecayLength"),
           pset.getParameter<int>("minReconstructableDaughters"),
           pset.getParameter<double>("absEtaMax"),
+          pset.getParameter<bool>("bHadrons"),
+          pset.getParameter<bool>("cHadrons"),
+          pset.getParameter<bool>("otherHadrons"),
           pset.getParameter<std::vector<int>>("signalPdgIds"),
       }) {
   // Reco vertex collections and their paired associators
@@ -241,6 +244,9 @@ void SecondaryVertexAnalyzerBase<VertexCollection>::fillDescriptions(edm::Config
   desc.add<double>("absEtaMax", 2.5)->setComment("Maximum |eta| of the sim SV position for acceptance.");
   desc.add<std::vector<int>>("signalPdgIds", {})
       ->setComment("List of PdgIds for the mother daughters of SVs to be included for the efficiency.");
+  desc.add<bool>("bHadrons", true)->setComment("Include b-hadrons for the efficiency.");
+  desc.add<bool>("cHadrons", true)->setComment("Include c-hadrons for the efficiency.");
+  desc.add<bool>("otherHadrons", false)->setComment("Include other hadrons (not b/c) for the efficiency.");
 
   descriptions.addWithDefaultLabel(desc);
 }
