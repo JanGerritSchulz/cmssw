@@ -270,7 +270,9 @@ private:
     SVResolutionBundle h_xRes;
     SVResolutionBundle h_yRes;
     SVResolutionBundle h_zRes;
-    SVDecayLengthBundle h_decayLengthRes;
+    SVResolutionBundle h_decayLengthRes;
+    SVResolutionBundle h_ptRes;
+    SVResolutionBundle h_etaRes;
     SVResolutionBundle h_massRes;  // CPC only
   };
 
