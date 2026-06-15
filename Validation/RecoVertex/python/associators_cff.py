@@ -57,3 +57,47 @@ hltSVAssociation = _VertexAssociationCPC.clone(
     simVertices = cms.InputTag("mix", "MergedTrackTruth"),
     associator = cms.InputTag("hltSVAssociatorByPositionAndTracks4GeneralTracks"),
 )
+
+
+# --------------------------------------------------------------------------------------------------------------------
+#   Association Tasks for PV and SV validation
+# --------------------------------------------------------------------------------------------------------------------
+
+# PV validation association task
+hltPVAssociationsTask = cms.Task(
+    hltOtherTPClusterProducer,
+    hltTrackAssociatorByHits,
+    hltOtherTrackAssociatorByHits,
+    tpToHLTpixelTrackAssociation,
+    hltPVAssociatorByPositionAndTracks4PixelTracks,
+    tpToHLTpfMuonMergingTrackAssociation,
+    hltPVAssociatorByPositionAndTracks4pfMuonMergingTracks,
+    tpToHLTGeneralTrackAssociation,
+    hltPVAssociatorByPositionAndTracks4GeneralTracks,
+)
+
+from Configuration.Eras.Modifier_phase2_tracker_cff import phase2_tracker
+from Configuration.ProcessModifiers.hltPhase2LegacyTracking_cff import hltPhase2LegacyTracking
+
+(phase2_tracker & ~hltPhase2LegacyTracking).toReplaceWith(
+    hltPVAssociationsTask,
+    cms.Task(
+        hltOtherTPClusterProducer,
+        hltTrackAssociatorByHits,
+        hltOtherTrackAssociatorByHits,
+        tpToHLTpixelTracksCAExtAssociation,
+        hltPVAssociatorByPositionAndTracks4ExtendedPixelTracks,
+        tpToHLTpfMuonMergingTrackAssociation,
+        hltPVAssociatorByPositionAndTracks4pfMuonMergingTracks,
+        tpToHLTGeneralTrackAssociation,
+        hltPVAssociatorByPositionAndTracks4GeneralTracks
+    )
+)
+
+
+# SV validation association task
+hltSVAssociationsTask = cms.Task(
+    tpToHLTGeneralTrackAssociation,
+    hltSVAssociatorByPositionAndTracks4GeneralTracks,
+    hltSVAssociation,
+)

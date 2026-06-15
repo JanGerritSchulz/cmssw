@@ -87,36 +87,8 @@ def _modifyFullPVanalysisForPhase2(pvanalysis):
 phase2_tracker.toModify(hltPVanalysis, _modifyFullPVanalysisForPhase2)
 phase2_tracker.toModify(hltPVanalysisReconstructable, _modifyFullPVanalysisForPhase2)
 
-
-hltMultiPVAssociations = cms.Task(
-    hltOtherTPClusterProducer,
-    hltTrackAssociatorByHits,
-    hltOtherTrackAssociatorByHits,
-    tpToHLTpixelTrackAssociation,
-    hltPVAssociatorByPositionAndTracks4PixelTracks,
-    tpToHLTpfMuonMergingTrackAssociation,
-    hltPVAssociatorByPositionAndTracks4pfMuonMergingTracks,
-    tpToHLTGeneralTrackAssociation,
-    hltPVAssociatorByPositionAndTracks4GeneralTracks,
-)
-
-(phase2_tracker & ~hltPhase2LegacyTracking).toReplaceWith(
-    hltMultiPVAssociations,
-    cms.Task(
-        hltOtherTPClusterProducer,
-        hltTrackAssociatorByHits,
-        hltOtherTrackAssociatorByHits,
-        tpToHLTpixelTracksCAExtAssociation,
-        hltPVAssociatorByPositionAndTracks4ExtendedPixelTracks,
-        tpToHLTpfMuonMergingTrackAssociation,
-        hltPVAssociatorByPositionAndTracks4pfMuonMergingTracks,
-        tpToHLTGeneralTrackAssociation,
-        hltPVAssociatorByPositionAndTracks4GeneralTracks
-    )
-)
-
 hltMultiPVValidation = cms.Sequence(hltPixelPVanalysis +
                                     hltPixelPVanalysisReconstructable +
                                     hltPVanalysis +
                                     hltPVanalysisReconstructable,
-                                    hltMultiPVAssociations)
+                                    hltPVAssociationsTask)

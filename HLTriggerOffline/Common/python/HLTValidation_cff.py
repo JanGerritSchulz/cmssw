@@ -1,5 +1,6 @@
 from Validation.RecoTrack.HLTmultiTrackValidator_cff import *
 from Validation.RecoVertex.HLTmultiPVvalidator_cff import *
+from Validation.RecoVertex.hltSecondaryVertexValidator_cff import *
 from HLTriggerOffline.Muon.HLTMuonVal_cff import *
 from HLTriggerOffline.Tau.Validation.HLTTauValidation_cff import *
 from HLTriggerOffline.Egamma.EgammaValidationAutoConf_cff import *
@@ -52,6 +53,7 @@ from DQMOffline.Trigger.HLTMonTau_cfi import *
 hltassociation = cms.Sequence(
     hltMultiTrackValidation
     +hltMultiPVValidation
+    +hltSecondaryVertexValidation
     +egammaSelectors
     +ExoticaValidationProdSeq
     +hltMultiTrackValidationGsfTracks
