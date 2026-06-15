@@ -10,6 +10,7 @@ hltSecondaryVertexValidator = secondaryVertexAnalyzerCPC.clone(
     doPerPdgPlots = cms.untracked.bool(True),
     recoVertexCollections = cms.VInputTag(["hltDeepInclusiveMergedVerticesPF"]),
     vertexAssociators = cms.VInputTag(["hltSVAssociatorByPositionAndTracks4GeneralTracks"]),
+    HepMCProduct = cms.InputTag('generatorSmeared'),
     simVertices = cms.InputTag('mix', 'MergedTrackTruth'),
     trackAssociation = cms.InputTag('trackingParticleRecoTrackAsssociation'),
     minDecayLength = cms.double(0.01),
