@@ -63,6 +63,7 @@
 #include "DataFormats/VertexReco/interface/Vertex.h"
 
 // Sim truth
+#include "SimDataFormats/GeneratorProducts/interface/HepMCProduct.h"
 #include "SimDataFormats/Associations/interface/TrackAssociation.h"
 #include "SimDataFormats/Associations/interface/VertexToTrackingVertexAssociator.h"
 #include "SimDataFormats/TrackingAnalysis/interface/TrackingVertexContainer.h"
@@ -151,7 +152,7 @@ public:
 
   /// Build both the full sim SV list and a reference list for the subset used for efficiency calculation.
   /// Exposed as a public function so it be called only once for all reco SV collections together.
-  void prepareEventTruth(const TrackingVertexCollection &simVertices);
+  void prepareEventTruth(const TrackingVertexCollection &simVertices, const HepMC::GenEvent *genEvent);
 
   /// Clear the SimVertex SVs at the end of the event.
   void clearEventTruth();
@@ -164,7 +165,8 @@ private:
   /// Build the full sim SV list: all non-PV TrackingVertices with decay
   /// length and mother PDG ID populated. No signal selection applied.
   /// Used as truth reference for fake/duplicate/pileup rate estimates.
-  std::vector<SimSecondaryVertex> buildAllSimSVs(const TrackingVertexCollection &simVertices) const;
+  std::vector<SimSecondaryVertex> buildAllSimSVs(const TrackingVertexCollection &simVertices,
+                                                 const HepMC::GenEvent *genEvent) const;
 
   /// Apply signal selection to allSimSVs_ to produce the efficiency
   /// denominator. Applies minDecayLength, minReconstructableDaughters,
@@ -174,10 +176,6 @@ private:
   /// Reset all the reco-matching-dependent information in the SimVertex SVs.
   /// Should be called everytime a new RecoVertex collection is analyzed.
   void resetSimSVs();
-
-  /// Walk the TrackingParticle parent chain to find the PDG ID of the
-  /// decaying mother particle (stopping at B/D hadron level).
-  int motherPdgId(const TrackingVertex &tv) const;
 
   /// Compute 3D decay length w.r.t. the hard-scatter primary vertex.
   double decayLength(const TrackingVertex &tv, const TrackingVertex &pv) const;
