@@ -85,63 +85,34 @@
 
 namespace sim {
 
-  // ===========================================================================
-  // Internal helpers — not part of the public interface
-  // ===========================================================================
+  // Public interface — forward declarations of helpers used internally
+  inline bool isBHadron(int pdgId);
+  inline bool isCHadron(int pdgId);
 
   namespace detail {
-
-    /// Returns true if absPdg corresponds to a B hadron.
-    inline bool isBHadron(int absPdg) {
-      return (absPdg / 500 == 1)      // B mesons (5xx)
-             || (absPdg / 5000 == 1)  // B baryons (5xxx)
-             || (absPdg == 5);        // b quark (guard)
-    }
-
-    /// Returns true if absPdg corresponds to a charm hadron.
-    inline bool isCHadron(int absPdg) {
-      return (absPdg / 400 == 1)      // D mesons (4xx)
-             || (absPdg / 4000 == 1)  // charmed baryons (4xxx)
-             || (absPdg == 4);        // c quark (guard)
-    }
-
-    /// Returns true if newPdg is more physics-relevant than bestSoFar
-    /// for secondary vertex classification purposes (B > C > other).
-    inline bool isMoreInteresting(int newPdg, int bestSoFar) {
-      const int absNew = std::abs(newPdg);
-      const int absBest = std::abs(bestSoFar);
-      if (isBHadron(absNew) && !isBHadron(absBest))
-        return true;
-      if (isCHadron(absNew) && !isBHadron(absBest) && !isCHadron(absBest))
-        return true;
-      if (bestSoFar == 0 && newPdg != 0)
-        return true;
-      return false;
-    }
-
-    /// Maximum 3D distance [cm] within which generator vertices are merged
-    /// into a single TrackingVertex during digitisation (~10 µm).
-    /// link: https://github.com/cms-sw/cmssw/blob/140d0f0f1f2ee369bc8996185c9399384005bab6/SimG4Core/Notification/src/SimTrackManager.cc#L204
-    constexpr double kMergeRadius = 0.001;  // cm
-
-    /// Returns true if the HepMC generator vertex genVtx is within
-    /// kMergeRadius of the TrackingVertex position tvPos [cm].
-    /// HepMC stores positions in mm; conversion to cm is applied here.
-    inline bool withinMergeRadius(const HepMC::GenVertex *genVtx, const math::XYZTLorentzVectorD &tvPos) {
-      if (!genVtx)
-        return false;
-      const HepMC::ThreeVector &gp = genVtx->point3d();
-      const double dx = gp.x() * 0.1 - tvPos.x();  // mm → cm
-      const double dy = gp.y() * 0.1 - tvPos.y();
-      const double dz = gp.z() * 0.1 - tvPos.z();
-      return (dx * dx + dy * dy + dz * dz) < kMergeRadius * kMergeRadius;
-    }
-
+    inline bool isMoreInteresting(int newPdg, int bestSoFar);
+    inline bool withinMergeRadius(const HepMC::GenVertex *genVtx, const math::XYZTLorentzVectorD &tvPos);
   }  // namespace detail
 
-  // ===========================================================================
-  // Public interface
-  // ===========================================================================
+  // -------------------------------------------------------------------------
+  // Public interface — definitions
+  // -------------------------------------------------------------------------
+
+  /// Returns true if pdgId corresponds to a B hadron.
+  inline bool isBHadron(const int pdgId) {
+    const int absPdg = std::abs(pdgId);
+    return (absPdg / 500 == 1)      // B mesons (5xx)
+           || (absPdg / 5000 == 1)  // B baryons (5xxx)
+           || (absPdg == 5);        // b quark (guard)
+  }
+
+  /// Returns true if pdgId corresponds to a charm hadron.
+  inline bool isCHadron(const int pdgId) {
+    const int absPdg = std::abs(pdgId);
+    return (absPdg / 400 == 1)      // D mesons (4xx)
+           || (absPdg / 4000 == 1)  // charmed baryons (4xxx)
+           || (absPdg == 4);        // c quark (guard)
+  }
 
   /// Determine the PDG ID of the mother particle responsible for a
   /// TrackingVertex. See file header for a full description of the four
@@ -226,13 +197,12 @@ namespace sim {
         for (auto iMother = prodVtx->particles_in_const_begin(); iMother != prodVtx->particles_in_const_end();
              ++iMother) {
           const int pdg = (*iMother)->pdg_id();
-          const int absPdg = std::abs(pdg);
 
           if (isMoreInteresting(pdg, bestPdg))
             bestPdg = pdg;
 
           // B hadron is the most interesting possible — stop everything
-          if (isBHadron(absPdg)) {
+          if (isBHadron(pdg)) {
             foundB = true;
             break;
           }
@@ -248,6 +218,42 @@ namespace sim {
 
     return bestPdg;
   }
+
+  // -------------------------------------------------------------------------
+  // Internal helpers — definitions
+  // -------------------------------------------------------------------------
+
+  namespace detail {
+    /// Returns true if newPdg is more physics-relevant than bestSoFar
+    /// for secondary vertex classification purposes (B > C > other).
+    inline bool isMoreInteresting(int newPdg, int bestSoFar) {
+      if (isBHadron(newPdg) && !isBHadron(bestSoFar))
+        return true;
+      if (isCHadron(newPdg) && !isBHadron(bestSoFar) && !isCHadron(bestSoFar))
+        return true;
+      if (bestSoFar == 0 && newPdg != 0)
+        return true;
+      return false;
+    }
+
+    /// Maximum 3D distance [cm] within which generator vertices are merged
+    /// into a single TrackingVertex during digitisation (~10 µm).
+    /// link: https://github.com/cms-sw/cmssw/blob/140d0f0f1f2ee369bc8996185c9399384005bab6/SimG4Core/Notification/src/SimTrackManager.cc#L204
+    constexpr double kMergeRadius = 0.001;  // cm
+
+    /// Returns true if the HepMC generator vertex genVtx is within
+    /// kMergeRadius of the TrackingVertex position tvPos [cm].
+    /// HepMC stores positions in mm; conversion to cm is applied here.
+    inline bool withinMergeRadius(const HepMC::GenVertex *genVtx, const math::XYZTLorentzVectorD &tvPos) {
+      if (!genVtx)
+        return false;
+      const HepMC::ThreeVector &gp = genVtx->point3d();
+      const double dx = gp.x() * 0.1 - tvPos.x();  // mm → cm
+      const double dy = gp.y() * 0.1 - tvPos.y();
+      const double dz = gp.z() * 0.1 - tvPos.z();
+      return (dx * dx + dy * dy + dz * dz) < kMergeRadius * kMergeRadius;
+    }
+  }  // namespace detail
 
 }  // namespace sim
 
