@@ -98,9 +98,10 @@ public:
     // Signal selection cuts applied to build signalSimSVs_.
     // Each cut is individually suppressed for the monitoring bundle
     // whose x-axis is that quantity (see SkipCuts below).
-    double minDecayLength;            // minimum 3D decay length [cm]
-    int minReconstructableDaughters;  // minimum charged daughters
-    double absEtaMax;                 // maximum |eta| of SV position
+    double minDecayLength;                  // minimum 3D decay length [cm]
+    int minReconstructableDaughters;        // minimum charged daughters
+    double absEtaMax;                       // maximum |eta| of SV position
+    bool bHadrons, cHadrons, otherHadrons;  // include certain types for eff
 
     // Optional PDG ID filter: if non-empty, only sim SVs whose mother PDG ID
     // (absolute value) appears in this list are included in signalSimSVs_.
