@@ -95,7 +95,7 @@ private:
 
 template <typename VertexCollection>
 SecondaryVertexAnalyzerBase<VertexCollection>::SecondaryVertexAnalyzerBase(const edm::ParameterSet &pset)
-    : hepMCToken_(consumes<edm::HepMCProduct>(pset.getParameter<edm::InputTag>("HepMCProduct"))),
+    : hepMCToken_(consumes<edm::HepMCProduct>(pset.getParameter<edm::InputTag>("hepMCProduct"))),
       simVertexToken_(consumes<TrackingVertexCollection>(pset.getParameter<edm::InputTag>("simVertices"))),
       trackRecoToSimToken_(consumes<reco::RecoToSimCollection>(pset.getParameter<edm::InputTag>("trackAssociation"))),
       trackSimToRecoToken_(consumes<reco::SimToRecoCollection>(pset.getParameter<edm::InputTag>("trackAssociation"))),
@@ -223,7 +223,7 @@ void SecondaryVertexAnalyzerBase<VertexCollection>::fillDescriptions(edm::Config
       ->setComment(
           "VertexToTrackingVertexAssociator wrappers, one per entry in recoVertexCollections. Produced by "
           "e.g. VertexAssociatorByPositionAndTracksProducer.");
-  desc.add<edm::InputTag>("HepMCProduct", edm::InputTag("generatorSmeared"))
+  desc.add<edm::InputTag>("hepMCProduct", edm::InputTag("generatorSmeared"))
       ->setComment("Input generated HepMC event after vtx smearing");
   desc.add<edm::InputTag>("simVertices", edm::InputTag("mix", "MergedTrackTruth"))
       ->setComment("TrackingVertex collection (sim truth).");
