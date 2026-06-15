@@ -38,6 +38,8 @@
 #include "DataFormats/Common/interface/View.h"
 #include "DataFormats/VertexReco/interface/Vertex.h"
 
+#include "HepMC/GenEvent.h"
+
 #include "SimDataFormats/Associations/interface/TrackAssociation.h"
 #include "SimDataFormats/Associations/interface/VertexToTrackingVertexAssociator.h"
 #include "SimDataFormats/TrackingAnalysis/interface/TrackingVertexContainer.h"
@@ -76,9 +78,10 @@ private:
   std::vector<edm::EDGetTokenT<AssociatorWrapper>> associatorTokens_;
 
   // Shared across all collections
-  edm::EDGetTokenT<TrackingVertexCollection> simVertexToken_;
-  edm::EDGetTokenT<reco::RecoToSimCollection> trackRecoToSimToken_;
-  edm::EDGetTokenT<reco::SimToRecoCollection> trackSimToRecoToken_;
+  const edm::EDGetTokenT<edm::HepMCProduct> hepMCToken_;
+  const edm::EDGetTokenT<TrackingVertexCollection> simVertexToken_;
+  const edm::EDGetTokenT<reco::RecoToSimCollection> trackRecoToSimToken_;
+  const edm::EDGetTokenT<reco::SimToRecoCollection> trackSimToRecoToken_;
 
   // -----------------------------------------------------------------------
   // Algorithm
@@ -92,7 +95,11 @@ private:
 
 template <typename VertexCollection>
 SecondaryVertexAnalyzerBase<VertexCollection>::SecondaryVertexAnalyzerBase(const edm::ParameterSet &pset)
-    : algo_(SecondaryVertexAnalyzerAlgo::Config{
+    : hepMCToken_(consumes<edm::HepMCProduct>(pset.getParameter<edm::InputTag>("HepMCProduct"))),
+      simVertexToken_(consumes<TrackingVertexCollection>(pset.getParameter<edm::InputTag>("simVertices"))),
+      trackRecoToSimToken_(consumes<reco::RecoToSimCollection>(pset.getParameter<edm::InputTag>("trackAssociation"))),
+      trackSimToRecoToken_(consumes<reco::SimToRecoCollection>(pset.getParameter<edm::InputTag>("trackAssociation"))),
+      algo_(SecondaryVertexAnalyzerAlgo::Config{
           pset.getUntrackedParameter<std::string>("rootFolder", "Validation/Vertices/Secondary"),
           pset.getUntrackedParameter<bool>("verbose", false),
           pset.getUntrackedParameter<bool>("doGenericSimPlots", true),
@@ -117,10 +124,6 @@ SecondaryVertexAnalyzerBase<VertexCollection>::SecondaryVertexAnalyzerBase(const
     recoVertexTokens_.push_back(consumes<edm::View<VertexType>>(recoTags[i]));
     associatorTokens_.push_back(consumes<AssociatorWrapper>(assocTags[i]));
   }
-
-  simVertexToken_ = consumes<TrackingVertexCollection>(pset.getParameter<edm::InputTag>("simVertices"));
-  trackRecoToSimToken_ = consumes<reco::RecoToSimCollection>(pset.getParameter<edm::InputTag>("trackAssociation"));
-  trackSimToRecoToken_ = consumes<reco::SimToRecoCollection>(pset.getParameter<edm::InputTag>("trackAssociation"));
 }
 
 // =============================================================================
@@ -146,6 +149,10 @@ void SecondaryVertexAnalyzerBase<VertexCollection>::bookHistograms(DQMStore::IBo
 template <typename VertexCollection>
 void SecondaryVertexAnalyzerBase<VertexCollection>::analyze(const edm::Event &iEvent, const edm::EventSetup &) {
   // Fetch shared inputs
+  edm::Handle<edm::HepMCProduct> hepMCProdHandle;
+  iEvent.getByToken(hepMCToken_, hepMCProdHandle);
+  const HepMC::GenEvent *genEvent = hepMCProdHandle->GetEvent();
+
   edm::Handle<TrackingVertexCollection> simVertices;
   iEvent.getByToken(simVertexToken_, simVertices);
 
@@ -160,7 +167,7 @@ void SecondaryVertexAnalyzerBase<VertexCollection>::analyze(const edm::Event &iE
     return;
   }
 
-  algo_.prepareEventTruth(*simVertices);
+  algo_.prepareEventTruth(*simVertices, genEvent);
 
   // Loop over configured reco vertex collections
   for (size_t i = 0; i < recoVertexTokens_.size(); ++i) {
@@ -182,13 +189,12 @@ void SecondaryVertexAnalyzerBase<VertexCollection>::analyze(const edm::Event &iE
     }
 
     // Associate SimVertices <-> RecoVertices
-    const auto& vertexAssociator = *(associator.product());
+    const auto &vertexAssociator = *(associator.product());
     auto recoToSim = vertexAssociator.associateRecoToSim(recoVertices, simVertices);
     auto simToReco = vertexAssociator.associateSimToReco(recoVertices, simVertices);
 
     // Analyze the given collection of RecoVertices
-    algo_.analyze(
-        *recoVertices, recoToSim, simToReco, recoVertexTags_[i].label());
+    algo_.analyze(*recoVertices, recoToSim, simToReco, recoVertexTags_[i].label());
   }
 
   algo_.clearEventTruth();
@@ -217,6 +223,8 @@ void SecondaryVertexAnalyzerBase<VertexCollection>::fillDescriptions(edm::Config
       ->setComment(
           "VertexToTrackingVertexAssociator wrappers, one per entry in recoVertexCollections. Produced by "
           "e.g. VertexAssociatorByPositionAndTracksProducer.");
+  desc.add<edm::InputTag>("HepMCProduct", edm::InputTag("generatorSmeared"))
+      ->setComment("Input generated HepMC event after vtx smearing");
   desc.add<edm::InputTag>("simVertices", edm::InputTag("mix", "MergedTrackTruth"))
       ->setComment("TrackingVertex collection (sim truth).");
   desc.add<edm::InputTag>("trackAssociation", edm::InputTag("trackingParticleRecoTrackAsssociation"))

@@ -5,9 +5,10 @@
 #include <set>
 
 #include "DataFormats/Math/interface/deltaR.h"
-#include "FWCore/MessageLogger/interface/MessageLogger.h"
-
 #include "DQMServices/Core/interface/DQMBookingHelpers.h"
+#include "FWCore/MessageLogger/interface/MessageLogger.h"
+#include "SimTracker/TrackAssociation/interface/trackingVertexMotherPdgId.h"
+
 using namespace dqm::booking;
 
 // =============================================================================
@@ -137,8 +138,9 @@ void SecondaryVertexAnalyzerAlgo::bookHistograms(IBooker &ibook, const std::vect
 // Sim vertex building
 // =============================================================================
 
-void SecondaryVertexAnalyzerAlgo::prepareEventTruth(const TrackingVertexCollection &simVertices) {
-  allSimSVs_ = buildAllSimSVs(simVertices);
+void SecondaryVertexAnalyzerAlgo::prepareEventTruth(const TrackingVertexCollection &simVertices,
+                                                    const HepMC::GenEvent *genEvent = nullptr) {
+  allSimSVs_ = buildAllSimSVs(simVertices, genEvent);
   signalSimSVs_ = buildSignalSimSVs();
 
   if (cfg_.verbose) {
@@ -160,41 +162,6 @@ void SecondaryVertexAnalyzerAlgo::clearEventTruth() {
   signalSimSVs_.clear();
 }
 
-// TODO: fix this according to the logic I developed in the other package
-int SecondaryVertexAnalyzerAlgo::motherPdgId(const TrackingVertex &tv) const {
-  // Walk the first TrackingParticle's parent chain looking for a B or D hadron.
-  // Fall back to the direct parent PDG ID if none found.
-  if (tv.nSourceTracks() == 0)
-    return 0;
-
-  const TrackingParticleRef &tp = *tv.sourceTracks_begin();
-
-  // Walk up through parent vertices
-  int lastPdgId = 0;
-  TrackingParticleRef current = tp;
-  while (current.isNonnull()) {
-    // Check parent vertices of this TP
-    if (current->parentVertex().isNull())
-      break;
-    const TrackingVertex &parentVtx = *(current->parentVertex());
-    if (parentVtx.nSourceTracks() == 0)
-      break;
-
-    const TrackingParticleRef &parent = *parentVtx.sourceTracks_begin();
-    const int absPdg = std::abs(parent->pdgId());
-    lastPdgId = parent->pdgId();
-
-    // Stop at B hadrons (5xx, 5xxx) or D hadrons (4xx, 4xxx)
-    const bool isB = (absPdg / 500 == 1) || (absPdg / 5000 == 1);
-    const bool isC = (absPdg / 400 == 1) || (absPdg / 4000 == 1);
-    if (isB || isC)
-      return parent->pdgId();
-
-    current = parent;
-  }
-  return lastPdgId;
-}
-
 double SecondaryVertexAnalyzerAlgo::decayLength(const TrackingVertex &tv, const TrackingVertex &pv) const {
   const auto &svPos = tv.position();
   const auto &pvPos = pv.position();
@@ -205,7 +172,7 @@ double SecondaryVertexAnalyzerAlgo::decayLength(const TrackingVertex &tv, const 
 }
 
 std::vector<SimSecondaryVertex> SecondaryVertexAnalyzerAlgo::buildAllSimSVs(
-    const TrackingVertexCollection &simVertices) const {
+    const TrackingVertexCollection &simVertices, const HepMC::GenEvent *genEvent = nullptr) const {
   std::vector<SimSecondaryVertex> result;
   result.reserve(simVertices.size());
 
@@ -228,7 +195,7 @@ std::vector<SimSecondaryVertex> SecondaryVertexAnalyzerAlgo::buildAllSimSVs(
     SimSecondaryVertex sv(pos.x(), pos.y(), pos.z());
 
     sv.decayLength = decayLength(tv, pv);
-    sv.motherPdgId = motherPdgId(tv);
+    sv.motherPdgId = sim::trackingVertexMotherPdgId(tv, genEvent);
     sv.isFromPileup = (tv.eventId().event() != 0);
     sv.eventId = tv.eventId();
 
