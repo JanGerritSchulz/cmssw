@@ -41,21 +41,29 @@ bool SecondaryVertexAnalyzerAlgo::isReconstructable(const SimSecondaryVertex &sv
 // =============================================================================
 
 void SecondaryVertexAnalyzerAlgo::bookHistograms(IBooker &ibook, const std::vector<std::string> &collectionLabels) {
+  auto bins = SVResolutionBundle::BinConfig();
+  // config = {nBins, min, max}
+  bins.decayLength = {20, 0., 5.};
+  bins.decayLength2D = bins.decayLength;
+  bins.eta = {45, -4.5, 4.5};
+  bins.pt = {40, 0.1, 1000.};
+  bins.nTracks = {21, -0.5, 20.5};
+
   // Generic sim plots — booked once, collection-independent
   if (cfg_.doGenericSimPlots) {
     ibook.setCurrentFolder(cfg_.rootFolder);
     genericSimHistos_.h_decayLength =
-        book1DLogX(ibook, "GenSV_decayLength", "All sim SVs;3D decay length L_{3D} [cm];Entries", 50, 1e-3, 100.);
+        book1DLogX(ibook, "SimSV_decayLength", "All sim SVs;3D decay length L_{3D} [cm];Entries", 50, 1e-3, 100.);
     genericSimHistos_.h_r =
-        book1DLogX(ibook, "GenSV_r", "All sim SVs;Transverse decay radius r_{T} [cm];Entries", 50, 1e-3, 50.);
+        book1DLogX(ibook, "SimSV_r", "All sim SVs;Transverse decay radius r_{T} [cm];Entries", 50, 1e-3, 50.);
     genericSimHistos_.h_nDaughters =
-        ibook.book1D("GenSV_nDaughters", "All sim SVs;N charged daughters;Entries", 20, -0.5, 19.5);
+        ibook.book1D("SimSV_nDaughters", "All sim SVs;N charged daughters;Entries", 20, -0.5, 19.5);
     genericSimHistos_.h_motherPdgId =
-        ibook.book1D("GenSV_motherPdgId", "All sim SVs;|mother PDG ID|;Entries", 600, 0., 6000.);
+        ibook.book1D("SimSV_motherPdgId", "All sim SVs;|mother PDG ID|;Entries", 600, 0., 6000.);
     genericSimHistos_.h_numAllSimSVs =
-        ibook.book1D("GenSV_numAll", "N sim SVs per event (all);N sim SVs;Entries", 100, 0., 200.);
+        ibook.book1D("SimSV_numAll", "N sim SVs per event (all);N sim SVs;Entries", 100, 0., 200.);
     genericSimHistos_.h_numSignalSimSVs =
-        ibook.book1D("GenSV_numSignal", "N sim SVs per event (signal selected);N sim SVs;Entries", 100, 0., 200.);
+        ibook.book1D("SimSV_numSignal", "N sim SVs per event (signal selected);N sim SVs;Entries", 100, 0., 200.);
   }
 
   // Per-collection histograms
@@ -104,23 +112,13 @@ void SecondaryVertexAnalyzerAlgo::bookHistograms(IBooker &ibook, const std::vect
 
     // ----- Resolution bundles -----
     // Bin axes: decay length [0,30 cm], r [0,10 cm], nTracks [0,20]
-    ch.h_xRes.bookResolutions(ibook, 30, 0., 30., 20, 0., 10., 20, 0., 20., "x_", 100, -0.05, 0.05);
-    ch.h_yRes.bookResolutions(ibook, 30, 0., 30., 20, 0., 10., 20, 0., 20., "y_", 100, -0.05, 0.05);
-    ch.h_zRes.bookResolutions(ibook, 30, 0., 30., 20, 0., 10., 20, 0., 20., "z_", 100, -0.05, 0.05);
-    ch.h_decayLengthRes.bookResolutions(ibook,
-                                        20,
-                                        0.,
-                                        20.,
-                                        50,
-                                        -3.,
-                                        3.,  // nTracks, eta, lRes
-                                        50,
-                                        -0.5,
-                                        0.5,  // lRes axis
-                                        50,
-                                        -30.,
-                                        30.);  // lSigRes axis
-    ch.h_massRes.bookResolutions(ibook, 30, 0., 30., 20, 0., 10., 20, 0., 20., "mass_", 100, -1., 1.);
+    ch.h_xRes.bookResolutions(ibook, bins, "x", 100, -0.05, 0.05);
+    ch.h_yRes.bookResolutions(ibook, bins, "y", 100, -0.05, 0.05);
+    ch.h_zRes.bookResolutions(ibook, bins, "z", 100, -0.05, 0.05);
+    ch.h_decayLengthRes.bookResolutions(ibook, bins, "decayLength", 50, -3., 3.);
+    ch.h_ptRes.bookResolutions(ibook, bins, "pt", 100, -10., 10.);
+    ch.h_etaRes.bookResolutions(ibook, bins, "eta", 100, -0.2, 0.2);
+    ch.h_massRes.bookResolutions(ibook, bins, "mass", 100, -1., 1.);
 
     // ----- Plain per-collection histograms -----
     me["numRecoSVs"] = ibook.book1D("numRecoSVs", "N reco SVs per event;N SVs;Entries", 100, 0., 200.);
@@ -483,6 +481,7 @@ void SecondaryVertexAnalyzerAlgo::fillResolutionHistograms(const std::string &la
   const double r = sv.r;
   const double nTrk = static_cast<double>(sv.nCharged);
   const double eta = (sv.r > 0. || sv.z != 0.) ? std::atanh(sv.z / std::hypot(sv.r, sv.z)) : 0.;
+  const double pt = 0.;
 
   // Position residuals (reco - sim) and pulls
   // Pulls require vertex position errors — use covariance diagonal if available.
@@ -492,26 +491,16 @@ void SecondaryVertexAnalyzerAlgo::fillResolutionHistograms(const std::string &la
   const double xRes = rv.x - sv.x;
   const double yRes = rv.y - sv.y;
   const double zRes = rv.z - sv.z;
+  const double lRes = rv.decayLength - sv.decayLength;
   const double xPull = xRes;  // placeholder
   const double yPull = yRes;
   const double zPull = zRes;
+  const double lPull = lRes;  // placeholder
 
-  ch.h_xRes.fill(decayLen, r, nTrk, xRes, xPull);
-  ch.h_yRes.fill(decayLen, r, nTrk, yRes, yPull);
-  ch.h_zRes.fill(decayLen, r, nTrk, zRes, zPull);
-
-  // Decay length residual and significance residual
-  const double lRes = rv.decayLength - sv.decayLength;
-  const double lPull = lRes;        // placeholder
-  const double lSigRes = 0.;        //rv.decayLengthSignificance - sv.decayLengthSignificance;
-  const double lSigPull = lSigRes;  // placeholder
-  ch.h_decayLengthRes.fill(
-      nTrk,
-      eta,
-      lRes,
-      lPull,
-      lSigRes,
-      lSigPull);  // TODO: fix the decayLength residual histogram bundle, makes no sense to me especially the dlenSig...
+  ch.h_xRes.fill(decayLen, r, eta, pt, nTrk, xRes, xPull);
+  ch.h_yRes.fill(decayLen, r, eta, pt, nTrk, yRes, yPull);
+  ch.h_zRes.fill(decayLen, r, eta, pt, nTrk, zRes, zPull);
+  ch.h_decayLengthRes.fill(decayLen, r, eta, pt, nTrk, lRes, lPull);
 
   // Mass residual — only for CPC vertices
   if (rv.mass.has_value() && sv.decayLength > 0.) {
