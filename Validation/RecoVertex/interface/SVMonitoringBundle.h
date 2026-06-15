@@ -224,7 +224,7 @@ private:
     if (bookSimHistos) {
       h_sim = bookFunc(ibooker,
                        logScale,
-                       ("num_simul_" + name).c_str(),
+                       ("num_sim_" + name).c_str(),
                        ("N of simulated SVs" + xylabels).c_str(),
                        nBins,
                        valMin,
@@ -260,7 +260,7 @@ private:
         // b-hadron origin
         h_sim_b = bookFunc(ibooker,
                            logScale,
-                           ("num_simul_b_" + name).c_str(),
+                           ("num_sim_b_" + name).c_str(),
                            ("N of simulated B-hadron SVs" + xylabels).c_str(),
                            nBins,
                            valMin,
@@ -277,7 +277,7 @@ private:
         // c-hadron origin
         h_sim_c = bookFunc(ibooker,
                            logScale,
-                           ("num_simul_c_" + name).c_str(),
+                           ("num_sim_c_" + name).c_str(),
                            ("N of simulated D-hadron SVs" + xylabels).c_str(),
                            nBins,
                            valMin,
@@ -294,7 +294,7 @@ private:
         // other origin (light hadrons, nuclear interactions, etc.)
         h_sim_other = bookFunc(ibooker,
                                logScale,
-                               ("num_simul_other_" + name).c_str(),
+                               ("num_sim_other_" + name).c_str(),
                                ("N of simulated SVs from other origins" + xylabels).c_str(),
                                nBins,
                                valMin,
