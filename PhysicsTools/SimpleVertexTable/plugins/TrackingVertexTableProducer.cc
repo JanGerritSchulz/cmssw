@@ -158,7 +158,7 @@ private:
   const edm::EDGetTokenT<TrackingVertexCollection> trackingVertexCollectionToken_;
   const edm::EDGetTokenT<reco::SimToRecoCollection> simToRecoAssociationToken_;
   const edm::EDGetTokenT<reco::RecoToSimCollection> recoToSimAssociationToken_;
-  const edm::EDGetTokenT<reco::VertexToTrackingVertexAssociator> vertexAssociatorToken_;
+  const edm::EDGetTokenT<reco::VertexToTrackingVertexAssociator<std::vector<reco::Vertex>>> vertexAssociatorToken_;
   const edm::EDGetTokenT<std::vector<reco::Vertex>> pvs_;
   const edm::EDGetTokenT<edm::View<reco::Candidate>> genToken_;
   const edm::EDGetTokenT<std::vector<reco::VertexCompositePtrCandidate>> svToken_;
@@ -180,7 +180,7 @@ TrackingVertexTableProducer::TrackingVertexTableProducer(const edm::ParameterSet
           consumes<reco::SimToRecoCollection>(iConfig.getUntrackedParameter<edm::InputTag>("trackAssociatorMap"))),
       recoToSimAssociationToken_(
           consumes<reco::RecoToSimCollection>(iConfig.getUntrackedParameter<edm::InputTag>("trackAssociatorMap"))),
-      vertexAssociatorToken_(consumes<reco::VertexToTrackingVertexAssociator>(
+      vertexAssociatorToken_(consumes<reco::VertexToTrackingVertexAssociator<std::vector<reco::Vertex>>>(
           iConfig.getUntrackedParameter<edm::InputTag>("vertexAssociator"))),
       pvs_(consumes<std::vector<reco::Vertex>>(iConfig.getParameter<edm::InputTag>("pvSrc"))),
       genToken_(consumes<edm::View<reco::Candidate>>(iConfig.getParameter<edm::InputTag>("genParticles"))),
@@ -212,9 +212,9 @@ void TrackingVertexTableProducer::fillDescriptions(edm::ConfigurationDescription
   desc.addUntracked<edm::InputTag>("simTrackCollection", edm::InputTag("g4SimHits"));
   desc.addUntracked<edm::InputTag>("trackingParticleCollection", edm::InputTag("mix", "MergedTrackTruth"));
   desc.addUntracked<edm::InputTag>("trackingVertexCollection", edm::InputTag("mix", "MergedTrackTruth"));
-  desc.addUntracked<edm::InputTag>("trackAssociatorMap", edm::InputTag("tpToHLTphase2TrackAssociation"));
+  desc.addUntracked<edm::InputTag>("trackAssociatorMap", edm::InputTag("tpToHLTGeneralTrackAssociation"));
   desc.addUntracked<edm::InputTag>("vertexAssociator",
-                                   edm::InputTag("vertexAssociatorByPositionAndTracks4phase2HLTTracks"));
+                                   edm::InputTag("hltPVAssociatorByPositionAndTracks4GeneralTracks"));
   desc.add<edm::InputTag>("genParticles", edm::InputTag("mergedGenParticles"));
   desc.add<edm::InputTag>("pvSrc", edm::InputTag("hltOfflinePrimaryVertices"))
       ->setComment("std::vector<reco::Vertex> and ValueMap<float> primary vertex input collections");
@@ -232,7 +232,7 @@ void TrackingVertexTableProducer::produce(edm::Event& iEvent, const edm::EventSe
 
   edm::Handle<edm::HepMCProduct> mcEvtHandle;
   iEvent.getByToken(hepmcToken_, mcEvtHandle);
-  const HepMC::GenEvent* evt = mcEvtHandle->GetEvent(); 
+  const HepMC::GenEvent* evt = mcEvtHandle->GetEvent();
 
   edm::Handle<edm::View<reco::Candidate>> genHandle;
   iEvent.getByToken(genToken_, genHandle);
@@ -268,13 +268,14 @@ void TrackingVertexTableProducer::produce(edm::Event& iEvent, const edm::EventSe
   //   edm::LogWarning("PrimaryVertexAnalyzer4PUSlimmed") << "recoToSimH is not valid";
 
   // Vertex associator
-  edm::Handle<reco::VertexToTrackingVertexAssociator> vertexAssociatorH;
+  edm::Handle<reco::VertexToTrackingVertexAssociator<std::vector<reco::Vertex>>> vertexAssociatorH;
   iEvent.getByToken(vertexAssociatorToken_, vertexAssociatorH);
   if (!vertexAssociatorH.isValid()) {
     edm::LogWarning("PrimaryVertexAnalyzer4PUSlimmed") << "vertexAssociatorH is not valid";
     return;
   }
-  const reco::VertexToTrackingVertexAssociator& vertexAssociator = *(vertexAssociatorH.product());
+  const reco::VertexToTrackingVertexAssociator<std::vector<reco::Vertex>>& vertexAssociator =
+      *(vertexAssociatorH.product());
 
   // reco::VertexRecoToSimCollection vertex_r2s = vertexAssociator.associateRecoToSim(svHandle, TVCollectionH);
   // reco::VertexSimToRecoCollection vertex_s2r = vertexAssociator.associateSimToReco(svHandle, TVCollectionH);
@@ -290,7 +291,8 @@ void TrackingVertexTableProducer::produce(edm::Event& iEvent, const edm::EventSe
   std::vector<float> TrackingVertex_x_i, TrackingVertex_y_i, TrackingVertex_z_i;
   std::vector<int> TrackingVertex_pdgClass, TrackingVertex_isB, TrackingVertex_isD, TrackingVertex_isSig;
   std::vector<int> TrackingVertex_pdgId, TrackingVertex_nDaughters, TrackingVertex_nGoodDaughters,
-      TrackingVertex_nGenVertices, TrackingVertex_nNearestGenVertices, TrackingVertex_nSimVertices, TrackingVertex_nTrackingParticles;
+      TrackingVertex_nGenVertices, TrackingVertex_nNearestGenVertices, TrackingVertex_nSimVertices,
+      TrackingVertex_nTrackingParticles;
   std::vector<float> TrackingParticles_pt, TrackingParticles_eta, TrackingParticles_phi;
   std::vector<float> Daughters_pt, Daughters_eta, Daughters_phi;
   std::vector<int> Daughters_charge, Daughters_GVidx, TrackingParticles_pdgId;
@@ -516,7 +518,8 @@ void TrackingVertexTableProducer::produce(edm::Event& iEvent, const edm::EventSe
   gvTable->addColumn<int>("nGenVertices", TrackingVertex_nGenVertices, "Number of associated gen vertices");
   gvTable->addColumn<int>(
       "nNearestGenVertices", TrackingVertex_nNearestGenVertices, "Number of nearest associated gen vertices");
-  gvTable->addColumn<int>("nTrackingParticles", TrackingVertex_nTrackingParticles, "Number of associated tracking particles");
+  gvTable->addColumn<int>(
+      "nTrackingParticles", TrackingVertex_nTrackingParticles, "Number of associated tracking particles");
   gvTable->addColumn<int>("isSig", TrackingVertex_isSig, "Is signal vertex");
   // new class
   // gvTable->addColumn<int>("isB", TrackingVertex_isB, "isB");
