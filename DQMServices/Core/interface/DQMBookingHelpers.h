@@ -62,16 +62,11 @@ namespace dqm {
 
     namespace detail {
 
-      /// Rebin the X axis of h to have logarithmically-spaced bin edges.
-      /// The axis min/max are interpreted as log10 values, consistent with
-      /// how TAxis stores them after a SetRangeUser call.
-      ///
-      /// Must be called on the ROOT object BEFORE handing it to IBooker.
-      inline void binLogX(TH1* h) {
-        TAxis* axis = h->GetXaxis();
+      // Resets the bin edges for a given axis to log10 scale.
+      inline void setAxisToLog(TAxis* axis) {
         const int bins = axis->GetNbins();
-        const float from = axis->GetXmin();
-        const float to = axis->GetXmax();
+        const float from = TMath::Log10(axis->GetXmin());
+        const float to = TMath::Log10(axis->GetXmax());
         const float width = (to - from) / bins;
         std::vector<float> new_bins(bins + 1, 0.f);
         for (int i = 0; i <= bins; ++i)
@@ -79,18 +74,20 @@ namespace dqm {
         axis->Set(bins, new_bins.data());
       }
 
+      /// Rebin the X axis of h to have logarithmically-spaced bin edges.
+      /// The axis min/max are interpreted as log10 values, consistent with
+      /// how TAxis stores them after a SetRangeUser call.
+      /// Must be called on the ROOT object BEFORE handing it to IBooker.
+      inline void binLogX(TH1* h) {
+        TAxis* axis = h->GetXaxis();
+        setAxisToLog(axis);
+      }
+
       /// Rebin the Y axis of h to have logarithmically-spaced bin edges.
       /// Must be called on the ROOT object BEFORE handing it to IBooker.
       inline void binLogY(TH1* h) {
         TAxis* axis = h->GetYaxis();
-        const int bins = axis->GetNbins();
-        const float from = axis->GetXmin();  // Y axis stores range in Xmin/Xmax
-        const float to = axis->GetXmax();
-        const float width = (to - from) / bins;
-        std::vector<float> new_bins(bins + 1, 0.f);
-        for (int i = 0; i <= bins; ++i)
-          new_bins[i] = TMath::Power(10, from + i * width);
-        axis->Set(bins, new_bins.data());
+        setAxisToLog(axis);
       }
 
     }  // namespace detail
