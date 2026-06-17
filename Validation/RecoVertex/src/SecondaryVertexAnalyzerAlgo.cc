@@ -18,32 +18,12 @@ using namespace dqm::booking;
 SecondaryVertexAnalyzerAlgo::SecondaryVertexAnalyzerAlgo(const Config &cfg) : cfg_(cfg) {}
 
 // =============================================================================
-// isReconstructable
+// isEligibleForEff
 // =============================================================================
 
-bool SecondaryVertexAnalyzerAlgo::isReconstructable(const SimSecondaryVertex &sv, uint32_t skipCuts) const {
-  if (!(skipCuts & kDecayLength) && sv.decayLength < cfg_.minDecayLength)
-    return false;
-  if (!(skipCuts & kNDaughters) && sv.nCharged < cfg_.minReconstructableDaughters)
-    return false;
-  if (!(skipCuts & kEta) && std::abs(std::atanh(sv.z / std::hypot(sv.r, sv.z))) > cfg_.absEtaMax)
-    return false;
-  if (!(skipCuts & kPdgId)) {
-    const int pdgId = sv.motherPdgId;
-    if (!(cfg_.bHadrons) && sim::isBHadron(pdgId))
-      return false;
-    if (!(cfg_.cHadrons) && sim::isCHadron(pdgId))
-      return false;
-    if (!(cfg_.otherHadrons) && !(sim::isBHadron(pdgId) || sim::isCHadron(pdgId)))
-      return false;
-    if (!cfg_.signalPdgIds.empty()) {
-      const bool found =
-          std::find(cfg_.signalPdgIds.begin(), cfg_.signalPdgIds.end(), std::abs(pdgId)) != cfg_.signalPdgIds.end();
-      if (!found)
-        return false;
-    }
-  }
-  return true;
+bool SecondaryVertexAnalyzerAlgo::isEligibleForEff(const SimSecondaryVertex &sv, EfficiencyEligibility mask) const {
+  // check if the required bit in the mask (if any) is set in the vertex
+  return (sv.eligibility & mask) == mask;
 }
 
 // =============================================================================
@@ -147,10 +127,10 @@ void SecondaryVertexAnalyzerAlgo::bookHistograms(IBooker &ibook, const std::vect
 // Sim vertex building
 // =============================================================================
 
-void SecondaryVertexAnalyzerAlgo::prepareEventTruth(const TrackingVertexCollection &simVertices,
+void SecondaryVertexAnalyzerAlgo::prepareEventTruth(const edm::Handle<TrackingVertexCollection> &simVerticesH,
                                                     const HepMC::GenEvent *genEvent = nullptr) {
-  allSimSVs_ = buildAllSimSVs(simVertices, genEvent);
-  signalSimSVs_ = buildSignalSimSVs();
+  allSimSVs_ = buildAllSimSVs(simVerticesH);
+  signalSimSVs_ = buildSignalSimSVs(genEvent);
 
   if (cfg_.verbose) {
     LogDebug("SecondaryVertexAnalyzer") << "SimSecondaryVertex overview: " << allSimSVs_.size() << " all sim SVs, "
@@ -180,8 +160,68 @@ double SecondaryVertexAnalyzerAlgo::decayLength(const TrackingVertex &tv, const 
   return std::sqrt(dx * dx + dy * dy + dz * dz);
 }
 
+EfficiencyPrecheck SecondaryVertexAnalyzerAlgo::precheckEligibility(const SimSecondaryVertex &sv) const {
+  const double eta = (sv.r > 0. || sv.z != 0.) ? std::atanh(sv.z / std::hypot(sv.r, sv.z)) : 0.;
+
+  const int failsDecayLength = (sv.decayLength < cfg_.minDecayLength) || (sv.decayLength > cfg_.maxDecayLength);
+  const int failsNDaughters = sv.nCharged < cfg_.minReconstructableDaughters;
+  const int failsEta = std::abs(eta) > cfg_.absEtaMax;
+
+  EfficiencyPrecheck result;
+  result.nFailingCuts = failsDecayLength + failsNDaughters + failsEta;
+
+  if (result.nFailingCuts - failsDecayLength <= 0)  // eligible for eff vs. decay length
+    result.eligibility |= EfficiencyEligibility::kDecayLength;
+  if (result.nFailingCuts - failsNDaughters <= 0)  // eligible for eff vs. nTracks
+    result.eligibility |= EfficiencyEligibility::kNDaughters;
+  if (result.nFailingCuts - failsEta <= 0)  // eligible for eff vs. eta
+    result.eligibility |= EfficiencyEligibility::kEta;
+
+  return result;
+}
+
+bool SecondaryVertexAnalyzerAlgo::finalizeEligibility(SimSecondaryVertex &sv,
+                                                      const EfficiencyPrecheck &precheck) const {
+  EfficiencyEligibility result = precheck.eligibility;
+
+  bool passPdgIdCut = true;
+  const auto pdgId = sv.motherPdgId;
+  if (!(cfg_.bHadrons) && sim::isBHadron(pdgId))
+    passPdgIdCut = false;
+  if (!(cfg_.cHadrons) && sim::isCHadron(pdgId))
+    passPdgIdCut = false;
+  if (!(cfg_.otherParticles) && !(sim::isBHadron(pdgId) || sim::isCHadron(pdgId)))
+    passPdgIdCut = false;
+  if (!cfg_.signalPdgIds.empty()) {
+    const int absPdg = std::abs(pdgId);
+    passPdgIdCut = std::find(cfg_.signalPdgIds.begin(), cfg_.signalPdgIds.end(), absPdg) != cfg_.signalPdgIds.end();
+  }
+
+  // kPdgId bundle: eligible if all three cheap cuts pass (PDG cut itself
+  // is suppressed for this bundle's own plot).
+  if (precheck.nFailingCuts == 0)
+    result |= EfficiencyEligibility::kPdgId;
+
+  // The cheap-cut bundles additionally require the PDG cut to pass, since
+  // they do NOT suppress it.
+  if (!passPdgIdCut) {
+    // Clear all cheap-cut bits if the PDG cut fails — those bundles do not
+    // suppress the PDG cut, so failing it disqualifies them regardless of
+    // the cheap-cut outcome.
+    result = static_cast<EfficiencyEligibility>(static_cast<uint32_t>(result) &
+                                                ~static_cast<uint32_t>(EfficiencyEligibility::kDecayLength |
+                                                                       EfficiencyEligibility::kNDaughters |
+                                                                       EfficiencyEligibility::kEta));
+  }
+
+  sv.eligibility = result;
+  return result != EfficiencyEligibility::kNone;
+}
+
 std::vector<SimSecondaryVertex> SecondaryVertexAnalyzerAlgo::buildAllSimSVs(
-    const TrackingVertexCollection &simVertices, const HepMC::GenEvent *genEvent = nullptr) const {
+    const edm::Handle<TrackingVertexCollection> &simVerticesH) const {
+  const TrackingVertexCollection &simVertices = *simVerticesH;
+
   std::vector<SimSecondaryVertex> result;
   result.reserve(simVertices.size());
 
@@ -204,9 +244,10 @@ std::vector<SimSecondaryVertex> SecondaryVertexAnalyzerAlgo::buildAllSimSVs(
     SimSecondaryVertex sv(pos.x(), pos.y(), pos.z());
 
     sv.decayLength = decayLength(tv, pv);
-    sv.motherPdgId = sim::trackingVertexMotherPdgId(tv, genEvent);
+    sv.motherPdgId = 0;  // mother pdgId is assigned (later) for signal used in efficiency only
     sv.isFromPileup = (tv.eventId().event() != 0);
     sv.eventId = tv.eventId();
+    sv.eligibility = EfficiencyEligibility::kNone;
 
     // Count charged daughters
     sv.nCharged = 0;
@@ -217,29 +258,45 @@ std::vector<SimSecondaryVertex> SecondaryVertexAnalyzerAlgo::buildAllSimSVs(
         // A daughter is reconstructable if it has enough hits — use the
         // standard threshold of >=3 hits as a proxy; this can be made
         // configurable if needed.
-        if ((*iTP)->numberOfTrackerHits() >= 3)
+        if (((*iTP)->numberOfTrackerHits() >= 3) && (*iTP)->pt() >= cfg_.minPtReconstructableDaughters)
           ++sv.nReconstructable;
       }
     }
 
+    if (sv.nCharged == 0)
+      continue;
+
     // Store ref for later association lookup
-    sv.simVertex = TrackingVertexRef(edm::Ref<TrackingVertexCollection>(&simVertices, i));
+    sv.simVertex = TrackingVertexRef(simVerticesH, i);
 
     result.push_back(std::move(sv));
   }
   return result;
 }
 
-std::vector<SimSecondaryVertex *> SecondaryVertexAnalyzerAlgo::buildSignalSimSVs() {
+std::vector<SimSecondaryVertex *> SecondaryVertexAnalyzerAlgo::buildSignalSimSVs(
+    const HepMC::GenEvent *genEvent = nullptr) {
   std::vector<SimSecondaryVertex *> result;
   result.reserve(allSimSVs_.size());
   for (auto &sv : allSimSVs_) {
     // Since vertices from the signal interaction come first, break after the first PU vertex
     if (sv.isFromPileup)
       break;
-    // Apply all cuts (no suppression — this is the global signal selection,
-    // not the per-bundle variable-blind filling path).
-    if (isReconstructable(sv, kNone))
+
+    // veto vertices with less than 2 charged daugters
+    if (sv.nCharged < 2)
+      continue;
+
+    // Apply all cuts for checking the eligibility for efficiency calculation.
+    // And determine the PDG ID for vertices worth checking (expensive HepMC tree search).
+    auto preCheck = precheckEligibility(sv);
+
+    if (!preCheck.potentiallyEligible())
+      continue;
+
+    sv.motherPdgId = sim::trackingVertexMotherPdgId(*(sv.simVertex), genEvent);
+
+    if (finalizeEligibility(sv, preCheck))
       result.push_back(&sv);
   }
   return result;
@@ -292,7 +349,8 @@ std::vector<RecoSecondaryVertex> SecondaryVertexAnalyzerAlgo::buildRecoSVs(
 
 template <typename AssociatorType>
 void SecondaryVertexAnalyzerAlgo::matchSim2RecoVertices(const AssociatorType &simToReco) {
-  for (auto &sv : allSimSVs_) {
+  for (auto &svp : signalSimSVs_) {
+    auto &sv = *svp;
     if (sv.simVertex.isNull())
       continue;
     auto it = simToReco.find(sv.simVertex);
@@ -394,6 +452,7 @@ void SecondaryVertexAnalyzerAlgo::matchReco2SimVertices(std::vector<RecoSecondar
 
 void SecondaryVertexAnalyzerAlgo::fillSimVertexHistograms(const std::string &label, const SimSecondaryVertex &sv) {
   const bool isMatched = (sv.num_matched_reco_vertices > 0);
+  const bool isReconstructable = true;  // TODO: implement a proper reconstructable test
   auto &ch = collectionHistos_.at(label);
 
   // Generic sim plots (collection-independent, filled once per all-sim pass)
@@ -405,10 +464,11 @@ void SecondaryVertexAnalyzerAlgo::fillSimVertexHistograms(const std::string &lab
   }
 
   // Helper lambda: fill a BundleWithCutMask, evaluating reconstructability
-  // with the bundle's own skipCuts mask.
+  // with the bundle's own mask.
   auto fillBundle = [&](BundleWithCutMask &bwm, const double value) {
-    const bool isReco = isReconstructable(sv, bwm.skipCuts);
-    bwm.bundle.fillSimVertexHistos(isMatched, isReco, value);
+    if (!isEligibleForEff(sv, bwm.mask))
+      return;  // not eligible for this set of plots
+    bwm.bundle.fillSimVertexHistos(isMatched, isReconstructable, value);
     if (cfg_.doPerPdgPlots)
       bwm.bundle.fillSimVertexHistosByPdg(sv.motherPdgId, isMatched, value);
   };
