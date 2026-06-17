@@ -13,9 +13,11 @@
  Original Author: Jan Schulz
 */
 
-#include <vector>
-#include <optional>
 #include <cmath>
+#include <optional>
+#include <ostream>
+#include <string>
+#include <vector>
 
 #include "DataFormats/GeometryVector/interface/GlobalPoint.h"
 #include "DataFormats/VertexReco/interface/Vertex.h"
@@ -74,6 +76,46 @@ struct SimSecondaryVertex {
   // Reference to the underlying TrackingVertex
   TrackingVertexRef simVertex;
 };
+
+namespace detail {
+  /// Decode an EfficiencyEligibility bitmask into a human-readable,
+  /// comma-separated list of bundle names. Returns "none" if no bits are set.
+  inline std::string eligibilityToString(EfficiencyEligibility mask) {
+    std::string out;
+    auto append = [&out](const char *name) {
+      if (!out.empty())
+        out += ",";
+      out += name;
+    };
+    if ((mask & EfficiencyEligibility::kDecayLength) != EfficiencyEligibility::kNone)
+      append("decayLength");
+    if ((mask & EfficiencyEligibility::kNDaughters) != EfficiencyEligibility::kNone)
+      append("nTracks");
+    if ((mask & EfficiencyEligibility::kEta) != EfficiencyEligibility::kNone)
+      append("eta");
+    if ((mask & EfficiencyEligibility::kPdgId) != EfficiencyEligibility::kNone)
+      append("pdgId");
+    return out.empty() ? "none" : out;
+  }
+}  // namespace detail
+
+/// Stream operator for debug printing of a SimSecondaryVertex.
+/// Prints position, decay geometry, daughter multiplicity, mother PDG ID,
+/// pileup flag, matching summary, and the efficiency-plot eligibility mask.
+inline std::ostream &operator<<(std::ostream &os, const SimSecondaryVertex &sv) {
+  const double eta = (sv.r > 0. || sv.z != 0.) ? std::atanh(sv.z / std::hypot(sv.r, sv.z)) : 0.;
+
+  os << "SimSecondaryVertex["
+     << "pos=(" << sv.x << ", " << sv.y << ", " << sv.z << ") cm"
+     << ", r=" << sv.r << " cm"
+     << ", eta=" << eta << ", decayLength=" << sv.decayLength << " cm"
+     << ", nCharged=" << sv.nCharged << ", nReconstructable=" << sv.nReconstructable
+     << ", motherPdgId=" << sv.motherPdgId << ", isFromPileup=" << (sv.isFromPileup ? "true" : "false")
+     << ", nMatchedReco=" << sv.num_matched_reco_vertices << ", avgMatchQuality=" << sv.average_match_quality
+     << ", eligibleFor={" << detail::eligibilityToString(sv.eligibility) << "}"
+     << "]";
+  return os;
+}
 
 // =============================================================================
 // RecoSecondaryVertex
