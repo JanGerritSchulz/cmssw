@@ -20,6 +20,7 @@
 #include <vector>
 
 #include "DataFormats/GeometryVector/interface/GlobalPoint.h"
+#include "DataFormats/Math/interface/LorentzVector.h"
 #include "DataFormats/VertexReco/interface/Vertex.h"
 #include "DataFormats/Candidate/interface/VertexCompositePtrCandidate.h"
 #include "SimDataFormats/TrackingAnalysis/interface/TrackingVertex.h"
@@ -53,6 +54,13 @@ struct SimSecondaryVertex {
 
   // Decay geometry — filled after PV association
   double decayLength;  // 3D decay length [cm]
+
+  // Kinematics
+  math::XYZTLorentzVector chargedP4;
+  double mass() const { return chargedP4.mass(); }
+  double pt() const { return chargedP4.pt(); }
+  double eta() const { return chargedP4.eta(); }
+  double phi() const { return chargedP4.phi(); }
 
   // Daughter track multiplicity
   int nCharged;          // number of charged daughter TrackingParticles
@@ -155,7 +163,7 @@ struct RecoSecondaryVertex {
   double x, y, z;
   double r;  // transverse decay radius
 
-  // Decay geometry — filled after PV association
+  // Decay geometry
   double decayLength;
   double decayLengthSignificance;
 
