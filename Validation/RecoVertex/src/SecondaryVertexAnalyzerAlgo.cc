@@ -8,6 +8,9 @@
 #include "DQMServices/Core/interface/DQMBookingHelpers.h"
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 #include "SimTracker/TrackAssociation/interface/trackingVertexMotherPdgId.h"
+#include "RecoVertex/VertexTools/interface/VertexDistance3D.h"
+#include "RecoVertex/VertexPrimitives/interface/ConvertToFromReco.h"
+#include "RecoVertex/VertexPrimitives/interface/VertexState.h"
 
 using namespace dqm::booking;
 
@@ -96,9 +99,12 @@ void SecondaryVertexAnalyzerAlgo::bookHistograms(IBooker &ibook, const std::vect
     // Normalised chi2
     ch.h_chi2ndof.bundle.book1D(ibook, true, true, false, "chi2ndof", "Normalised #chi^{2}", "Entries", 50, 0., 10.);
 
+    // pt of summed track 4-mometum vectors
+    ch.h_pt.bundle.book1DLogX(ibook, true, true, cfg_.doPerPdgPlots, "pt", "SV p_{T} [GeV]", "Entries", 50, 0.1, 1000.);
+
     // Invariant mass — CPC only; booked for all but only filled when available
-    ch.h_mass.bundle.book1D(
-        ibook, true, true, cfg_.doPerPdgPlots, "mass", "SV invariant mass [GeV]", "Entries", 100, 0., 10.);
+    ch.h_mass.bundle.book1DLogX(
+        ibook, true, true, cfg_.doPerPdgPlots, "mass", "SV invariant mass [GeV]", "Entries", 50, 0.1, 1000.);
 
     // ----- Resolution bundles -----
     // Bin axes: decay length [0,30 cm], r [0,10 cm], nTracks [0,20]
@@ -121,6 +127,26 @@ void SecondaryVertexAnalyzerAlgo::bookHistograms(IBooker &ibook, const std::vect
                                              0.,
                                              1.);
   }
+}
+
+// =============================================================================
+// Set the primary vertex
+// =============================================================================
+
+void SecondaryVertexAnalyzerAlgo::setPrimaryVertex(const edm::Handle<reco::VertexCollection> &pvsHandle) {
+  if (pvsHandle.isValid() && !pvsHandle->empty()) {
+    pv_ = pvsHandle->front();
+    return;
+  }
+
+  edm::LogWarning("SecondaryVertexAnalyzer") << "Primary vertex collection missing or empty — "
+                                                "falling back to detector center for decay length calculations.";
+
+  // Fallback: detector center, zero uncertainty.
+  // reco::Vertex(position, error, chi2, ndof, size) — a minimal fake vertex.
+  const reco::Vertex::Point origin(0., 0., 0.);
+  const reco::Vertex::Error zeroError;  // default-constructed: all zeros
+  pv_ = reco::Vertex(origin, zeroError, 0., 0., 0);
 }
 
 // =============================================================================
@@ -161,11 +187,9 @@ double SecondaryVertexAnalyzerAlgo::decayLength(const TrackingVertex &tv, const 
 }
 
 EfficiencyPrecheck SecondaryVertexAnalyzerAlgo::precheckEligibility(const SimSecondaryVertex &sv) const {
-  const double eta = (sv.r > 0. || sv.z != 0.) ? std::atanh(sv.z / std::hypot(sv.r, sv.z)) : 0.;
-
   const int failsDecayLength = (sv.decayLength < cfg_.minDecayLength) || (sv.decayLength > cfg_.maxDecayLength);
   const int failsNDaughters = sv.nCharged < cfg_.minReconstructableDaughters;
-  const int failsEta = std::abs(eta) > cfg_.absEtaMax;
+  const int failsEta = std::abs(sv.eta()) > cfg_.absEtaMax;
 
   EfficiencyPrecheck result;
   result.nFailingCuts = failsDecayLength + failsNDaughters + failsEta;
@@ -255,6 +279,7 @@ std::vector<SimSecondaryVertex> SecondaryVertexAnalyzerAlgo::buildAllSimSVs(
     for (auto iTP = tv.daughterTracks_begin(); iTP != tv.daughterTracks_end(); ++iTP) {
       if ((*iTP)->charge() != 0) {
         ++sv.nCharged;
+        sv.chargedP4 += (*iTP)->p4();
         // A daughter is reconstructable if it has enough hits — use the
         // standard threshold of >=3 hits as a proxy; this can be made
         // configurable if needed.
@@ -310,11 +335,16 @@ std::vector<RecoSecondaryVertex> SecondaryVertexAnalyzerAlgo::buildRecoSVs(
     const edm::View<reco::Vertex> &recoVertices) const {
   std::vector<RecoSecondaryVertex> result;
   result.reserve(recoVertices.size());
+  VertexDistance3D vdist;
   for (size_t i = 0; i < recoVertices.size(); ++i) {
     const auto &vtx = recoVertices[i];
     if (vtx.isFake() || !vtx.isValid() || vtx.ndof() < 0.)
       continue;
     RecoSecondaryVertex rv(vtx.x(), vtx.y(), vtx.z());
+    Measurement1D dl =
+        vdist.distance(pv_, VertexState(RecoVertex::convertPos(vtx.position()), RecoVertex::convertError(vtx.error())));
+    rv.decayLength = dl.value();
+    rv.decayLengthSignificance = dl.significance();
     rv.chi2 = vtx.chi2();
     rv.ndof = vtx.ndof();
     rv.nTracks = static_cast<int>(vtx.tracksSize());
@@ -328,11 +358,16 @@ std::vector<RecoSecondaryVertex> SecondaryVertexAnalyzerAlgo::buildRecoSVs(
     const edm::View<reco::VertexCompositePtrCandidate> &recoVertices) const {
   std::vector<RecoSecondaryVertex> result;
   result.reserve(recoVertices.size());
+  VertexDistance3D vdist;
   for (size_t i = 0; i < recoVertices.size(); ++i) {
     const auto &vtx = recoVertices[i];
     if (vtx.numberOfDaughters() == 0)
       continue;
     RecoSecondaryVertex rv(vtx.vx(), vtx.vy(), vtx.vz());
+    Measurement1D dl =
+        vdist.distance(pv_, VertexState(RecoVertex::convertPos(vtx.position()), RecoVertex::convertError(vtx.error())));
+    rv.decayLength = dl.value();
+    rv.decayLengthSignificance = dl.significance();
     rv.chi2 = vtx.vertexChi2();
     rv.ndof = vtx.vertexNdof();
     rv.nTracks = static_cast<int>(vtx.numberOfDaughters());
@@ -476,10 +511,9 @@ void SecondaryVertexAnalyzerAlgo::fillSimVertexHistograms(const std::string &lab
   fillBundle(ch.h_decayLength, sv.decayLength);
   fillBundle(ch.h_r, sv.r);
   fillBundle(ch.h_nTracks, sv.nCharged);
-
-  // Eta of SV: use pseudorapidity of position vector from origin
-  const double eta = (sv.r > 0. || sv.z != 0.) ? std::atanh(sv.z / std::hypot(sv.r, sv.z)) : 0.;
-  fillBundle(ch.h_eta, eta);
+  fillBundle(ch.h_eta, sv.eta());
+  fillBundle(ch.h_mass, sv.mass());
+  fillBundle(ch.h_pt, sv.pt());
 }
 
 void SecondaryVertexAnalyzerAlgo::fillRecoVertexHistograms(const std::string &label, const RecoSecondaryVertex &rv) {
@@ -516,7 +550,7 @@ void SecondaryVertexAnalyzerAlgo::fillResolutionHistograms(const std::string &la
   const double decayLen = sv.decayLength;
   const double r = sv.r;
   const double nTrk = static_cast<double>(sv.nCharged);
-  const double eta = (sv.r > 0. || sv.z != 0.) ? std::atanh(sv.z / std::hypot(sv.r, sv.z)) : 0.;
+  const double eta = sv.eta();
   const double pt = 0.;
 
   // Position residuals (reco - sim) and pulls
