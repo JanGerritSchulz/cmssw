@@ -22,6 +22,7 @@
 #include "DataFormats/Candidate/interface/VertexCompositePtrCandidate.h"
 #include "SimDataFormats/TrackingAnalysis/interface/TrackingVertex.h"
 #include "SimDataFormats/TrackingAnalysis/interface/TrackingVertexContainer.h"
+#include "Validation/RecoVertex/interface/SVEfficiencyEligibility.h"
 
 // =============================================================================
 // SimSecondaryVertex
@@ -66,6 +67,9 @@ struct SimSecondaryVertex {
 
   // Event identification
   EncodedEventId eventId;
+
+  // Eligibility for efficiency calculation
+  EfficiencyEligibility eligibility;
 
   // Reference to the underlying TrackingVertex
   TrackingVertexRef simVertex;

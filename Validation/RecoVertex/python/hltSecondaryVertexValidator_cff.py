@@ -14,8 +14,10 @@ hltSecondaryVertexValidator = secondaryVertexAnalyzerCPC.clone(
     simVertices = cms.InputTag('mix', 'MergedTrackTruth'),
     trackAssociation = cms.InputTag('trackingParticleRecoTrackAsssociation'),
     minDecayLength = cms.double(0.01),
+    maxDecayLength = cms.double(20.),
     minReconstructableDaughters = cms.int32(2),
-    absEtaMax = cms.double(2.5),
+    minPtReconstructableDaughters = cms.double(0.5),
+    absEtaMax = cms.double(4.5),
     signalPdgIds = cms.vint32(),
 )
 
