@@ -82,6 +82,7 @@ private:
   const edm::EDGetTokenT<TrackingVertexCollection> simVertexToken_;
   const edm::EDGetTokenT<reco::RecoToSimCollection> trackRecoToSimToken_;
   const edm::EDGetTokenT<reco::SimToRecoCollection> trackSimToRecoToken_;
+  const edm::EDGetTokenT<std::vector<reco::Vertex>> primaryVertexToken_;
 
   // -----------------------------------------------------------------------
   // Algorithm
@@ -99,6 +100,7 @@ SecondaryVertexAnalyzerBase<VertexCollection>::SecondaryVertexAnalyzerBase(const
       simVertexToken_(consumes<TrackingVertexCollection>(pset.getParameter<edm::InputTag>("simVertices"))),
       trackRecoToSimToken_(consumes<reco::RecoToSimCollection>(pset.getParameter<edm::InputTag>("trackAssociation"))),
       trackSimToRecoToken_(consumes<reco::SimToRecoCollection>(pset.getParameter<edm::InputTag>("trackAssociation"))),
+      primaryVertexToken_(consumes<std::vector<reco::Vertex>>(pset.getParameter<edm::InputTag>("primaryVertices"))),
       algo_(SecondaryVertexAnalyzerAlgo::Config{
           pset.getUntrackedParameter<std::string>("rootFolder", "Validation/Vertices/Secondary"),
           pset.getUntrackedParameter<bool>("verbose", false),
@@ -172,6 +174,11 @@ void SecondaryVertexAnalyzerBase<VertexCollection>::analyze(const edm::Event &iE
     return;
   }
 
+  edm::Handle<std::vector<reco::Vertex>> primaryVertices;
+  iEvent.getByToken(primaryVertexToken_, primaryVertices);
+
+  algo_.setPrimaryVertex(primaryVertices);
+
   algo_.prepareEventTruth(simVertices, genEvent);
 
   // Loop over configured reco vertex collections
@@ -228,6 +235,7 @@ void SecondaryVertexAnalyzerBase<VertexCollection>::fillDescriptions(edm::Config
       ->setComment(
           "VertexToTrackingVertexAssociator wrappers, one per entry in recoVertexCollections. Produced by "
           "e.g. VertexAssociatorByPositionAndTracksProducer.");
+  desc.add<edm::InputTag>("primaryVertices")->setComment("Reco primary vertices used for decay length calculation.");
   desc.add<edm::InputTag>("hepMCProduct", edm::InputTag("generatorSmeared"))
       ->setComment("Input generated HepMC event after vtx smearing");
   desc.add<edm::InputTag>("simVertices", edm::InputTag("mix", "MergedTrackTruth"))

@@ -146,6 +146,10 @@ public:
                const SimToRecoCollectionCPC &simToReco,
                const std::string &collectionLabel);
 
+  /// Set the (reco) primary vertex of the event once since it's needed for decay length calculation.
+  /// If PV collection is unavailable, default to the detector center.
+  void setPrimaryVertex(const edm::Handle<reco::VertexCollection> &pvsHandle);
+
   /// Build both the full sim SV list and a reference list for the subset used for efficiency calculation.
   /// Exposed as a public function so it be called only once for all reco SV collections together.
   void prepareEventTruth(const edm::Handle<TrackingVertexCollection> &simVerticesH, const HepMC::GenEvent *genEvent);
@@ -267,6 +271,7 @@ private:
     BundleWithCutMask h_eta{.mask = EffElig::kEta};
     BundleWithCutMask h_chi2ndof{};
     // mass only available for CPC — bundle present but unfilled for reco::Vertex
+    BundleWithCutMask h_pt{};
     BundleWithCutMask h_mass{};
 
     // Resolution bundles — filled only for matched reco-sim pairs,
@@ -302,9 +307,12 @@ private:
   std::map<std::string, CollectionHistograms> collectionHistos_;
   GenericSimHistograms genericSimHistos_;
 
-  // MC truth SimVertcies for SVs (built once for all collections together and then reused)
+  // MC truth SimVertices for SVs (built once for all collections together and then reused)
   std::vector<SimSecondaryVertex> allSimSVs_;
   std::vector<SimSecondaryVertex *> signalSimSVs_;
+
+  // Primary vertex (reco) of the event, defaults to CMS center if unavailable
+  reco::Vertex pv_;
 };
 
 #endif  // Validation_RecoVertex_SecondaryVertexAnalyzerAlgo_h
