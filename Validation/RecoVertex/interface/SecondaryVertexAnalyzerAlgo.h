@@ -37,11 +37,11 @@
  boundaries. This is handled via the ReconstructabilityFlags bitmask: each
  monitoring bundle is associated with a set of flags that identifies which
  cut(s) to suppress when evaluating reconstructability for that bundle's
- sim-side fills. The isReconstructable() predicate accepts a SkipCuts value
- and bypasses the corresponding checks.
+ sim-side fills. The isEligibleForEff() predicate accepts a EfficiencyEligibility 
+ value and bypasses the corresponding checks.
 
  Example:
-   h_decayLength bundle  → SkipCuts::kDecayLength  (do not apply minDecayLength)
+   h_decayLength bundle  → SkipCuts::kDecayLength  (do not apply minDecayLength/maxDecayLength)
    h_nTracks bundle      → SkipCuts::kNDaughters   (do not apply minReconstructableDaughters)
    h_eta bundle          → SkipCuts::kEta          (do not apply absEtaMax)
    all other bundles     → SkipCuts::kNone         (apply all cuts)
@@ -98,10 +98,12 @@ public:
     // Signal selection cuts applied to build signalSimSVs_.
     // Each cut is individually suppressed for the monitoring bundle
     // whose x-axis is that quantity (see SkipCuts below).
-    double minDecayLength;                  // minimum 3D decay length [cm]
-    int minReconstructableDaughters;        // minimum charged daughters
-    double absEtaMax;                       // maximum |eta| of SV position
-    bool bHadrons, cHadrons, otherHadrons;  // include certain types for eff
+    double minDecayLength;                    // minimum 3D decay length [cm]
+    double maxDecayLength;                    // maximum 3D decay length [cm]
+    double minPtReconstructableDaughters;     // minimum pT of charged daughters
+    int minReconstructableDaughters;          // minimum charged daughters
+    double absEtaMax;                         // maximum |eta| of SV position
+    bool bHadrons, cHadrons, otherParticles;  // include certain types for eff
 
     // Optional PDG ID filter: if non-empty, only sim SVs whose mother PDG ID
     // (absolute value) appears in this list are included in signalSimSVs_.
@@ -113,21 +115,14 @@ public:
   // Reconstructability cut suppression
   // =========================================================================
 
-  /// Bitmask identifying which reconstructability cuts to suppress.
-  /// Used to implement variable-blind efficiency plots: the bundle whose
-  /// x-axis is quantity X suppresses the cut on X when evaluating
-  /// reconstructability for its sim-side fills.
-  enum SkipCuts : uint32_t {
-    kNone = 0,
-    kDecayLength = 1 << 0,  // suppress minDecayLength cut
-    kNDaughters = 1 << 1,   // suppress minReconstructableDaughters cut
-    kEta = 1 << 2,          // suppress absEtaMax cut
-    kPdgId = 1 << 3,        // suppress PDG ID filter
-  };
+  /// Bitmask `EfficiencyEligibility` used to implement variable-blind
+  /// efficiency plots: the bundle whose x-axis is quantity X suppresses the
+  /// cut on X when evaluating reconstructability for its sim-side fills.
+  using EffElig = EfficiencyEligibility;
 
   /// Returns true if sv passes the reconstructability criteria, optionally
-  /// suppressing individual cuts as indicated by skipCuts.
-  bool isReconstructable(const SimSecondaryVertex &sv, uint32_t skipCuts = kNone) const;
+  /// suppressing individual cuts as indicated by mask.
+  bool isEligibleForEff(const SimSecondaryVertex &sv, EfficiencyEligibility mask = EffElig::kNone) const;
 
   // =========================================================================
   // Public interface
@@ -153,7 +148,7 @@ public:
 
   /// Build both the full sim SV list and a reference list for the subset used for efficiency calculation.
   /// Exposed as a public function so it be called only once for all reco SV collections together.
-  void prepareEventTruth(const TrackingVertexCollection &simVertices, const HepMC::GenEvent *genEvent);
+  void prepareEventTruth(const edm::Handle<TrackingVertexCollection> &simVerticesH, const HepMC::GenEvent *genEvent);
 
   /// Clear the SimVertex SVs at the end of the event.
   void clearEventTruth();
@@ -166,13 +161,12 @@ private:
   /// Build the full sim SV list: all non-PV TrackingVertices with decay
   /// length and mother PDG ID populated. No signal selection applied.
   /// Used as truth reference for fake/duplicate/pileup rate estimates.
-  std::vector<SimSecondaryVertex> buildAllSimSVs(const TrackingVertexCollection &simVertices,
-                                                 const HepMC::GenEvent *genEvent) const;
+  std::vector<SimSecondaryVertex> buildAllSimSVs(const edm::Handle<TrackingVertexCollection> &simVerticesH) const;
 
   /// Apply signal selection to allSimSVs_ to produce the efficiency
   /// denominator. Applies minDecayLength, minReconstructableDaughters,
   /// absEtaMax, and signalPdgIds from Config.
-  std::vector<SimSecondaryVertex *> buildSignalSimSVs();
+  std::vector<SimSecondaryVertex *> buildSignalSimSVs(const HepMC::GenEvent *genEvent);
 
   /// Reset all the reco-matching-dependent information in the SimVertex SVs.
   /// Should be called everytime a new RecoVertex collection is analyzed.
@@ -181,6 +175,17 @@ private:
   /// Compute 3D decay length w.r.t. the hard-scatter primary vertex.
   double decayLength(const TrackingVertex &tv, const TrackingVertex &pv) const;
 
+  /// Stage 1 of setting the EfficiencyEligibility flags:
+  /// evaluate the cheap reconstructability cuts (decay length,
+  /// N daughters, eta) and report per-cut pass/fail plus the eligibility
+  /// bitmask restricted to those three cuts.
+  EfficiencyPrecheck precheckEligibility(const SimSecondaryVertex &sv) const;
+
+  /// Stage 2: given the Stage 1 precheck and the now-known motherPdgId (or 0
+  /// if Stage 1 decided it wasn't worth computing), produce the final
+  /// per-bundle eligibility bitmask, including kPdgId.
+  /// Returns true, if eligible for some efficiency plot.
+  bool finalizeEligibility(SimSecondaryVertex &sv, const EfficiencyPrecheck &precheck) const;
   // =========================================================================
   // Reco vertex building
   // =========================================================================
@@ -245,24 +250,24 @@ private:
   // =========================================================================
 
   // Per-collection bundle structs. Each SVMonitoringBundle is associated
-  // with a SkipCuts mask that is applied when evaluating reconstructability
+  // with a mask that is applied when evaluating the eligibility for efficiency calculation
   // during sim-side fills — this implements variable-blind cut suppression.
   struct BundleWithCutMask {
     SVMonitoringBundle bundle{};
-    uint32_t skipCuts = kNone;  // which reconstructability cuts to suppress
+    EfficiencyEligibility mask = EffElig::kNone;  // which eligibility to check
   };
 
   struct CollectionHistograms {
     // Efficiency / fake rate monitoring bundles.
-    // skipCuts encodes which cut is suppressed for each bundle's x-axis.
-    BundleWithCutMask h_decayLength{.skipCuts = kDecayLength};
-    BundleWithCutMask h_decayLengthSig{.skipCuts = kDecayLength};
-    BundleWithCutMask h_r{.skipCuts = kNone};
-    BundleWithCutMask h_nTracks{.skipCuts = kNDaughters};
-    BundleWithCutMask h_eta{.skipCuts = kEta};
-    BundleWithCutMask h_chi2ndof{.skipCuts = kNone};
+    // mask encodes which cut is suppressed for each bundle's x-axis.
+    BundleWithCutMask h_decayLength{.mask = EffElig::kDecayLength};
+    BundleWithCutMask h_decayLengthSig{.mask = EffElig::kDecayLength};
+    BundleWithCutMask h_r{};
+    BundleWithCutMask h_nTracks{.mask = EffElig::kNDaughters};
+    BundleWithCutMask h_eta{.mask = EffElig::kEta};
+    BundleWithCutMask h_chi2ndof{};
     // mass only available for CPC — bundle present but unfilled for reco::Vertex
-    BundleWithCutMask h_mass{.skipCuts = kNone};
+    BundleWithCutMask h_mass{};
 
     // Resolution bundles — filled only for matched reco-sim pairs,
     // no reconstructability evaluation needed here.
