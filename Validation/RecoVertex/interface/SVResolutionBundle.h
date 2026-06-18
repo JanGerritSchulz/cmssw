@@ -51,6 +51,8 @@ public:
             const int nTracks,
             const double residual,
             const double pull) {
+    if (h_res)
+      h_res->Fill(residual);
     if (h_res_vs_decayLength)
       h_res_vs_decayLength->Fill(decayLength, residual);
     if (h_res_vs_decayLength2D)
@@ -61,6 +63,8 @@ public:
       h_res_vs_pt->Fill(pt, residual);
     if (h_res_vs_nTracks)
       h_res_vs_nTracks->Fill(nTracks, residual);
+    if (h_pull)
+      h_pull->Fill(pull);
     if (h_pull_vs_decayLength)
       h_pull_vs_decayLength->Fill(decayLength, pull);
     if (h_pull_vs_decayLength2D)
@@ -76,12 +80,14 @@ public:
   // Book all histograms for this resolution bundle.
   void bookResolutions(IBooker &ibooker,
                        // Common bins settings
-                       const BinConfig& bins,
+                       const BinConfig &bins,
                        // residual axis
                        const std::string &name,
                        const int resNBins,
                        const double resMin,
                        const double resMax) {
+    h_res = dqm::booking::book1DIfLogX(
+        ibooker, false, (name + "_res").c_str(), (name + " residuals;Residuals").c_str(), resNBins, resMin, resMax);
     h_res_vs_decayLength =
         dqm::booking::book2DIfLogX(ibooker,
                                    false,
@@ -135,6 +141,8 @@ public:
                                    resNBins,
                                    resMin,
                                    resMax);
+    h_pull = dqm::booking::book1DIfLogX(
+        ibooker, false, (name + "_pull").c_str(), (name + " pulls;Pulls").c_str(), 100, -10., 10.);
     h_pull_vs_decayLength =
         dqm::booking::book2DIfLogX(ibooker,
                                    false,
@@ -207,11 +215,13 @@ public:
   }
 
 private:
+  dqm::reco::MonitorElement *h_res = nullptr;
   dqm::reco::MonitorElement *h_res_vs_decayLength = nullptr;
   dqm::reco::MonitorElement *h_res_vs_decayLength2D = nullptr;
   dqm::reco::MonitorElement *h_res_vs_eta = nullptr;
   dqm::reco::MonitorElement *h_res_vs_pt = nullptr;
   dqm::reco::MonitorElement *h_res_vs_nTracks = nullptr;
+  dqm::reco::MonitorElement *h_pull = nullptr;
   dqm::reco::MonitorElement *h_pull_vs_decayLength = nullptr;
   dqm::reco::MonitorElement *h_pull_vs_decayLength2D = nullptr;
   dqm::reco::MonitorElement *h_pull_vs_eta = nullptr;
