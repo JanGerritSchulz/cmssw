@@ -19,7 +19,10 @@
 #include <string>
 #include <vector>
 
+#include "DataFormats/GeometryCommonDetAlgo/interface/Measurement1D.h"
 #include "DataFormats/GeometryVector/interface/GlobalPoint.h"
+#include "DataFormats/Math/interface/Error.h"
+#include "DataFormats/Math/interface/Point3D.h"
 #include "DataFormats/Math/interface/LorentzVector.h"
 #include "DataFormats/VertexReco/interface/Vertex.h"
 #include "DataFormats/Candidate/interface/VertexCompositePtrCandidate.h"
@@ -41,11 +44,12 @@ struct SimSecondaryVertex {
         z(z1),
         r(std::sqrt(x1 * x1 + y1 * y1)),
         decayLength(-1.),
+        decayLengthXY(-1.),
         nCharged(0),
         nReconstructable(0),
         num_matched_reco_vertices(0),
         average_match_quality(0.f),
-        motherPdgId(0),
+        motherPdgId(std::nullopt),
         isFromPileup(false) {}
 
   // Position
@@ -53,7 +57,8 @@ struct SimSecondaryVertex {
   double r;  // transverse decay radius
 
   // Decay geometry — filled after PV association
-  double decayLength;  // 3D decay length [cm]
+  double decayLength;    // 3D decay length [cm]
+  double decayLengthXY;  // 2D decay length [cm]
 
   // Kinematics
   math::XYZTLorentzVector chargedP4;
@@ -72,8 +77,8 @@ struct SimSecondaryVertex {
   std::vector<float> matched_reco_shared_fractions;
 
   // Generator-level information
-  int motherPdgId;    // PDG ID of the immediate decaying particle
-  bool isFromPileup;  // true if this vertex comes from a pileup interaction
+  std::optional<int> motherPdgId;  // PDG ID of the immediate decaying particle
+  bool isFromPileup;               // true if this vertex comes from a pileup interaction
 
   // Event identification
   EncodedEventId eventId;
@@ -117,8 +122,9 @@ inline std::ostream &operator<<(std::ostream &os, const SimSecondaryVertex &sv) 
      << "pos=(" << sv.x << ", " << sv.y << ", " << sv.z << ") cm"
      << ", r=" << sv.r << " cm"
      << ", eta=" << eta << ", decayLength=" << sv.decayLength << " cm"
+     << ", decayLengthXY=" << sv.decayLengthXY << " cm"
      << ", nCharged=" << sv.nCharged << ", nReconstructable=" << sv.nReconstructable
-     << ", motherPdgId=" << sv.motherPdgId << ", isFromPileup=" << (sv.isFromPileup ? "true" : "false")
+     << ", motherPdgId=" << sv.motherPdgId.value_or(0) << ", isFromPileup=" << (sv.isFromPileup ? "true" : "false")
      << ", nMatchedReco=" << sv.num_matched_reco_vertices << ", avgMatchQuality=" << sv.average_match_quality
      << ", eligibleFor={" << detail::eligibilityToString(sv.eligibility) << "}"
      << "]";
@@ -134,6 +140,9 @@ inline std::ostream &operator<<(std::ostream &os, const SimSecondaryVertex &sv) 
 // =============================================================================
 
 struct RecoSecondaryVertex {
+  using Point = math::XYZPoint;
+  using Error = math::Error<3>::type;
+
   // Bitmask flags — consistent with PrimaryVertexAnalyzer4PUSlimmed conventions
   enum VertexProperties {
     NONE = 0,
@@ -143,37 +152,65 @@ struct RecoSecondaryVertex {
     MERGED = 8,
   };
 
-  RecoSecondaryVertex(double x1, double y1, double z1)
-      : x(x1),
-        y(y1),
-        z(z1),
-        r(std::sqrt(x1 * x1 + y1 * y1)),
-        decayLength(-1.),
-        decayLengthSignificance(-1.),
-        chi2(-1.),
-        ndof(-1.),
-        nTracks(0),
-        num_matched_sim_vertices(0),
-        kind_of_vertex(NONE),
-        mass(std::nullopt),
-        motherPdgId(std::nullopt),
-        isFromPileup(false) {}
+  RecoSecondaryVertex(reco::Vertex const &vtx)
+      : position(vtx.position()),
+        positionCov(vtx.error()),
+        chi2(vtx.chi2()),
+        ndof(vtx.ndof()),
+        nTracks(static_cast<int>(vtx.tracksSize())) {
+    constexpr double kChargedPionMass = 0.13957039;  // GeV
+    sumP4 = {0., 0., 0., 0.};
+    for (auto iTrack = vtx.tracks_begin(); iTrack != vtx.tracks_end(); ++iTrack) {
+      const double px = (*iTrack)->px();
+      const double py = (*iTrack)->py();
+      const double pz = (*iTrack)->pz();
+      const double p2 = px * px + py * py + pz * pz;
+      const double e = std::sqrt(p2 + kChargedPionMass * kChargedPionMass);
+      sumP4 += math::XYZTLorentzVector(px, py, pz, e);
+    }
+  }
 
-  // Position
-  double x, y, z;
-  double r;  // transverse decay radius
+  RecoSecondaryVertex(reco::VertexCompositePtrCandidate const &vtx)
+      : position(vtx.position()),
+        positionCov(vtx.error()),
+        sumP4(vtx.p4()),
+        chi2(vtx.vertexChi2()),
+        ndof(vtx.vertexNdof()),
+        nTracks(vtx.numberOfDaughters()) {}
+
+  // Position and kinematics
+  Point position;
+  double x() const { return position.x(); }
+  double y() const { return position.y(); }
+  double z() const { return position.z(); }
+  double r() const { return position.rho(); }
+  Error positionCov;
+  double xError() const { return std::sqrt(positionCov(0, 0)); }
+  double yError() const { return std::sqrt(positionCov(1, 1)); }
+  double zError() const { return std::sqrt(positionCov(2, 2)); }
+  math::XYZTLorentzVector sumP4;
+  double mass() const { return sumP4.mass(); }
+  double pt() const { return sumP4.pt(); }
+  double eta() const { return sumP4.eta(); }
+  double phi() const { return sumP4.phi(); }
 
   // Decay geometry
-  double decayLength;
-  double decayLengthSignificance;
+  Measurement1D decayLength3D;
+  double decayLength() const { return decayLength3D.value(); }
+  double decayLengthError() const { return decayLength3D.error(); }
+  double decayLengthSignificance() const { return decayLength3D.significance(); }
+  Measurement1D decayLength2D;
+  double decayLengthXY() const { return decayLength2D.value(); }
+  double decayLengthXYError() const { return decayLength2D.error(); }
+  double decayLengthXYSignificance() const { return decayLength2D.significance(); }
 
   // Fit quality
-  double chi2;
-  double ndof;
+  double chi2 = -1.;
+  double ndof = -1.;
   double normalizedChi2() const { return (ndof > 0.) ? chi2 / ndof : -1.; }
 
   // Track multiplicity
-  int nTracks;
+  int nTracks = 0;
 
   // Matching to sim
   int num_matched_sim_vertices;
@@ -181,19 +218,16 @@ struct RecoSecondaryVertex {
   std::vector<float> sim_vertices_shared_fraction;
 
   // Classification flags (bitmask of VertexProperties)
-  int kind_of_vertex;
-
-  // Optional fields — populated for VertexCompositePtrCandidate only
-  std::optional<double> mass;
+  int kind_of_vertex = NONE;
 
   // Optional fields — populated after MC truth matching
-  std::optional<int> motherPdgId;
-  bool isFromPileup;
+  std::optional<int> motherPdgId = std::nullopt;
+  bool isFromPileup = false;
 
   // Reference to the underlying reco vertex:
   // reco::VertexBaseRef or VertexCompositePtrCandidateRef.
-  std::optional<edm::RefToBase<reco::Vertex>> recoVertexRef;
-  std::optional<edm::RefToBase<reco::VertexCompositePtrCandidate>> recoVertexCPCRef;
+  std::optional<edm::RefToBase<reco::Vertex>> recoVertexRef = std::nullopt;
+  std::optional<edm::RefToBase<reco::VertexCompositePtrCandidate>> recoVertexCPCRef = std::nullopt;
 
   template <typename VertexType>
   edm::RefToBase<VertexType> recoVertex() const;

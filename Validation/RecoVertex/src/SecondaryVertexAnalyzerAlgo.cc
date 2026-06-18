@@ -9,6 +9,7 @@
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 #include "SimTracker/TrackAssociation/interface/trackingVertexMotherPdgId.h"
 #include "RecoVertex/VertexTools/interface/VertexDistance3D.h"
+#include "RecoVertex/VertexTools/interface/VertexDistanceXY.h"
 #include "RecoVertex/VertexPrimitives/interface/ConvertToFromReco.h"
 #include "RecoVertex/VertexPrimitives/interface/VertexState.h"
 
@@ -47,8 +48,8 @@ void SecondaryVertexAnalyzerAlgo::bookHistograms(IBooker &ibook, const std::vect
     ibook.setCurrentFolder(cfg_.rootFolder);
     genericSimHistos_.h_decayLength =
         book1DLogX(ibook, "SimSV_decayLength", "All sim SVs;3D decay length L_{3D} [cm];Entries", 50, 1e-3, 100.);
-    genericSimHistos_.h_r =
-        book1DLogX(ibook, "SimSV_r", "All sim SVs;Transverse decay radius r_{T} [cm];Entries", 50, 1e-3, 50.);
+    genericSimHistos_.h_decayLengthXY = book1DLogX(
+        ibook, "SimSV_decayLengthXY", "All sim SVs;2D decay length in x-y, L_{2D} [cm];Entries", 50, 1e-3, 100.);
     genericSimHistos_.h_nDaughters =
         ibook.book1D("SimSV_nDaughters", "All sim SVs;N charged daughters;Entries", 20, -0.5, 19.5);
     genericSimHistos_.h_motherPdgId =
@@ -71,14 +72,50 @@ void SecondaryVertexAnalyzerAlgo::bookHistograms(IBooker &ibook, const std::vect
     // Decay length — suppress kDecayLength cut for sim-side fills
     ch.h_decayLength.bundle.book1DLogX(
         ibook, true, true, cfg_.doPerPdgPlots, "decayLength", "3D decay length L_{3D} [cm]", "Entries", 50, 1e-3, 100.);
+    ch.h_decayLengthXY.bundle.book1DLogX(ibook,
+                                         true,
+                                         true,
+                                         cfg_.doPerPdgPlots,
+                                         "decayLengthXY",
+                                         "2D decay length in x-y, L_{2D} [cm]",
+                                         "Entries",
+                                         50,
+                                         1e-3,
+                                         100.);
 
     // Decay length significance
-    ch.h_decayLengthSig.bundle.book1DLogX(
-        ibook, true, true, cfg_.doPerPdgPlots, "decayLengthSig", "L_{3D}/#sigma_{L_{3D}}", "Entries", 50, 0.1, 1000.);
+    ch.h_decayLengthSig.bundle.book1DLogX(ibook,
+                                          /*bookSimHistos*/ false,
+                                          true,
+                                          cfg_.doPerPdgPlots,
+                                          "decayLengthSig",
+                                          "L_{3D}/#sigma_{L_{3D}}",
+                                          "Entries",
+                                          50,
+                                          0.1,
+                                          1000.);
+    ch.h_decayLengthXYSig.bundle.book1DLogX(ibook,
+                                            /*bookSimHistos*/ false,
+                                            true,
+                                            cfg_.doPerPdgPlots,
+                                            "decayLengthXYSig",
+                                            "L_{2D}/#sigma_{L_{2D}}",
+                                            "Entries",
+                                            50,
+                                            0.1,
+                                            1000.);
 
     // Transverse radius
-    ch.h_r.bundle.book1DLogX(
-        ibook, true, true, cfg_.doPerPdgPlots, "r", "Transverse decay radius r_{T} [cm]", "Entries", 50, 1e-3, 50.);
+    ch.h_r.bundle.book1DLogX(ibook,
+                             /*bookSimHistos*/ false,
+                             true,
+                             cfg_.doPerPdgPlots,
+                             "r",
+                             "Transverse decay radius r_{T} [cm]",
+                             "Entries",
+                             50,
+                             1e-3,
+                             50.);
 
     // Track multiplicity — suppress kNDaughters cut
     ch.h_nTracks.bundle.book1D(
@@ -90,19 +127,20 @@ void SecondaryVertexAnalyzerAlgo::bookHistograms(IBooker &ibook, const std::vect
                            true,
                            cfg_.doPerPdgPlots,
                            "eta",
-                           "#eta of SV position",
+                           "#eta of SV",
                            "Entries",
                            50,
                            -cfg_.absEtaMax * 1.2,
                            cfg_.absEtaMax * 1.2);
 
     // Normalised chi2
-    ch.h_chi2ndof.bundle.book1D(ibook, true, true, false, "chi2ndof", "Normalised #chi^{2}", "Entries", 50, 0., 10.);
+    ch.h_chi2ndof.bundle.book1D(
+        ibook, /*bookSimHistos*/ false, true, false, "chi2ndof", "Normalised #chi^{2}", "Entries", 50, 0., 10.);
 
     // pt of summed track 4-mometum vectors
     ch.h_pt.bundle.book1DLogX(ibook, true, true, cfg_.doPerPdgPlots, "pt", "SV p_{T} [GeV]", "Entries", 50, 0.1, 1000.);
 
-    // Invariant mass — CPC only; booked for all but only filled when available
+    // Invariant mass
     ch.h_mass.bundle.book1DLogX(
         ibook, true, true, cfg_.doPerPdgPlots, "mass", "SV invariant mass [GeV]", "Entries", 50, 0.1, 1000.);
 
@@ -112,8 +150,10 @@ void SecondaryVertexAnalyzerAlgo::bookHistograms(IBooker &ibook, const std::vect
     ch.h_yRes.bookResolutions(ibook, bins, "y", 100, -0.05, 0.05);
     ch.h_zRes.bookResolutions(ibook, bins, "z", 100, -0.05, 0.05);
     ch.h_decayLengthRes.bookResolutions(ibook, bins, "decayLength", 50, -3., 3.);
+    ch.h_decayLengthXYRes.bookResolutions(ibook, bins, "decayLengthXY", 50, -3., 3.);
     ch.h_ptRes.bookResolutions(ibook, bins, "pt", 100, -10., 10.);
     ch.h_etaRes.bookResolutions(ibook, bins, "eta", 100, -0.2, 0.2);
+    ch.h_phiRes.bookResolutions(ibook, bins, "phi", 100, -0.2, 0.2);
     ch.h_massRes.bookResolutions(ibook, bins, "mass", 100, -1., 1.);
 
     // ----- Plain per-collection histograms -----
@@ -177,12 +217,14 @@ void SecondaryVertexAnalyzerAlgo::clearEventTruth() {
   signalSimSVs_.clear();
 }
 
-double SecondaryVertexAnalyzerAlgo::decayLength(const TrackingVertex &tv, const TrackingVertex &pv) const {
+double SecondaryVertexAnalyzerAlgo::decayLength(const TrackingVertex &tv,
+                                                const TrackingVertex &pv,
+                                                const bool decayLength2D = false) const {
   const auto &svPos = tv.position();
   const auto &pvPos = pv.position();
   const double dx = svPos.x() - pvPos.x();
   const double dy = svPos.y() - pvPos.y();
-  const double dz = svPos.z() - pvPos.z();
+  const double dz = decayLength2D ? 0. : (svPos.z() - pvPos.z());
   return std::sqrt(dx * dx + dy * dy + dz * dz);
 }
 
@@ -209,7 +251,7 @@ bool SecondaryVertexAnalyzerAlgo::finalizeEligibility(SimSecondaryVertex &sv,
   EfficiencyEligibility result = precheck.eligibility;
 
   bool passPdgIdCut = true;
-  const auto pdgId = sv.motherPdgId;
+  const auto pdgId = sv.motherPdgId.value();
   if (!(cfg_.bHadrons) && sim::isBHadron(pdgId))
     passPdgIdCut = false;
   if (!(cfg_.cHadrons) && sim::isCHadron(pdgId))
@@ -267,8 +309,9 @@ std::vector<SimSecondaryVertex> SecondaryVertexAnalyzerAlgo::buildAllSimSVs(
     const auto &pos = tv.position();
     SimSecondaryVertex sv(pos.x(), pos.y(), pos.z());
 
+    // mother pdgId is assigned (later) for signal used in efficiency only (std::nullopt otherwise)
     sv.decayLength = decayLength(tv, pv);
-    sv.motherPdgId = 0;  // mother pdgId is assigned (later) for signal used in efficiency only
+    sv.decayLengthXY = decayLength(tv, pv, /*decayLength2D*/ true);
     sv.isFromPileup = (tv.eventId().event() != 0);
     sv.eventId = tv.eventId();
     sv.eligibility = EfficiencyEligibility::kNone;
@@ -335,19 +378,17 @@ std::vector<RecoSecondaryVertex> SecondaryVertexAnalyzerAlgo::buildRecoSVs(
     const edm::View<reco::Vertex> &recoVertices) const {
   std::vector<RecoSecondaryVertex> result;
   result.reserve(recoVertices.size());
-  VertexDistance3D vdist;
+  VertexDistance3D vdist3D;
+  VertexDistanceXY vdist2D;
   for (size_t i = 0; i < recoVertices.size(); ++i) {
     const auto &vtx = recoVertices[i];
     if (vtx.isFake() || !vtx.isValid() || vtx.ndof() < 0.)
       continue;
-    RecoSecondaryVertex rv(vtx.x(), vtx.y(), vtx.z());
-    Measurement1D dl =
-        vdist.distance(pv_, VertexState(RecoVertex::convertPos(vtx.position()), RecoVertex::convertError(vtx.error())));
-    rv.decayLength = dl.value();
-    rv.decayLengthSignificance = dl.significance();
-    rv.chi2 = vtx.chi2();
-    rv.ndof = vtx.ndof();
-    rv.nTracks = static_cast<int>(vtx.tracksSize());
+    RecoSecondaryVertex rv(vtx);
+    rv.decayLength3D = vdist3D.distance(
+        pv_, VertexState(RecoVertex::convertPos(vtx.position()), RecoVertex::convertError(vtx.error())));
+    rv.decayLength2D = vdist2D.distance(
+        pv_, VertexState(RecoVertex::convertPos(vtx.position()), RecoVertex::convertError(vtx.error())));
     rv.recoVertexRef = recoVertices.refAt(i);
     result.push_back(std::move(rv));
   }
@@ -358,20 +399,17 @@ std::vector<RecoSecondaryVertex> SecondaryVertexAnalyzerAlgo::buildRecoSVs(
     const edm::View<reco::VertexCompositePtrCandidate> &recoVertices) const {
   std::vector<RecoSecondaryVertex> result;
   result.reserve(recoVertices.size());
-  VertexDistance3D vdist;
+  VertexDistance3D vdist3D;
+  VertexDistanceXY vdist2D;
   for (size_t i = 0; i < recoVertices.size(); ++i) {
     const auto &vtx = recoVertices[i];
     if (vtx.numberOfDaughters() == 0)
       continue;
-    RecoSecondaryVertex rv(vtx.vx(), vtx.vy(), vtx.vz());
-    Measurement1D dl =
-        vdist.distance(pv_, VertexState(RecoVertex::convertPos(vtx.position()), RecoVertex::convertError(vtx.error())));
-    rv.decayLength = dl.value();
-    rv.decayLengthSignificance = dl.significance();
-    rv.chi2 = vtx.vertexChi2();
-    rv.ndof = vtx.vertexNdof();
-    rv.nTracks = static_cast<int>(vtx.numberOfDaughters());
-    rv.mass = vtx.mass();
+    RecoSecondaryVertex rv(vtx);
+    rv.decayLength3D = vdist3D.distance(
+        pv_, VertexState(RecoVertex::convertPos(vtx.position()), RecoVertex::convertError(vtx.error())));
+    rv.decayLength2D = vdist2D.distance(
+        pv_, VertexState(RecoVertex::convertPos(vtx.position()), RecoVertex::convertError(vtx.error())));
     rv.recoVertexCPCRef = recoVertices.refAt(i);
     result.push_back(std::move(rv));
   }
@@ -464,7 +502,8 @@ void SecondaryVertexAnalyzerAlgo::matchReco2SimVertices(std::vector<RecoSecondar
     // Propagate mother PDG ID from the best-quality sim match.
     if (!rv.sim_vertices.empty()) {
       const SimSecondaryVertex *bestSim = rv.sim_vertices.front();
-      rv.motherPdgId = bestSim->motherPdgId;
+      if (bestSim->motherPdgId)
+        rv.motherPdgId = bestSim->motherPdgId;
 
       // Duplicate check
       auto [it2, inserted] = reconstructedSimSVs.emplace(bestSim);
@@ -488,9 +527,10 @@ void SecondaryVertexAnalyzerAlgo::fillSimVertexHistograms(const std::string &lab
   // Generic sim plots (collection-independent, filled once per all-sim pass)
   if (cfg_.doGenericSimPlots && genericSimHistos_.h_decayLength) {
     genericSimHistos_.h_decayLength->Fill(sv.decayLength);
-    genericSimHistos_.h_r->Fill(sv.r);
+    genericSimHistos_.h_decayLengthXY->Fill(sv.decayLengthXY);
     genericSimHistos_.h_nDaughters->Fill(sv.nCharged);
-    genericSimHistos_.h_motherPdgId->Fill(std::abs(sv.motherPdgId));
+    if (sv.motherPdgId)
+      genericSimHistos_.h_motherPdgId->Fill(std::abs(sv.motherPdgId.value()));
   }
 
   // Helper lambda: fill a BundleWithCutMask, evaluating reconstructability
@@ -500,11 +540,11 @@ void SecondaryVertexAnalyzerAlgo::fillSimVertexHistograms(const std::string &lab
       return;  // not eligible for this set of plots
     bwm.bundle.fillSimVertexHistos(isMatched, isReconstructable, value);
     if (cfg_.doPerPdgPlots)
-      bwm.bundle.fillSimVertexHistosByPdg(sv.motherPdgId, isMatched, value);
+      bwm.bundle.fillSimVertexHistosByPdg(sv.motherPdgId.value(), isMatched, value);
   };
 
   fillBundle(ch.h_decayLength, sv.decayLength);
-  fillBundle(ch.h_r, sv.r);
+  fillBundle(ch.h_decayLengthXY, sv.decayLengthXY);
   fillBundle(ch.h_nTracks, sv.nCharged);
   fillBundle(ch.h_eta, sv.eta());
   fillBundle(ch.h_mass, sv.mass());
@@ -524,17 +564,16 @@ void SecondaryVertexAnalyzerAlgo::fillRecoVertexHistograms(const std::string &la
     bwm.bundle.fillRecoVertexHistos(isMatched, isDuplicate, isFake, isMerged, isPileup, value);
   };
 
-  fillBundle(ch.h_decayLength, rv.decayLength);
-  fillBundle(ch.h_decayLengthSig, rv.decayLengthSignificance);
-  fillBundle(ch.h_r, rv.r);
+  fillBundle(ch.h_decayLength, rv.decayLength());
+  fillBundle(ch.h_decayLengthSig, rv.decayLengthSignificance());
+  fillBundle(ch.h_decayLengthXY, rv.decayLengthXY());
+  fillBundle(ch.h_decayLengthXYSig, rv.decayLengthXYSignificance());
+  fillBundle(ch.h_r, rv.r());
   fillBundle(ch.h_nTracks, rv.nTracks);
-
-  const double eta = (rv.r > 0. || rv.z != 0.) ? std::atanh(rv.z / std::hypot(rv.r, rv.z)) : 0.;
-  fillBundle(ch.h_eta, eta);
+  fillBundle(ch.h_eta, rv.eta());
+  fillBundle(ch.h_mass, rv.mass());
+  fillBundle(ch.h_pt, rv.pt());
   fillBundle(ch.h_chi2ndof, rv.normalizedChi2());
-
-  if (rv.mass.has_value())
-    fillBundle(ch.h_mass, *rv.mass);
 }
 
 void SecondaryVertexAnalyzerAlgo::fillResolutionHistograms(const std::string &label,
@@ -548,31 +587,36 @@ void SecondaryVertexAnalyzerAlgo::fillResolutionHistograms(const std::string &la
   const double eta = sv.eta();
   const double pt = 0.;
 
-  // Position residuals (reco - sim) and pulls
+  // Position residuals (reco - sim) and pulls (residual / recoErr)
   // Pulls require vertex position errors — use covariance diagonal if available.
-  // For now fill residuals; pulls are set to residual / 1 as placeholder
-  // until covariance is wired through GeneralRecoVertex.
-  // TODO: wire position errors from reco vertex covariance matrix.
-  const double xRes = rv.x - sv.x;
-  const double yRes = rv.y - sv.y;
-  const double zRes = rv.z - sv.z;
-  const double lRes = rv.decayLength - sv.decayLength;
-  const double xPull = xRes;  // placeholder
-  const double yPull = yRes;
-  const double zPull = zRes;
-  const double lPull = lRes;  // placeholder
+  const double xRes = rv.x() - sv.x;
+  const double yRes = rv.y() - sv.y;
+  const double zRes = rv.z() - sv.z;
+  const double lRes = rv.decayLength() - sv.decayLength;
+  const double lxyRes = rv.decayLengthXY() - sv.decayLengthXY;
+  const double mRes = rv.mass() - sv.mass();
+  const double etaRes = rv.eta() - sv.eta();
+  const double phiRes = rv.phi() - sv.phi();
+  const double ptRes = rv.pt() - sv.pt();
+  const double xPull = xRes / rv.xError();
+  const double yPull = yRes / rv.yError();
+  const double zPull = zRes / rv.zError();
+  const double lPull = lRes / rv.decayLengthError();
+  const double lxyPull = lxyRes / rv.decayLengthXYError();
+  const double mPull = -1.;
+  const double etaPull = -1.;
+  const double phiPull = -1.;
+  const double ptPull = -1.;
 
   ch.h_xRes.fill(decayLen, r, eta, pt, nTrk, xRes, xPull);
   ch.h_yRes.fill(decayLen, r, eta, pt, nTrk, yRes, yPull);
   ch.h_zRes.fill(decayLen, r, eta, pt, nTrk, zRes, zPull);
   ch.h_decayLengthRes.fill(decayLen, r, eta, pt, nTrk, lRes, lPull);
-
-  // Mass residual — only for CPC vertices
-  if (rv.mass.has_value() && sv.decayLength > 0.) {
-    const double mRes = rv.mass.value() - sv.mass();
-    const double mPull = mRes;  // placeholder
-    ch.h_massRes.fill(decayLen, r, eta, pt, nTrk, mRes, mPull);
-  }
+  ch.h_decayLengthXYRes.fill(decayLen, r, eta, pt, nTrk, lxyRes, lxyPull);
+  ch.h_massRes.fill(decayLen, r, eta, pt, nTrk, mRes, mPull);
+  ch.h_etaRes.fill(decayLen, r, eta, pt, nTrk, etaRes, etaPull);
+  ch.h_phiRes.fill(decayLen, r, eta, pt, nTrk, phiRes, phiPull);
+  ch.h_ptRes.fill(decayLen, r, eta, pt, nTrk, ptRes, ptPull);
 }
 
 // =============================================================================
