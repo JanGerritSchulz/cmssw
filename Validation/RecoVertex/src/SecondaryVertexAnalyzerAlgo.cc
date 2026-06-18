@@ -424,11 +424,6 @@ void SecondaryVertexAnalyzerAlgo::matchReco2SimVertices(std::vector<RecoSecondar
   }
 
   for (auto &rv : recoSVs) {
-    // The association map is keyed by VertexBaseRef / VertexCompositePtrCandidateRef.
-    // We stored the raw reco vertex pointer in rv.recVtxPtr; the association
-    // map ref must be looked up by the plugin using the original handle index.
-    // Here we iterate all map entries and match by pointer identity.
-    // TODO: use the SV index in the collection for the association map
     auto it = recoToSim.find(rv.recoVertex<VertexType>());
 
     if (it == recoToSim.end()) {
@@ -574,9 +569,9 @@ void SecondaryVertexAnalyzerAlgo::fillResolutionHistograms(const std::string &la
 
   // Mass residual — only for CPC vertices
   if (rv.mass.has_value() && sv.decayLength > 0.) {
-    // No sim-level mass available from TrackingVertex directly; the mass
-    // residual requires knowing the true particle mass from the mother PDG ID.
-    // TODO: look up PDG mass from motherPdgId and fill mass resolution.
+    const double mRes = rv.mass.value() - sv.mass();
+    const double mPull = mRes;  // placeholder
+    ch.h_massRes.fill(decayLen, r, eta, pt, nTrk, mRes, mPull);
   }
 }
 
