@@ -323,7 +323,9 @@ VertexAssociatorByPositionAndTracks<VertexCollection>::associateRecoToSim(
       if (sharedTrackFraction_ >= 0 && fraction < sharedTrackFraction_)
         continue;
 
-      LogTrace("VertexAssociation") << "   Matched: dZ significance " << zdiff / recoVertexZError(recoVertex)
+      LogTrace("VertexAssociation") << "   Matched at X,Y,Z=" << simVertex.position().x() << ","
+                                    << simVertex.position().y() << "," << simVertex.position().z()
+                                    << ": dZ significance " << zdiff / recoVertexZError(recoVertex)
                                     << " shared track fraction " << fraction;
 
       ret.insert(makeVertexRef(vCH, iReco), std::make_pair(TrackingVertexRef(tVCH, iSim), fraction));
