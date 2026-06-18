@@ -121,22 +121,19 @@ postProcessorSecondaryVertex = DQMEDHarvester("DQMGenericClient",
         # Decay length — the most SV-specific and b-tagging-relevant quantity
         makeSVEfficiencyBundle("decayLength",    "L_{3D} [cm]") +
         makeSVEfficiencyBundle("decayLengthSig", "L_{3D}/#sigma_{L_{3D}}") +
-
-        # Transverse radius
-        makeSVEfficiencyBundle("r",       "r_{T} [cm]") +
+        makeSVEfficiencyBundle("decayLengthXY",    "L_{2D} [cm]") +
 
         # Track multiplicity
         makeSVEfficiencyBundle("nTracks", "N tracks at SV") +
 
-        # Pseudorapidity
+        # Kinematics
         makeSVEfficiencyBundle("eta",     "#eta") +
+        makeSVEfficiencyBundle("phi",     "#phi") +
+        makeSVEfficiencyBundle("pt",     "p_{T}") +
+        makeSVEfficiencyBundle("mass",     "SV invariant mass [GeV]") +
 
         # Fit quality
         makeSVEfficiencyBundle("chi2ndof", "Normalised #chi^{2}") +
-
-        # Invariant mass (CPC only — histograms present but unfilled for
-        # track-based SVs; DQMGenericClient handles missing histos gracefully)
-        makeSVEfficiencyBundle("mass",    "SV invariant mass [GeV]") +
 
         []  # placeholder for future additions
     ),
@@ -155,9 +152,17 @@ postProcessorSecondaryVertex = DQMEDHarvester("DQMGenericClient",
         # Decay length resolution
         "decayLengthRes_vs_nTracks '#sigma(L_{3D}) vs N tracks' decayLengthRes_vs_nTracks",
         "decayLengthRes_vs_eta '#sigma(L_{3D}) vs #eta' decayLengthRes_vs_eta",
-        "decayLengthSigRes_vs_nTracks '#sigma(L_{3D}/#sigma_{L}) vs N tracks' decayLengthSigRes_vs_nTracks",
-        "decayLengthSigRes_vs_eta '#sigma(L_{3D}/#sigma_{L}) vs #eta' decayLengthSigRes_vs_eta",
-        # Mass resolution (CPC only)
+        "decayLengthRes_vs_eta '#sigma(L_{3D}) vs #eta' decayLengthRes_vs_eta",
+        "decayLengthXYRes_vs_nTracks '#sigma(L_{2D}) vs N tracks' decayLengthXYRes_vs_nTracks",
+        "decayLengthXYRes_vs_eta '#sigma(L_{2D}) vs #eta' decayLengthXYRes_vs_eta",
+        # Kinematics resolution
+        "etaRes_vs_decayLength '#sigma(#eta) vs L_{3D}' etaRes_vs_decayLength",
+        "etaRes_vs_nTracks '#sigma(#eta) vs N tracks' etaRes_vs_nTracks",
+        "phiRes_vs_decayLength '#sigma(#phi) vs L_{3D}' phiRes_vs_decayLength",
+        "phiRes_vs_nTracks '#sigma(#phi) vs N tracks' phiRes_vs_nTracks",
+        "etaRes_vs_nTracks '#sigma(#eta) vs N tracks' etaRes_vs_nTracks",
+        "ptRes_vs_decayLength '#sigma(p_{T}) vs L_{3D}' ptRes_vs_decayLength",
+        "ptRes_vs_nTracks '#sigma(p_{T}) vs N tracks' ptRes_vs_nTracks",
         "massRes_vs_decayLength '#sigma(mass) vs L_{3D}' massRes_vs_decayLength",
         "massRes_vs_nTracks '#sigma(mass) vs N tracks' massRes_vs_nTracks",
     ),

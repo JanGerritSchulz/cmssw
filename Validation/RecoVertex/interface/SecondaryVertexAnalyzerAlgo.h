@@ -177,7 +177,7 @@ private:
   void resetSimSVs();
 
   /// Compute 3D decay length w.r.t. the hard-scatter primary vertex.
-  double decayLength(const TrackingVertex &tv, const TrackingVertex &pv) const;
+  double decayLength(const TrackingVertex &tv, const TrackingVertex &pv, const bool decayLength2D) const;
 
   /// Stage 1 of setting the EfficiencyEligibility flags:
   /// evaluate the cheap reconstructability cuts (decay length,
@@ -266,11 +266,12 @@ private:
     // mask encodes which cut is suppressed for each bundle's x-axis.
     BundleWithCutMask h_decayLength{.mask = EffElig::kDecayLength};
     BundleWithCutMask h_decayLengthSig{.mask = EffElig::kDecayLength};
+    BundleWithCutMask h_decayLengthXY{.mask = EffElig::kDecayLength};
+    BundleWithCutMask h_decayLengthXYSig{.mask = EffElig::kDecayLength};
     BundleWithCutMask h_r{};
     BundleWithCutMask h_nTracks{.mask = EffElig::kNDaughters};
     BundleWithCutMask h_eta{.mask = EffElig::kEta};
     BundleWithCutMask h_chi2ndof{};
-    // mass only available for CPC — bundle present but unfilled for reco::Vertex
     BundleWithCutMask h_pt{};
     BundleWithCutMask h_mass{};
 
@@ -280,16 +281,18 @@ private:
     SVResolutionBundle h_yRes;
     SVResolutionBundle h_zRes;
     SVResolutionBundle h_decayLengthRes;
+    SVResolutionBundle h_decayLengthXYRes;
     SVResolutionBundle h_ptRes;
     SVResolutionBundle h_etaRes;
-    SVResolutionBundle h_massRes;  // CPC only
+    SVResolutionBundle h_phiRes;
+    SVResolutionBundle h_massRes;
   };
 
   // Generic sim-side histograms booked once (collection-independent).
   // Only populated when cfg_.doGenericSimPlots is true.
   struct GenericSimHistograms {
     dqm::reco::MonitorElement *h_decayLength = nullptr;
-    dqm::reco::MonitorElement *h_r = nullptr;
+    dqm::reco::MonitorElement *h_decayLengthXY = nullptr;
     dqm::reco::MonitorElement *h_nDaughters = nullptr;
     dqm::reco::MonitorElement *h_motherPdgId = nullptr;
     dqm::reco::MonitorElement *h_numAllSimSVs = nullptr;
