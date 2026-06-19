@@ -70,6 +70,7 @@
 // Internal types and bundles
 #include "Validation/RecoVertex/interface/SVMonitoringBundle.h"
 #include "Validation/RecoVertex/interface/SVResolutionBundle.h"
+#include "Validation/RecoVertex/interface/SVTrackQualityBundle.h"
 #include "Validation/RecoVertex/interface/SVValidationStructs.h"
 
 class SecondaryVertexAnalyzerAlgo {
@@ -202,14 +203,14 @@ private:
   // Association and matching
   // =========================================================================
 
-  /// Sim→Reco direction: populates SimSecondaryVertex::num_matched_reco_vertices
-  /// and matched_reco_shared_fractions. Operates on allSimSVs so that all
+  /// Sim→Reco direction: populates SimSecondaryVertex::nMatchedRecoVertices
+  /// and matchedQualities. Operates on allSimSVs so that all
   /// true SVs, including pileup, are considered for matching.
   template <typename AssociatorType>
   void matchSim2RecoVertices(const AssociatorType &simToReco);
 
   /// Reco→Sim direction: populates RecoSecondaryVertex::kind_of_vertex,
-  /// sim_vertices, and sim_vertices_shared_fraction.
+  /// simVertices, and matchedQualities.
   ///
   /// The full allSimSVs collection is used here so that:
   ///   - A reco SV matched only to a pileup sim SV is correctly flagged
@@ -242,6 +243,9 @@ private:
 
   /// Fill resolution/pull histograms for a matched reco-sim pair.
   void fillResolutionHistograms(const std::string &label, const RecoSecondaryVertex &rv, const SimSecondaryVertex &sv);
+  void fillTrackQualityHistograms(const std::string &label,
+                                  const RecoSecondaryVertex &rv,
+                                  const SimSecondaryVertex &sv);
 
   // =========================================================================
   // Shared implementation
@@ -293,6 +297,9 @@ private:
     SVResolutionBundle h_etaRes;
     SVResolutionBundle h_phiRes;
     SVResolutionBundle h_massRes;
+
+    // Track content quality bundle — filled only for matched signal reco-sim pairs
+    SVTrackQualityBundle h_trackQuality;
   };
 
   // Generic sim-side histograms booked once (collection-independent).

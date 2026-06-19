@@ -147,16 +147,13 @@ void SecondaryVertexAnalyzerAlgo::bookHistograms(IBooker &ibook, const std::vect
     ch.h_phiRes.bookResolutions(ibook, bins, "phi", 100, -0.2, 0.2);
     ch.h_massRes.bookResolutions(ibook, bins, "mass", 100, -10., 10.);
 
+    // ----- Resolution bundles -----
+    ch.h_trackQuality.bookHistograms(ibook, 51, -0.5, 50.5);
+
     // ----- Plain per-collection histograms -----
     me["numRecoSVs"] = ibook.book1D("numRecoSVs", "N reco SVs per event;N SVs;Entries", 20, 0., 20.);
     me["numSimSVsAll"] = ibook.book1D("numSimSVsAll", "N all sim SVs per event;N SVs;Entries", 100, 0., 200.);
     me["numSimSVsSignal"] = ibook.book1D("numSimSVsSignal", "N signal sim SVs per event;N SVs;Entries", 50, 0., 50.);
-    me["sharedTrackFraction"] = ibook.book1D("sharedTrackFraction",
-                                             "Shared track fraction (matched pairs);"
-                                             "Shared fraction;Entries",
-                                             50,
-                                             0.,
-                                             1.);
   }
 }
 
@@ -411,15 +408,15 @@ void SecondaryVertexAnalyzerAlgo::matchSim2RecoVertices(const AssociatorType &si
     auto it = simToReco.find(sv.simVertex);
     if (it == simToReco.end())
       continue;
-    sv.num_matched_reco_vertices = static_cast<int>(it->val.size());
-    sv.matched_reco_shared_fractions.clear();
+    sv.nMatchedRecoVertices = static_cast<int>(it->val.size());
+    sv.matchedQualities.clear();
     float qualSum = 0.f;
     for (const auto &recoAndQuality : it->val) {
-      sv.matched_reco_shared_fractions.push_back(recoAndQuality.second);
+      sv.matchedQualities.push_back(recoAndQuality.second);
       qualSum += recoAndQuality.second;
     }
-    if (sv.num_matched_reco_vertices > 0)
-      sv.average_match_quality = qualSum / static_cast<float>(sv.num_matched_reco_vertices);
+    if (sv.nMatchedRecoVertices > 0)
+      sv.meanMatchedQuality = qualSum / static_cast<float>(sv.nMatchedRecoVertices);
   }
 }
 
@@ -453,7 +450,7 @@ void SecondaryVertexAnalyzerAlgo::matchReco2SimVertices(std::vector<RecoSecondar
     }
 
     rv.kind_of_vertex |= RecoSecondaryVertex::MATCHED;
-    rv.num_matched_sim_vertices = static_cast<int>(it->val.size());
+    rv.nMatchedSimVertices = static_cast<int>(it->val.size());
 
     bool anySignal = false;
     bool anyPileup = false;
@@ -464,8 +461,8 @@ void SecondaryVertexAnalyzerAlgo::matchReco2SimVertices(std::vector<RecoSecondar
       if (simIt == keyToSimSV.end())
         continue;
       const SimSecondaryVertex *svPtr = simIt->second;
-      rv.sim_vertices.push_back(svPtr);
-      rv.sim_vertices_shared_fraction.push_back(simAndQuality.second);
+      rv.simVertices.push_back(svPtr);
+      rv.matchedQualities.push_back(simAndQuality.second);
 
       if (signalSet.count(svPtr))
         anySignal = true;
@@ -473,7 +470,7 @@ void SecondaryVertexAnalyzerAlgo::matchReco2SimVertices(std::vector<RecoSecondar
         anyPileup = true;
     }
 
-    if (rv.sim_vertices.size() > 1)
+    if (rv.simVertices.size() > 1)
       rv.kind_of_vertex |= RecoSecondaryVertex::MERGED;
 
     // A reco SV is flagged as pileup if ALL its matched sim SVs are pileup.
@@ -482,8 +479,8 @@ void SecondaryVertexAnalyzerAlgo::matchReco2SimVertices(std::vector<RecoSecondar
       rv.isFromPileup = true;
 
     // Propagate mother PDG ID from the best-quality sim match.
-    if (!rv.sim_vertices.empty()) {
-      const SimSecondaryVertex *bestSim = rv.sim_vertices.front();
+    if (!rv.simVertices.empty()) {
+      const SimSecondaryVertex *bestSim = rv.simVertices.front();
       if (bestSim->motherPdgId)
         rv.motherPdgId = bestSim->motherPdgId;
 
@@ -512,13 +509,9 @@ void SecondaryVertexAnalyzerAlgo::setSignalSimSVReconstructability(const reco::S
       auto found = trackSimToReco.find(*iTP);
       if (found != trackSimToReco.end() && !found->val.empty())
         ++nDaughtersWithTrack;
-
-      // Early exit once the threshold is reached — no need to keep counting.
-      if (nDaughtersWithTrack >= 2)
-        break;
     }
 
-    sv->isReconstructable = (nDaughtersWithTrack >= 2);
+    sv->nMatchedRecoTracks = nDaughtersWithTrack;
   }
 }
 
@@ -527,8 +520,8 @@ void SecondaryVertexAnalyzerAlgo::setSignalSimSVReconstructability(const reco::S
 // =============================================================================
 
 void SecondaryVertexAnalyzerAlgo::fillSimVertexHistograms(const std::string &label, const SimSecondaryVertex &sv) {
-  const bool isMatched = (sv.num_matched_reco_vertices > 0);
-  const bool isReconstructable = sv.isReconstructable;
+  const bool isMatched = (sv.nMatchedRecoVertices > 0);
+  const bool isReconstructable = sv.isReconstructable();
   auto &ch = collectionHistos_.at(label);
 
   // Generic sim plots (collection-independent, filled once per all-sim pass)
@@ -626,6 +619,19 @@ void SecondaryVertexAnalyzerAlgo::fillResolutionHistograms(const std::string &la
   ch.h_ptRes.fill(decayLen, r, eta, pt, nTrk, ptRes, ptPull);
 }
 
+void SecondaryVertexAnalyzerAlgo::fillTrackQualityHistograms(const std::string &label,
+                                                             const RecoSecondaryVertex &rv,
+                                                             const SimSecondaryVertex &sv) {
+  if (rv.nTracks == 0 || sv.nMatchedRecoTracks == 0)
+    return;  // avoid division by zero; nothing meaningful to fill
+
+  double nSharedTracks = static_cast<double>(rv.matchedQualities.front());
+  const double purity = nSharedTracks / rv.nTracks;
+  const double efficiency = nSharedTracks / sv.nMatchedRecoTracks;
+
+  collectionHistos_.at(label).h_trackQuality.fill(rv.nTracks, sv.nMatchedRecoTracks, purity, efficiency, nSharedTracks);
+}
+
 // =============================================================================
 // analyzeImpl — shared logic for both vertex types
 // =============================================================================
@@ -680,13 +686,11 @@ void SecondaryVertexAnalyzerAlgo::analyzeImpl(std::vector<RecoSecondaryVertex> r
   for (const auto &rv : recoSVs) {
     fillRecoVertexHistograms(collectionLabel, rv);
 
-    // Fill shared track fraction histogram for matched vertices
-    if (!rv.sim_vertices_shared_fraction.empty())
-      me.at("sharedTrackFraction")->Fill(rv.sim_vertices_shared_fraction.front());
-
-    // Resolution plots: use best-quality sim match (first in sorted list)
-    if (!rv.sim_vertices.empty()) {
-      fillResolutionHistograms(collectionLabel, rv, *rv.sim_vertices.front());
+    // Resolution+Track quality plots: use best-quality sim match (first in sorted list)
+    if (!rv.simVertices.empty()) {
+      auto const &matchedSimSV = *rv.simVertices.front();
+      fillResolutionHistograms(collectionLabel, rv, matchedSimSV);
+      fillTrackQualityHistograms(collectionLabel, rv, matchedSimSV);
     }
   }
 }
