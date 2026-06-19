@@ -166,7 +166,10 @@ postProcessorSecondaryVertex = DQMEDHarvester("DQMGenericClient",
         "massRes_vs_decayLength '#sigma(mass) vs L_{3D}' massRes_vs_decayLength",
         "massRes_vs_nTracks '#sigma(mass) vs N tracks' massRes_vs_nTracks",
     ),
-    noFlowDists = cms.untracked.vstring(),
+    noFlowDists = cms.untracked.vstring(
+        "trackPurity",
+        "trackEfficiency",
+    ),
 )
 _addNoFlow(postProcessorSecondaryVertex)
 
