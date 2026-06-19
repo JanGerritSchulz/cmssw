@@ -104,8 +104,6 @@ namespace detail {
       append("decayLength");
     if ((mask & EfficiencyEligibility::kNDaughters) != EfficiencyEligibility::kNone)
       append("nTracks");
-    if ((mask & EfficiencyEligibility::kEta) != EfficiencyEligibility::kNone)
-      append("eta");
     if ((mask & EfficiencyEligibility::kPdgId) != EfficiencyEligibility::kNone)
       append("pdgId");
     return out.empty() ? "none" : out;
