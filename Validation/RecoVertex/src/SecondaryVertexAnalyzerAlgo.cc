@@ -57,7 +57,7 @@ void SecondaryVertexAnalyzerAlgo::bookHistograms(IBooker &ibook, const std::vect
     genericSimHistos_.h_numAllSimSVs =
         ibook.book1D("SimSV_numAll", "N sim SVs per event (all);N sim SVs;Entries", 100, 0., 200.);
     genericSimHistos_.h_numSignalSimSVs =
-        ibook.book1D("SimSV_numSignal", "N sim SVs per event (signal selected);N sim SVs;Entries", 100, 0., 200.);
+        ibook.book1D("SimSV_numSignal", "N sim SVs per event (signal selected);N sim SVs;Entries", 50, 0., 50.);
   }
 
   // Per-collection histograms
@@ -148,9 +148,9 @@ void SecondaryVertexAnalyzerAlgo::bookHistograms(IBooker &ibook, const std::vect
     ch.h_massRes.bookResolutions(ibook, bins, "mass", 100, -10., 10.);
 
     // ----- Plain per-collection histograms -----
-    me["numRecoSVs"] = ibook.book1D("numRecoSVs", "N reco SVs per event;N SVs;Entries", 100, 0., 200.);
+    me["numRecoSVs"] = ibook.book1D("numRecoSVs", "N reco SVs per event;N SVs;Entries", 20, 0., 20.);
     me["numSimSVsAll"] = ibook.book1D("numSimSVsAll", "N all sim SVs per event;N SVs;Entries", 100, 0., 200.);
-    me["numSimSVsSignal"] = ibook.book1D("numSimSVsSignal", "N signal sim SVs per event;N SVs;Entries", 100, 0., 200.);
+    me["numSimSVsSignal"] = ibook.book1D("numSimSVsSignal", "N signal sim SVs per event;N SVs;Entries", 50, 0., 50.);
     me["sharedTrackFraction"] = ibook.book1D("sharedTrackFraction",
                                              "Shared track fraction (matched pairs);"
                                              "Shared fraction;Entries",
