@@ -33,8 +33,7 @@ enum class EfficiencyEligibility : uint32_t {
   kNone = 0,
   kDecayLength = 1 << 0,  // eligible for the decay-length efficiency plot
   kNDaughters = 1 << 1,   // eligible for the nTracks efficiency plot
-  kEta = 1 << 2,          // eligible for the eta efficiency plot
-  kPdgId = 1 << 3,        // eligible for the per-PDG efficiency plots
+  kPdgId = 1 << 2,        // eligible for the per-PDG efficiency plots
 };
 
 inline EfficiencyEligibility operator&(EfficiencyEligibility a, EfficiencyEligibility b) {
