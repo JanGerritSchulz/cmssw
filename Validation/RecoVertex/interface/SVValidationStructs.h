@@ -52,6 +52,14 @@ struct SimSecondaryVertex {
         motherPdgId(std::nullopt),
         isFromPileup(false) {}
 
+  /// Reset all properties related to matching of reconstructed vertices/tracks
+  void resetRecoDependencies() {
+    num_matched_reco_vertices = 0;
+    average_match_quality = 0.0;
+    matched_reco_shared_fractions.clear();
+    isReconstructable = false;
+  }
+
   // Position
   double x, y, z;
   double r;  // transverse decay radius
@@ -75,6 +83,7 @@ struct SimSecondaryVertex {
   int num_matched_reco_vertices;
   float average_match_quality;
   std::vector<float> matched_reco_shared_fractions;
+  bool isReconstructable;  // has 2+ daughters with matched reco track
 
   // Generator-level information
   std::optional<int> motherPdgId;  // PDG ID of the immediate decaying particle
