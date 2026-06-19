@@ -80,7 +80,7 @@ private:
   // Shared across all collections
   const edm::EDGetTokenT<edm::HepMCProduct> hepMCToken_;
   const edm::EDGetTokenT<TrackingVertexCollection> simVertexToken_;
-  const edm::EDGetTokenT<reco::RecoToSimCollection> trackRecoToSimToken_;
+  // const edm::EDGetTokenT<reco::RecoToSimCollection> trackRecoToSimToken_;
   const edm::EDGetTokenT<reco::SimToRecoCollection> trackSimToRecoToken_;
   const edm::EDGetTokenT<std::vector<reco::Vertex>> primaryVertexToken_;
 
@@ -98,7 +98,7 @@ template <typename VertexCollection>
 SecondaryVertexAnalyzerBase<VertexCollection>::SecondaryVertexAnalyzerBase(const edm::ParameterSet &pset)
     : hepMCToken_(consumes<edm::HepMCProduct>(pset.getParameter<edm::InputTag>("hepMCProduct"))),
       simVertexToken_(consumes<TrackingVertexCollection>(pset.getParameter<edm::InputTag>("simVertices"))),
-      trackRecoToSimToken_(consumes<reco::RecoToSimCollection>(pset.getParameter<edm::InputTag>("trackAssociation"))),
+      // trackRecoToSimToken_(consumes<reco::RecoToSimCollection>(pset.getParameter<edm::InputTag>("trackAssociation"))),
       trackSimToRecoToken_(consumes<reco::SimToRecoCollection>(pset.getParameter<edm::InputTag>("trackAssociation"))),
       primaryVertexToken_(consumes<std::vector<reco::Vertex>>(pset.getParameter<edm::InputTag>("primaryVertices"))),
       algo_(SecondaryVertexAnalyzerAlgo::Config{
@@ -157,20 +157,23 @@ void SecondaryVertexAnalyzerBase<VertexCollection>::analyze(const edm::Event &iE
   // Fetch shared inputs
   edm::Handle<edm::HepMCProduct> hepMCProdHandle;
   iEvent.getByToken(hepMCToken_, hepMCProdHandle);
-  const HepMC::GenEvent *genEvent = hepMCProdHandle->GetEvent();
+  const HepMC::GenEvent *genEvent = hepMCProdHandle.isValid() ? hepMCProdHandle->GetEvent() : nullptr;
 
   edm::Handle<TrackingVertexCollection> simVertices;
   iEvent.getByToken(simVertexToken_, simVertices);
-
-  edm::Handle<reco::RecoToSimCollection> trackRecoToSim;
-  iEvent.getByToken(trackRecoToSimToken_, trackRecoToSim);
-
-  edm::Handle<reco::SimToRecoCollection> trackSimToReco;
-  iEvent.getByToken(trackSimToRecoToken_, trackSimToReco);
-
   if (!simVertices.isValid()) {
     edm::LogWarning("SecondaryVertexAnalyzer") << "TrackingVertexCollection not available — skipping event.";
     return;
+  }
+
+  edm::Handle<reco::SimToRecoCollection> trackSimToRecoHandle;
+  iEvent.getByToken(trackSimToRecoToken_, trackSimToRecoHandle);
+  reco::SimToRecoCollection trackSimToReco;
+  if (!trackSimToRecoHandle.isValid()) {
+    edm::LogWarning("SecondaryVertexAnalyzer") << "Track SimToRecoCollection not available — cannot evaluate actual "
+                                                  "reconstructability of SVs from given track collection.";
+  } else {
+    trackSimToReco = *trackSimToRecoHandle;
   }
 
   edm::Handle<std::vector<reco::Vertex>> primaryVertices;
@@ -205,7 +208,7 @@ void SecondaryVertexAnalyzerBase<VertexCollection>::analyze(const edm::Event &iE
     auto simToReco = vertexAssociator.associateSimToReco(recoVertices, simVertices);
 
     // Analyze the given collection of RecoVertices
-    algo_.analyze(*recoVertices, recoToSim, simToReco, recoVertexTags_[i].label());
+    algo_.analyze(*recoVertices, recoToSim, simToReco, trackSimToReco, recoVertexTags_[i].label());
   }
 
   algo_.clearEventTruth();

@@ -136,12 +136,14 @@ public:
   void analyze(const edm::View<reco::Vertex> &recoVertices,
                const RecoToSimCollectionVtx &recoToSim,
                const SimToRecoCollectionVtx &simToReco,
+               const reco::SimToRecoCollection &trackSimToReco,
                const std::string &collectionLabel);
 
   /// Per-event entry point for reco::VertexCompositePtrCandidate collections.
   void analyze(const edm::View<reco::VertexCompositePtrCandidate> &recoVertices,
                const RecoToSimCollectionCPC &recoToSim,
                const SimToRecoCollectionCPC &simToReco,
+               const reco::SimToRecoCollection &trackSimToReco,
                const std::string &collectionLabel);
 
   /// Set the (reco) primary vertex of the event once since it's needed for decay length calculation.
@@ -220,6 +222,12 @@ private:
   template <typename AssociatorType>
   void matchReco2SimVertices(std::vector<RecoSecondaryVertex> &recoSVs, const AssociatorType &recoToSim) const;
 
+  /// For each signal sim SV, counts how many of its charged daughter
+  /// TrackingParticles have at least one associated reconstructed track (via
+  /// the track-level SimToReco association map). If at least two daughters have
+  /// a matched track, the vertex is marked reconstructable.
+  void setSignalSimSVReconstructability(const reco::SimToRecoCollection &trackSimToReco);
+
   // =========================================================================
   // Histogram filling
   // =========================================================================
@@ -245,6 +253,7 @@ private:
   void analyzeImpl(std::vector<RecoSecondaryVertex> recoSVs,
                    const RecoToSimAssociationType &recoToSim,
                    const SimToRecoAssociationType &simToReco,
+                   const reco::SimToRecoCollection &trackSimToReco,
                    const std::string &collectionLabel);
 
   // =========================================================================
