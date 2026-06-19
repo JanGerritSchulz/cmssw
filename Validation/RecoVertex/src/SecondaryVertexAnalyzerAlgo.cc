@@ -197,9 +197,7 @@ void SecondaryVertexAnalyzerAlgo::prepareEventTruth(const edm::Handle<TrackingVe
 
 void SecondaryVertexAnalyzerAlgo::resetSimSVs() {
   for (auto &sv : allSimSVs_) {
-    sv.num_matched_reco_vertices = 0;
-    sv.average_match_quality = 0.0;
-    sv.matched_reco_shared_fractions.clear();
+    sv.resetRecoDependencies();
   }
 }
 
@@ -499,13 +497,38 @@ void SecondaryVertexAnalyzerAlgo::matchReco2SimVertices(std::vector<RecoSecondar
   }
 }
 
+void SecondaryVertexAnalyzerAlgo::setSignalSimSVReconstructability(const reco::SimToRecoCollection &trackSimToReco) {
+  for (SimSecondaryVertex *sv : signalSimSVs_) {
+    if (!sv || sv->simVertex.isNull())
+      continue;
+
+    const TrackingVertex &tv = *(sv->simVertex);
+
+    int nDaughtersWithTrack = 0;
+    for (auto iTP = tv.daughterTracks_begin(); iTP != tv.daughterTracks_end(); ++iTP) {
+      if ((*iTP)->charge() == 0)
+        continue;
+
+      auto found = trackSimToReco.find(*iTP);
+      if (found != trackSimToReco.end() && !found->val.empty())
+        ++nDaughtersWithTrack;
+
+      // Early exit once the threshold is reached — no need to keep counting.
+      if (nDaughtersWithTrack >= 2)
+        break;
+    }
+
+    sv->isReconstructable = (nDaughtersWithTrack >= 2);
+  }
+}
+
 // =============================================================================
 // Histogram filling
 // =============================================================================
 
 void SecondaryVertexAnalyzerAlgo::fillSimVertexHistograms(const std::string &label, const SimSecondaryVertex &sv) {
   const bool isMatched = (sv.num_matched_reco_vertices > 0);
-  const bool isReconstructable = true;  // TODO: implement a proper reconstructable test
+  const bool isReconstructable = sv.isReconstructable;
   auto &ch = collectionHistos_.at(label);
 
   // Generic sim plots (collection-independent, filled once per all-sim pass)
@@ -611,6 +634,7 @@ template <typename SimToRecoAssociationType, typename RecoToSimAssociationType>
 void SecondaryVertexAnalyzerAlgo::analyzeImpl(std::vector<RecoSecondaryVertex> recoSVs,
                                               const RecoToSimAssociationType &recoToSim,
                                               const SimToRecoAssociationType &simToReco,
+                                              const reco::SimToRecoCollection &trackSimToReco,
                                               const std::string &collectionLabel) {
   // ------------------------------------------------------------------
   // 1. Reset the reco dependent members of Sim SVs
@@ -627,6 +651,7 @@ void SecondaryVertexAnalyzerAlgo::analyzeImpl(std::vector<RecoSecondaryVertex> r
   // collection-level SimToReco / RecoToSim maps.
   matchSim2RecoVertices(simToReco);
   matchReco2SimVertices(recoSVs, recoToSim);
+  setSignalSimSVReconstructability(trackSimToReco);
 
   // ------------------------------------------------------------------
   // 3. Fill generic sim histograms (collection-independent, first call only)
@@ -673,13 +698,15 @@ void SecondaryVertexAnalyzerAlgo::analyzeImpl(std::vector<RecoSecondaryVertex> r
 void SecondaryVertexAnalyzerAlgo::analyze(const edm::View<reco::Vertex> &recoVertices,
                                           const RecoToSimCollectionVtx &recoToSim,
                                           const SimToRecoCollectionVtx &simToReco,
+                                          const reco::SimToRecoCollection &trackSimToReco,
                                           const std::string &collectionLabel) {
-  analyzeImpl(buildRecoSVs(recoVertices), recoToSim, simToReco, collectionLabel);
+  analyzeImpl(buildRecoSVs(recoVertices), recoToSim, simToReco, trackSimToReco, collectionLabel);
 }
 
 void SecondaryVertexAnalyzerAlgo::analyze(const edm::View<reco::VertexCompositePtrCandidate> &recoVertices,
                                           const RecoToSimCollectionCPC &recoToSim,
                                           const SimToRecoCollectionCPC &simToReco,
+                                          const reco::SimToRecoCollection &trackSimToReco,
                                           const std::string &collectionLabel) {
-  analyzeImpl(buildRecoSVs(recoVertices), recoToSim, simToReco, collectionLabel);
+  analyzeImpl(buildRecoSVs(recoVertices), recoToSim, simToReco, trackSimToReco, collectionLabel);
 }
