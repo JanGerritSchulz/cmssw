@@ -47,17 +47,18 @@ struct SimSecondaryVertex {
         decayLengthXY(-1.),
         nCharged(0),
         nReconstructable(0),
-        num_matched_reco_vertices(0),
-        average_match_quality(0.f),
+        nMatchedRecoTracks(0),
+        nMatchedRecoVertices(0),
+        meanMatchedQuality(0.f),
         motherPdgId(std::nullopt),
         isFromPileup(false) {}
 
   /// Reset all properties related to matching of reconstructed vertices/tracks
   void resetRecoDependencies() {
-    num_matched_reco_vertices = 0;
-    average_match_quality = 0.0;
-    matched_reco_shared_fractions.clear();
-    isReconstructable = false;
+    nMatchedRecoVertices = 0;
+    meanMatchedQuality = 0.0;
+    matchedQualities.clear();
+    nMatchedRecoTracks = 0;
   }
 
   // Position
@@ -80,10 +81,13 @@ struct SimSecondaryVertex {
   int nReconstructable;  // number of daughters with sufficient hits to be reconstructable
 
   // Matching to reco
-  int num_matched_reco_vertices;
-  float average_match_quality;
-  std::vector<float> matched_reco_shared_fractions;
-  bool isReconstructable;  // has 2+ daughters with matched reco track
+  // matching quality depends on the vertex associator
+  // (should be nSharedTracks for SVs, but could also be set to nSharedTracksFraction)
+  int nMatchedRecoTracks;
+  int nMatchedRecoVertices;
+  float meanMatchedQuality;
+  std::vector<float> matchedQualities;
+  bool isReconstructable() const { return nMatchedRecoTracks >= 2; };
 
   // Generator-level information
   std::optional<int> motherPdgId;  // PDG ID of the immediate decaying particle
@@ -132,7 +136,7 @@ inline std::ostream &operator<<(std::ostream &os, const SimSecondaryVertex &sv) 
      << ", decayLengthXY=" << sv.decayLengthXY << " cm"
      << ", nCharged=" << sv.nCharged << ", nReconstructable=" << sv.nReconstructable
      << ", motherPdgId=" << sv.motherPdgId.value_or(0) << ", isFromPileup=" << (sv.isFromPileup ? "true" : "false")
-     << ", nMatchedReco=" << sv.num_matched_reco_vertices << ", avgMatchQuality=" << sv.average_match_quality
+     << ", nMatchedReco=" << sv.nMatchedRecoVertices << ", avgMatchQuality=" << sv.meanMatchedQuality
      << ", eligibleFor={" << detail::eligibilityToString(sv.eligibility) << "}"
      << "]";
   return os;
@@ -220,9 +224,9 @@ struct RecoSecondaryVertex {
   int nTracks = 0;
 
   // Matching to sim
-  int num_matched_sim_vertices;
-  std::vector<const SimSecondaryVertex *> sim_vertices;
-  std::vector<float> sim_vertices_shared_fraction;
+  int nMatchedSimVertices;
+  std::vector<const SimSecondaryVertex *> simVertices;
+  std::vector<float> matchedQualities;
 
   // Classification flags (bitmask of VertexProperties)
   int kind_of_vertex = NONE;
