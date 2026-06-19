@@ -121,17 +121,8 @@ void SecondaryVertexAnalyzerAlgo::bookHistograms(IBooker &ibook, const std::vect
     ch.h_nTracks.bundle.book1D(
         ibook, true, true, cfg_.doPerPdgPlots, "nTracks", "N tracks at SV", "Entries", 20, -0.5, 19.5);
 
-    // Eta — suppress kEta cut
-    ch.h_eta.bundle.book1D(ibook,
-                           true,
-                           true,
-                           cfg_.doPerPdgPlots,
-                           "eta",
-                           "#eta of SV",
-                           "Entries",
-                           50,
-                           -cfg_.absEtaMax * 1.2,
-                           cfg_.absEtaMax * 1.2);
+    // Eta
+    ch.h_eta.bundle.book1D(ibook, true, true, cfg_.doPerPdgPlots, "eta", "#eta of SV", "Entries", 50, -4.5, 4.5);
 
     // Normalised chi2
     ch.h_chi2ndof.bundle.book1D(
@@ -231,17 +222,14 @@ double SecondaryVertexAnalyzerAlgo::decayLength(const TrackingVertex &tv,
 EfficiencyPrecheck SecondaryVertexAnalyzerAlgo::precheckEligibility(const SimSecondaryVertex &sv) const {
   const int failsDecayLength = (sv.decayLength < cfg_.minDecayLength) || (sv.decayLength > cfg_.maxDecayLength);
   const int failsNDaughters = sv.nCharged < cfg_.minReconstructableDaughters;
-  const int failsEta = std::abs(sv.eta()) > cfg_.absEtaMax;
 
   EfficiencyPrecheck result;
-  result.nFailingCuts = failsDecayLength + failsNDaughters + failsEta;
+  result.nFailingCuts = failsDecayLength + failsNDaughters;
 
   if (result.nFailingCuts - failsDecayLength <= 0)  // eligible for eff vs. decay length
     result.eligibility |= EfficiencyEligibility::kDecayLength;
   if (result.nFailingCuts - failsNDaughters <= 0)  // eligible for eff vs. nTracks
     result.eligibility |= EfficiencyEligibility::kNDaughters;
-  if (result.nFailingCuts - failsEta <= 0)  // eligible for eff vs. eta
-    result.eligibility |= EfficiencyEligibility::kEta;
 
   return result;
 }
@@ -263,22 +251,18 @@ bool SecondaryVertexAnalyzerAlgo::finalizeEligibility(SimSecondaryVertex &sv,
     passPdgIdCut = std::find(cfg_.signalPdgIds.begin(), cfg_.signalPdgIds.end(), absPdg) != cfg_.signalPdgIds.end();
   }
 
+  // The cheap-cut bundles additionally require the PDG cut to pass, since
+  // they do NOT suppress it.
+  if (!passPdgIdCut)
+    // Clear all cheap-cut bits if the PDG cut fails — those bundles do not
+    // suppress the PDG cut, so failing it disqualifies them regardless of
+    // the cheap-cut outcome.
+    result = EfficiencyEligibility::kNone;
+
   // kPdgId bundle: eligible if all three cheap cuts pass (PDG cut itself
   // is suppressed for this bundle's own plot).
   if (precheck.nFailingCuts == 0)
     result |= EfficiencyEligibility::kPdgId;
-
-  // The cheap-cut bundles additionally require the PDG cut to pass, since
-  // they do NOT suppress it.
-  if (!passPdgIdCut) {
-    // Clear all cheap-cut bits if the PDG cut fails — those bundles do not
-    // suppress the PDG cut, so failing it disqualifies them regardless of
-    // the cheap-cut outcome.
-    result = static_cast<EfficiencyEligibility>(static_cast<uint32_t>(result) &
-                                                ~static_cast<uint32_t>(EfficiencyEligibility::kDecayLength |
-                                                                       EfficiencyEligibility::kNDaughters |
-                                                                       EfficiencyEligibility::kEta));
-  }
 
   sv.eligibility = result;
   return result != EfficiencyEligibility::kNone;

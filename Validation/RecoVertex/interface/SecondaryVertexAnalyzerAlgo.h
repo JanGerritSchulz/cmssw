@@ -27,8 +27,8 @@
                   the full landscape of true secondary vertices in the event.
 
    signalSimSVs_  Subset of allSimSVs_ passing the configured signal selection
-                  (minReconstructableDaughters, absEtaMax, PDG ID filter if
-                  set). Used as the denominator for efficiency estimates.
+                  (minReconstructableDaughters, PDG ID filter if set). 
+                  Used as the denominator for efficiency estimates.
 
  Variable-blind cut suppression
  ───────────────────────────────
@@ -43,7 +43,6 @@
  Example:
    h_decayLength bundle  → SkipCuts::kDecayLength  (do not apply minDecayLength/maxDecayLength)
    h_nTracks bundle      → SkipCuts::kNDaughters   (do not apply minReconstructableDaughters)
-   h_eta bundle          → SkipCuts::kEta          (do not apply absEtaMax)
    all other bundles     → SkipCuts::kNone         (apply all cuts)
 
  Original Author: Jan Schulz
@@ -102,7 +101,6 @@ public:
     double maxDecayLength;                    // maximum 3D decay length [cm]
     double minPtReconstructableDaughters;     // minimum pT of charged daughters
     int minReconstructableDaughters;          // minimum charged daughters
-    double absEtaMax;                         // maximum |eta| of SV position
     bool bHadrons, cHadrons, otherParticles;  // include certain types for eff
 
     // Optional PDG ID filter: if non-empty, only sim SVs whose mother PDG ID
@@ -169,7 +167,7 @@ private:
 
   /// Apply signal selection to allSimSVs_ to produce the efficiency
   /// denominator. Applies minDecayLength, minReconstructableDaughters,
-  /// absEtaMax, and signalPdgIds from Config.
+  /// and signalPdgIds from Config.
   std::vector<SimSecondaryVertex *> buildSignalSimSVs(const HepMC::GenEvent *genEvent);
 
   /// Reset all the reco-matching-dependent information in the SimVertex SVs.
@@ -270,7 +268,7 @@ private:
     BundleWithCutMask h_decayLengthXYSig{.mask = EffElig::kDecayLength};
     BundleWithCutMask h_r{};
     BundleWithCutMask h_nTracks{.mask = EffElig::kNDaughters};
-    BundleWithCutMask h_eta{.mask = EffElig::kEta};
+    BundleWithCutMask h_eta{};
     BundleWithCutMask h_chi2ndof{};
     BundleWithCutMask h_pt{};
     BundleWithCutMask h_mass{};

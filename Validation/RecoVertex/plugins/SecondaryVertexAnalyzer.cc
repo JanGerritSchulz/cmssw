@@ -110,7 +110,6 @@ SecondaryVertexAnalyzerBase<VertexCollection>::SecondaryVertexAnalyzerBase(const
           pset.getParameter<double>("maxDecayLength"),
           pset.getParameter<double>("minPtReconstructableDaughters"),
           pset.getParameter<int>("minReconstructableDaughters"),
-          pset.getParameter<double>("absEtaMax"),
           pset.getParameter<bool>("bHadrons"),
           pset.getParameter<bool>("cHadrons"),
           pset.getParameter<bool>("otherParticles"),
@@ -257,7 +256,6 @@ void SecondaryVertexAnalyzerBase<VertexCollection>::fillDescriptions(edm::Config
       ->setComment("Minimum pT for charged daughters to be considered in the count for minReconstructableDaughters.");
   desc.add<int>("minReconstructableDaughters", 2)
       ->setComment("Minimum number of charged daughters for a sim SV to be classified as reconstructable.");
-  desc.add<double>("absEtaMax", 2.5)->setComment("Maximum |eta| of the sim SV position for acceptance.");
   desc.add<std::vector<int>>("signalPdgIds", {})
       ->setComment("List of PdgIds for the mother daughters of SVs to be included for the efficiency.");
   desc.add<bool>("bHadrons", true)->setComment("Include b-hadrons for the efficiency.");

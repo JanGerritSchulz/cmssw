@@ -18,7 +18,6 @@ hltSecondaryVertexValidator = secondaryVertexAnalyzerCPC.clone(
     maxDecayLength = cms.double(20.),
     minReconstructableDaughters = cms.int32(2),
     minPtReconstructableDaughters = cms.double(0.5),
-    absEtaMax = cms.double(4.5),
     signalPdgIds = cms.vint32(),
 )
 
