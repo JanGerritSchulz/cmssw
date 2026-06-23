@@ -148,7 +148,12 @@ void SecondaryVertexAnalyzerAlgo::bookHistograms(IBooker &ibook, const std::vect
     ch.h_massRes.bookResolutions(ibook, bins, "mass", 100, -10., 10.);
 
     // ----- Resolution bundles -----
-    ch.h_trackQuality.bookHistograms(ibook, 51, -0.5, 50.5);
+    ch.h_trackQuality.bookHistograms(ibook);
+    ch.h_trackQuality_nTracksSimSV.bookHistograms(ibook, false, "nTracksSimSV", "N tracks in SimSV", 20, -0.5, 19.5);
+    ch.h_trackQuality_nTracksRecoSV.bookHistograms(ibook, false, "nTracksRecoSV", "N tracks in RecoSV", 20, -0.5, 19.5);
+    ch.h_trackQuality_decayLength.bookHistograms(ibook, true, "decayLength", "Simulated L_{3D}", 50, 1e-3, 100.);
+    ch.h_trackQuality_decayLengthXY.bookHistograms(ibook, true, "decayLengthXY", "Simulated L_{2D}", 50, 1e-3, 100.);
+    ch.h_trackQuality_chi2ndof.bookHistograms(ibook, false, "chi2ndof", "Normalised #chi^{2}/ndof", 50, 0., 10.);
 
     // ----- Plain per-collection histograms -----
     me["numRecoSVs"] = ibook.book1D("numRecoSVs", "N reco SVs per event;N SVs;Entries", 20, 0., 20.);
@@ -632,7 +637,13 @@ void SecondaryVertexAnalyzerAlgo::fillTrackQualityHistograms(const std::string &
   const double purity = nSharedTracks / rv.nTracks;
   const double efficiency = nSharedTracks / sv.nMatchedRecoTracks;
 
-  collectionHistos_.at(label).h_trackQuality.fill(rv.nTracks, sv.nMatchedRecoTracks, purity, efficiency, nSharedTracks);
+  collectionHistos_.at(label).h_trackQuality.fill(purity, efficiency, nSharedTracks);
+  collectionHistos_.at(label).h_trackQuality_nTracksSimSV.fill(
+      sv.nMatchedRecoTracks, purity, efficiency, nSharedTracks);
+  collectionHistos_.at(label).h_trackQuality_nTracksRecoSV.fill(rv.nTracks, purity, efficiency, nSharedTracks);
+  collectionHistos_.at(label).h_trackQuality_decayLength.fill(sv.decayLength, purity, efficiency, nSharedTracks);
+  collectionHistos_.at(label).h_trackQuality_decayLengthXY.fill(sv.decayLengthXY, purity, efficiency, nSharedTracks);
+  collectionHistos_.at(label).h_trackQuality_chi2ndof.fill(rv.normalizedChi2(), purity, efficiency, nSharedTracks);
 }
 
 // =============================================================================
