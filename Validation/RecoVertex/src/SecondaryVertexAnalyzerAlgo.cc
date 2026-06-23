@@ -591,9 +591,10 @@ void SecondaryVertexAnalyzerAlgo::fillResolutionHistograms(const std::string &la
 
   const double decayLen = sv.decayLength;
   const double r = sv.r;
-  const double nTrk = static_cast<double>(sv.nCharged);
   const double eta = sv.eta();
   const double pt = sv.pt();
+
+  const double nTrk = static_cast<double>(rv.nTracks);
 
   // Position residuals (reco - sim) and pulls (residual / recoErr)
   // Pulls require vertex position errors — use covariance diagonal if available.
