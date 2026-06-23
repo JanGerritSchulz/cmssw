@@ -19,59 +19,32 @@ class SVTrackQualityBundle {
   using IBooker = dqm::reco::DQMStore::IBooker;
 
 public:
-  void fill(double nTracksInRecoSV, double nMatchedTracksInSimSV, double purity, double efficiency, double nShared) {
-    h_purity_vs_nTracks->Fill(nTracksInRecoSV, purity);
-    h_efficiency_vs_nTracks->Fill(nMatchedTracksInSimSV, efficiency);
-    h_nShared_vs_nTracks->Fill(nMatchedTracksInSimSV, nShared);
+  // fill function for pure 1D histograms
+  void fill(double purity, double efficiency, double nShared) {
     h_purity->Fill(purity);
     h_efficiency->Fill(efficiency);
     h_nShared->Fill(nShared);
   }
 
-  void bookHistograms(IBooker &ibooker, int nTracksNBins, double nTracksMin, double nTracksMax) {
-    h_purity_vs_nTracks = dqm::booking::book2DIfLogX(
-        ibooker,
-        false,
-        "trackPurity_vs_nTracks",
-        "Track purity vs N(tracks in RecoSV);N(tracks in RecoSV);Track purity = nSharedTracks(RecoSV, SimSV)",
-        nTracksNBins,
-        nTracksMin,
-        nTracksMax,
-        50,
-        0.,
-        1.0001);
-    h_efficiency_vs_nTracks = dqm::booking::book2DIfLogX(
-        ibooker,
-        false,
-        "trackEfficiency_vs_nTracks",
-        "Track efficiency vs N(matched RecoTracks in SimSV);N(matched RecoTracks in SimSV);Track efficiency = "
-        "nSharedTracks(RecoSV, SimSV) / nMatchedRecoTracks(SimSV)",
-        nTracksNBins,
-        nTracksMin,
-        nTracksMax,
-        50,
-        0.,
-        1.0001);
-    h_nShared_vs_nTracks = dqm::booking::book2DIfLogX(
-        ibooker,
-        false,
-        "nSharedTracks_vs_nTracks",
-        "N(shared tracks) vs N(matched RecoTracks in SimSV);N(matched RecoTracks in SimSV);N shared tracks",
-        nTracksNBins,
-        nTracksMin,
-        nTracksMax,
-        20,
-        -0.5,
-        19.5);
+  // fill function for 2D histograms
+  void fill(double variable, double purity, double efficiency, double nShared) {
+    h_purity->Fill(variable, purity);
+    h_efficiency->Fill(variable, efficiency);
+    h_nShared->Fill(variable, nShared);
+    p_purity->Fill(variable, purity);
+    p_efficiency->Fill(variable, efficiency);
+  }
 
+  // booker for pure 1D histograms
+  void bookHistograms(IBooker &ibooker) {
     h_purity = ibooker.book1D(
         "trackPurity",
-        "Track purity per RecoSV;Purity = nSharedTracks(RecoSV, SimSV) / nTracks(RecoSV);Sim-matched RecoSVs",
+        "Track purity per matched RecoSV;Purity = nSharedTracks(RecoSV, SimSV) / nTracks(RecoSV);Sim-matched RecoSVs",
         50,
         0.,
         1.);
     h_efficiency = ibooker.book1D("trackEfficiency",
-                                  "Track efficiency per SimSV;Efficiency = nSharedTracks(RecoSV, SimSV) / "
+                                  "Track efficiency per matched SimSV;Efficiency = nSharedTracks(RecoSV, SimSV) / "
                                   "nMatchedRecoTracks(SimSV);Reco-matched SimSVs",
                                   50,
                                   0.,
@@ -79,13 +52,84 @@ public:
     h_nShared = ibooker.book1D("nSharedTracks", "N shared tracks;N shared tracks;Entries", 20, -0.5, 19.5);
   }
 
+  // booker for 2D histograms variable vs. efficiency/purity/nShared
+  void bookHistograms(IBooker &ibooker,
+                      const bool logScale,
+                      const std::string &name,
+                      const std::string &xlabel,
+                      const int nBins,
+                      const double valMin,
+                      const double valMax) {
+    h_purity = dqm::booking::book2DIfLogX(
+        ibooker,
+        logScale,
+        ("trackPurity_vs_" + name).c_str(),
+        ("Track purity per matched RecoSV;" + xlabel + ";Track purity = nSharedTracks(RecoSV, SimSV)").c_str(),
+        nBins,
+        valMin,
+        valMax,
+        50,
+        0.,
+        1.0001);
+    h_efficiency =
+        dqm::booking::book2DIfLogX(ibooker,
+                                   logScale,
+                                   ("trackEfficiency_vs_" + name).c_str(),
+                                   ("Track efficiency per matched SimSV;" + xlabel +
+                                    ";Track efficiency = nSharedTracks(RecoSV, SimSV) / nMatchedRecoTracks(SimSV)")
+                                       .c_str(),
+                                   nBins,
+                                   valMin,
+                                   valMax,
+                                   50,
+                                   0.,
+                                   1.0001);
+    h_nShared = dqm::booking::book2DIfLogX(
+        ibooker,
+        logScale,
+        ("nSharedTracks_vs_" + name).c_str(),
+        ("N(shared tracks) of matched Sim-Reco pairs;" + xlabel + ";N shared tracks").c_str(),
+        nBins,
+        valMin,
+        valMax,
+        20,
+        -0.5,
+        19.5);
+    p_purity = dqm::booking::bookProfileIfLogX(
+        ibooker,
+        logScale,
+        ("trackPurityProfile_vs_" + name).c_str(),
+        ("Average track purity of matched RecoSVs;" + xlabel + ";Average track purity = nSharedTracks(RecoSV, SimSV)")
+            .c_str(),
+        nBins,
+        valMin,
+        valMax,
+        0,
+        1,
+        " ");
+    p_efficiency = dqm::booking::bookProfileIfLogX(
+        ibooker,
+        logScale,
+        ("trackEfficiencyProfile_vs_" + name).c_str(),
+        ("Average track efficiency of matched SimSVs;" + xlabel +
+         ";Average track efficiency = nSharedTracks(RecoSV, SimSV) / nMatchedRecoTracks(SimSV)")
+            .c_str(),
+        nBins,
+        valMin,
+        valMax,
+        0,
+        1,
+        " ");
+  }
+
 private:
-  dqm::reco::MonitorElement *h_purity_vs_nTracks = nullptr;
-  dqm::reco::MonitorElement *h_efficiency_vs_nTracks = nullptr;
-  dqm::reco::MonitorElement *h_nShared_vs_nTracks = nullptr;
+  // plain histograms
   dqm::reco::MonitorElement *h_purity = nullptr;
   dqm::reco::MonitorElement *h_efficiency = nullptr;
   dqm::reco::MonitorElement *h_nShared = nullptr;
+  // profiles
+  dqm::reco::MonitorElement *p_purity = nullptr;
+  dqm::reco::MonitorElement *p_efficiency = nullptr;
 };
 
 #endif  // Validation_RecoVertex_SVTrackQualityBundle_h
