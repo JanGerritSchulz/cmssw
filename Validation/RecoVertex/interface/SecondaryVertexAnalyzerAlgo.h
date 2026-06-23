@@ -300,6 +300,11 @@ private:
 
     // Track content quality bundle — filled only for matched signal reco-sim pairs
     SVTrackQualityBundle h_trackQuality;
+    SVTrackQualityBundle h_trackQuality_nTracksSimSV;
+    SVTrackQualityBundle h_trackQuality_nTracksRecoSV;
+    SVTrackQualityBundle h_trackQuality_decayLength;
+    SVTrackQualityBundle h_trackQuality_decayLengthXY;
+    SVTrackQualityBundle h_trackQuality_chi2ndof;
   };
 
   // Generic sim-side histograms booked once (collection-independent).
