@@ -50,6 +50,7 @@ struct SimSecondaryVertex {
         nMatchedRecoTracks(0),
         nMatchedRecoVertices(0),
         meanMatchedQuality(0.f),
+        merged(false),
         motherPdgId(std::nullopt),
         isFromPileup(false) {}
 
@@ -59,6 +60,7 @@ struct SimSecondaryVertex {
     meanMatchedQuality = 0.0;
     matchedQualities.clear();
     nMatchedRecoTracks = 0;
+    merged = false;
   }
 
   // Position
@@ -87,7 +89,11 @@ struct SimSecondaryVertex {
   int nMatchedRecoVertices;
   float meanMatchedQuality;
   std::vector<float> matchedQualities;
-  bool isReconstructable() const { return nMatchedRecoTracks >= 2; };
+  mutable bool merged;  // mutable so that it can be set over the RecoSecondaryVertex
+  void setMerged() const { merged = true; }
+  bool isMerged() const { return merged; }
+  bool isMatched() const { return nMatchedRecoVertices > 0; }
+  bool isReconstructable() const { return nMatchedRecoTracks >= 2; }
 
   // Generator-level information
   std::optional<int> motherPdgId;  // PDG ID of the immediate decaying particle
@@ -227,6 +233,12 @@ struct RecoSecondaryVertex {
   int nMatchedSimVertices;
   std::vector<const SimSecondaryVertex *> simVertices;
   std::vector<float> matchedQualities;
+
+  // Flagging the simVertices as merged
+  void setSimMerged() const {
+    for (auto const &sv : simVertices)
+      sv->setMerged();
+  }
 
   // Classification flags (bitmask of VertexProperties)
   int kind_of_vertex = NONE;

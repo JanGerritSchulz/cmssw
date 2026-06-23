@@ -26,16 +26,20 @@ public:
   // ---------------------------------------------------------------------------
   // Filling — sim side
   //
-  // isMatched:        this sim vertex was matched to at least one reco vertex
+  // isMatched:         this sim vertex was matched to at least one reco vertex
   // isReconstructable: this sim vertex passes the reconstructability criteria
-  //                   (minimum decay length, minimum charged daughters, etc.)
-  // args:             kinematic variable(s) to fill (e.g. decayLength, eta, nTracks)
+  //                    (minimum decay length, minimum charged daughters, etc.)
+  // isMerged:          this sim vertex was merged with another sim vertex into
+  //                    a single reco vertex
+  // args:              kinematic variable(s) to fill (e.g. decayLength, eta, nTracks)
   // ---------------------------------------------------------------------------
   template <typename... Args>
-  void fillSimVertexHistos(const bool isMatched, const bool isReconstructable, Args... args) {
+  void fillSimVertexHistos(const bool isMatched, const bool isReconstructable, const bool isMerged, Args... args) {
     h_sim->Fill(args...);
     if (isMatched)
       h_assocSimToReco->Fill(args...);
+    if (isMerged)
+      h_merged->Fill(args...);
     if (isReconstructable) {
       h_reconstructableSim->Fill(args...);
       if (isMatched)
@@ -50,17 +54,12 @@ public:
   // isDuplicate: this reco vertex is a duplicate (sim vertex already matched
   //              to another reco vertex with higher quality)
   // isFake:      this reco vertex has no sim match at all
-  // isMerged:    this reco vertex is matched to more than one sim vertex
   // isFromPileup: matched sim vertex originates from a pileup interaction
   // args:         kinematic variable(s) to fill
   // ---------------------------------------------------------------------------
   template <typename... Args>
-  void fillRecoVertexHistos(const bool isMatched,
-                            const bool isDuplicate,
-                            const bool isFake,
-                            const bool isMerged,
-                            const bool isFromPileup,
-                            Args... args) {
+  void fillRecoVertexHistos(
+      const bool isMatched, const bool isDuplicate, const bool isFake, const bool isFromPileup, Args... args) {
     h_reco->Fill(args...);
     if (isMatched)
       h_assocRecoToSim->Fill(args...);
@@ -68,8 +67,6 @@ public:
       h_duplicate->Fill(args...);
     if (isFake)
       h_fake->Fill(args...);
-    if (isMerged)
-      h_merged->Fill(args...);
     if (isFromPileup)
       h_pileup->Fill(args...);
   }
@@ -255,6 +252,15 @@ private:
                    valMin,
                    valMax,
                    args...);
+      h_merged =
+          bookFunc(ibooker,
+                   logScale,
+                   ("num_merged_" + name).c_str(),
+                   ("N of merged simulated SVs (matched to RecoSV with multiple sim-matches)" + xylabels).c_str(),
+                   nBins,
+                   valMin,
+                   valMax,
+                   args...);
 
       if (bookPerPdgHistos) {
         // b-hadron origin
@@ -344,14 +350,6 @@ private:
                         valMin,
                         valMax,
                         args...);
-      h_merged = bookFunc(ibooker,
-                          logScale,
-                          ("num_merged_" + name).c_str(),
-                          ("N of merged reconstructed SVs (matched to >1 sim SV)" + xylabels).c_str(),
-                          nBins,
-                          valMin,
-                          valMax,
-                          args...);
       h_pileup = bookFunc(ibooker,
                           logScale,
                           ("num_pileup_" + name).c_str(),
@@ -372,13 +370,13 @@ private:
   dqm::reco::MonitorElement *h_reconstructableSim = nullptr;
   dqm::reco::MonitorElement *h_assocSimToReco = nullptr;
   dqm::reco::MonitorElement *h_assocReconstructableSimToReco = nullptr;
+  dqm::reco::MonitorElement *h_merged = nullptr;
 
   // Reco side — always booked when bookRecoHistos=true
   dqm::reco::MonitorElement *h_reco = nullptr;
   dqm::reco::MonitorElement *h_assocRecoToSim = nullptr;
   dqm::reco::MonitorElement *h_duplicate = nullptr;
   dqm::reco::MonitorElement *h_fake = nullptr;
-  dqm::reco::MonitorElement *h_merged = nullptr;
   dqm::reco::MonitorElement *h_pileup = nullptr;
 
   // Per-PDG breakdown — only booked when bookPerPdgHistos=true

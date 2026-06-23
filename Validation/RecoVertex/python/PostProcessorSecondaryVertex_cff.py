@@ -35,11 +35,11 @@ def makeSVEfficiencyBundle(histoSuffix, label):
       num_assoc(simToReco)_<suffix>
       num_reconstructableSim_<suffix>
       num_assoc(reconstructableSimToReco)_<suffix>
+      num_merged_<suffix>
       num_reco_<suffix>
       num_assoc(recoToSim)_<suffix>
       num_duplicate_<suffix>
       num_fake_<suffix>          (no sim match at all)
-      num_merged_<suffix>        (matched to >1 sim SV)
       num_pileup_<suffix>        (matched to pileup sim SV)
 
     Args:
@@ -50,28 +50,28 @@ def makeSVEfficiencyBundle(histoSuffix, label):
 
     return [
         # --- Efficiency ---
-        "effic_vs_{s} 'Efficiency vs {l}' "
+        "effic_vs_{s} 'Efficiency vs {l} (Sim)' "
         "num_assoc(simToReco)_{s} num_sim_{s}".format(s=s, l=label),
 
         # --- Technical efficiency (reconstructable sim SVs only) ---
-        "techEffic_vs_{s} 'Technical efficiency vs {l}' "
+        "techEffic_vs_{s} 'Technical efficiency vs {l} (Sim)' "
         "num_assoc(reconstructableSimToReco)_{s} "
         "num_reconstructableSim_{s}".format(s=s, l=label),
 
+        # --- Merge rate (sim SV merged with another sim SV into one reco SV) ---
+        "mergeRate_vs_{s} 'Merge rate vs {l} (Sim)' "
+        "num_merged_{s} num_sim_{s}".format(s=s, l=label),
+
         # --- Fake rate (reco SV with no sim match) ---
-        "fakeRate_vs_{s} 'Fake rate vs {l}' "
+        "fakeRate_vs_{s} 'Fake rate vs {l} (Reco)' "
         "num_assoc(recoToSim)_{s} num_reco_{s} fake".format(s=s, l=label),
 
         # --- Duplicate rate (reco SV matched to already-claimed sim SV) ---
-        "duplicateRate_vs_{s} 'Duplicate rate vs {l}' "
+        "duplicateRate_vs_{s} 'Duplicate rate vs {l} (Reco)' "
         "num_duplicate_{s} num_reco_{s}".format(s=s, l=label),
 
-        # --- Merge rate (reco SV matched to >1 sim SV) ---
-        "mergeRate_vs_{s} 'Merge rate vs {l}' "
-        "num_merged_{s} num_reco_{s}".format(s=s, l=label),
-
         # --- Pileup rate (reco SV matched only to pileup sim SVs) ---
-        "pileupRate_vs_{s} 'Pileup rate vs {l}' "
+        "pileupRate_vs_{s} 'Pileup rate vs {l} (Reco)' "
         "num_pileup_{s} num_reco_{s}".format(s=s, l=label),
     ]
 
@@ -87,11 +87,11 @@ def makeSVPerPdgEfficiencyBundle(histoSuffix, label):
     result = []
     for origin, tag in [("B-hadron", "b"), ("D-hadron", "c"), ("other", "other")]:
         result += [
-            "effic_{t}_vs_{s} 'Efficiency ({o} origin) vs {l}' "
+            "effic_{t}_vs_{s} 'Efficiency ({o} origin) vs {l} (Sim)' "
             "num_assoc(simToReco)_{t}_{s} "
             "num_sim_{t}_{s}".format(s=s, l=label, o=origin, t=tag),
 
-            "techEffic_{t}_vs_{s} 'Technical efficiency ({o} origin) vs {l}' "
+            "techEffic_{t}_vs_{s} 'Technical efficiency ({o} origin) vs {l} (Sim)' "
             "num_assoc(reconstructableSimToReco)_{t}_{s} "
             "num_reconstructableSim_{t}_{s}".format(s=s, l=label, o=origin, t=tag),
         ]
@@ -121,16 +121,16 @@ postProcessorSecondaryVertex = DQMEDHarvester("DQMGenericClient",
         # Decay length — the most SV-specific and b-tagging-relevant quantity
         makeSVEfficiencyBundle("decayLength",    "L_{3D} [cm]") +
         makeSVEfficiencyBundle("decayLengthSig", "L_{3D}/#sigma_{L_{3D}}") +
-        makeSVEfficiencyBundle("decayLengthXY",    "L_{2D} [cm]") +
+        makeSVEfficiencyBundle("decayLengthXY",  "L_{2D} [cm]") +
 
         # Track multiplicity
         makeSVEfficiencyBundle("nTracks", "N tracks at SV") +
 
         # Kinematics
-        makeSVEfficiencyBundle("eta",     "#eta") +
-        makeSVEfficiencyBundle("phi",     "#phi") +
-        makeSVEfficiencyBundle("pt",     "p_{T}") +
-        makeSVEfficiencyBundle("mass",     "SV invariant mass [GeV]") +
+        makeSVEfficiencyBundle("eta",  "#eta") +
+        makeSVEfficiencyBundle("phi",  "#phi") +
+        makeSVEfficiencyBundle("pt",   "p_{T}") +
+        makeSVEfficiencyBundle("mass", "SV invariant mass [GeV]") +
 
         # Fit quality
         makeSVEfficiencyBundle("chi2ndof", "Normalised #chi^{2}") +
