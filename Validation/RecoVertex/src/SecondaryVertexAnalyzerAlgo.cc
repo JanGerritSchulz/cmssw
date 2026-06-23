@@ -471,7 +471,7 @@ void SecondaryVertexAnalyzerAlgo::matchReco2SimVertices(std::vector<RecoSecondar
     }
 
     // Set merged flags in reco and sim
-    if (rv.simVertices.size() > 1){
+    if (rv.simVertices.size() > 1) {
       rv.kind_of_vertex |= RecoSecondaryVertex::MERGED;
       rv.setSimMerged();
     }
@@ -525,7 +525,7 @@ void SecondaryVertexAnalyzerAlgo::setSignalSimSVReconstructability(const reco::S
 void SecondaryVertexAnalyzerAlgo::fillSimVertexHistograms(const std::string &label, const SimSecondaryVertex &sv) {
   const bool isMatched = sv.isMatched();
   const bool isReconstructable = sv.isReconstructable();
-  bool isMerged = false;
+  bool isMerged = sv.isMerged();
   auto &ch = collectionHistos_.at(label);
 
   // Generic sim plots (collection-independent, filled once per all-sim pass)
