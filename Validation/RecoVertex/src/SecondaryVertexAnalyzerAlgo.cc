@@ -470,8 +470,11 @@ void SecondaryVertexAnalyzerAlgo::matchReco2SimVertices(std::vector<RecoSecondar
         anyPileup = true;
     }
 
-    if (rv.simVertices.size() > 1)
+    // Set merged flags in reco and sim
+    if (rv.simVertices.size() > 1){
       rv.kind_of_vertex |= RecoSecondaryVertex::MERGED;
+      rv.setSimMerged();
+    }
 
     // A reco SV is flagged as pileup if ALL its matched sim SVs are pileup.
     // If at least one match is signal, it is not flagged as pileup.
@@ -520,8 +523,9 @@ void SecondaryVertexAnalyzerAlgo::setSignalSimSVReconstructability(const reco::S
 // =============================================================================
 
 void SecondaryVertexAnalyzerAlgo::fillSimVertexHistograms(const std::string &label, const SimSecondaryVertex &sv) {
-  const bool isMatched = (sv.nMatchedRecoVertices > 0);
+  const bool isMatched = sv.isMatched();
   const bool isReconstructable = sv.isReconstructable();
+  bool isMerged = false;
   auto &ch = collectionHistos_.at(label);
 
   // Generic sim plots (collection-independent, filled once per all-sim pass)
@@ -538,7 +542,7 @@ void SecondaryVertexAnalyzerAlgo::fillSimVertexHistograms(const std::string &lab
   auto fillBundle = [&](BundleWithCutMask &bwm, const double value) {
     if (!isEligibleForEff(sv, bwm.mask))
       return;  // not eligible for this set of plots
-    bwm.bundle.fillSimVertexHistos(isMatched, isReconstructable, value);
+    bwm.bundle.fillSimVertexHistos(isMatched, isReconstructable, isMerged, value);
     if (cfg_.doPerPdgPlots)
       bwm.bundle.fillSimVertexHistosByPdg(sv.motherPdgId.value(), isMatched, value);
   };
@@ -555,13 +559,12 @@ void SecondaryVertexAnalyzerAlgo::fillRecoVertexHistograms(const std::string &la
   const bool isMatched = (rv.kind_of_vertex & RecoSecondaryVertex::MATCHED) != 0;
   const bool isDuplicate = (rv.kind_of_vertex & RecoSecondaryVertex::DUPLICATE) != 0;
   const bool isFake = (rv.kind_of_vertex & RecoSecondaryVertex::FAKE) != 0;
-  const bool isMerged = (rv.kind_of_vertex & RecoSecondaryVertex::MERGED) != 0;
   const bool isPileup = rv.isFromPileup;
 
   auto &ch = collectionHistos_.at(label);
 
   auto fillBundle = [&](BundleWithCutMask &bwm, const double value) {
-    bwm.bundle.fillRecoVertexHistos(isMatched, isDuplicate, isFake, isMerged, isPileup, value);
+    bwm.bundle.fillRecoVertexHistos(isMatched, isDuplicate, isFake, isPileup, value);
   };
 
   fillBundle(ch.h_decayLength, rv.decayLength());
