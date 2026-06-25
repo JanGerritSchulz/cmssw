@@ -221,7 +221,7 @@ double SecondaryVertexAnalyzerAlgo::decayLength(const TrackingVertex &tv,
 
 EfficiencyPrecheck SecondaryVertexAnalyzerAlgo::precheckEligibility(const SimSecondaryVertex &sv) const {
   const int failsDecayLength = (sv.decayLength < cfg_.minDecayLength) || (sv.decayLength > cfg_.maxDecayLength);
-  const int failsNDaughters = sv.nCharged < cfg_.minReconstructableDaughters;
+  const int failsNDaughters = sv.nReconstructable < cfg_.minReconstructableDaughters;
 
   EfficiencyPrecheck result;
   result.nFailingCuts = failsDecayLength + failsNDaughters;
