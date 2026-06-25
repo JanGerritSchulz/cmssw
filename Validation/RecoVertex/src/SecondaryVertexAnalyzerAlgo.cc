@@ -137,11 +137,11 @@ void SecondaryVertexAnalyzerAlgo::bookHistograms(IBooker &ibook, const std::vect
 
     // ----- Resolution bundles -----
     // Bin axes: decay length [0,30 cm], r [0,10 cm], nTracks [0,20]
-    ch.h_xRes.bookResolutions(ibook, bins, "x", 100, -0.5, 0.5);
-    ch.h_yRes.bookResolutions(ibook, bins, "y", 100, -0.5, 0.5);
-    ch.h_zRes.bookResolutions(ibook, bins, "z", 100, -0.5, 0.5);
-    ch.h_decayLengthRes.bookResolutions(ibook, bins, "decayLength", 50, -0.5, 0.5);
-    ch.h_decayLengthXYRes.bookResolutions(ibook, bins, "decayLengthXY", 50, -0.5, 0.5);
+    ch.h_xRes.bookResolutions(ibook, bins, "x", 200, -0.5, 0.5);
+    ch.h_yRes.bookResolutions(ibook, bins, "y", 200, -0.5, 0.5);
+    ch.h_zRes.bookResolutions(ibook, bins, "z", 200, -0.5, 0.5);
+    ch.h_decayLengthRes.bookResolutions(ibook, bins, "decayLength", 200, -0.5, 0.5);
+    ch.h_decayLengthXYRes.bookResolutions(ibook, bins, "decayLengthXY", 200, -0.5, 0.5);
     ch.h_ptRes.bookResolutions(ibook, bins, "pt", 100, -10., 10.);
     ch.h_etaRes.bookResolutions(ibook, bins, "eta", 100, -0.2, 0.2);
     ch.h_phiRes.bookResolutions(ibook, bins, "phi", 100, -0.2, 0.2);
