@@ -16,6 +16,7 @@ hltSecondaryVertexValidator = secondaryVertexAnalyzerCPC.clone(
     trackAssociation = cms.InputTag('tpToHLTGeneralTrackAssociation'),
     minDecayLength = cms.double(0.01),
     maxDecayLength = cms.double(20.),
+    minPt = cms.double(10.),
     minReconstructableDaughters = cms.int32(2),
     minPtReconstructableDaughters = cms.double(0.5),
     signalPdgIds = cms.vint32(),
