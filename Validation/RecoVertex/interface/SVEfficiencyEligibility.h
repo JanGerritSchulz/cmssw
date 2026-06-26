@@ -15,7 +15,7 @@
 // for vertices that have a realistic chance of being efficiency-plot eligible:
 //
 //   Stage 1 (precheckEligibility): evaluates the cheap geometric/multiplicity
-//            cuts only (decay length, N daughters, eta) and reports how many
+//            cuts only (decay length, N daughters, pt) and reports how many
 //            of THOSE fail. Used to decide whether motherPdgId is worth
 //            computing at all — see needsPdgIdForEfficiency().
 //
@@ -33,7 +33,8 @@ enum class EfficiencyEligibility : uint32_t {
   kNone = 0,
   kDecayLength = 1 << 0,  // eligible for the decay-length efficiency plot
   kNDaughters = 1 << 1,   // eligible for the nTracks efficiency plot
-  kPdgId = 1 << 2,        // eligible for the per-PDG efficiency plots
+  kPt = 1 << 2,           // eligible for the pt efficiency plot
+  kPdgId = 1 << 3,        // eligible for the per-PDG efficiency plots
 };
 
 inline EfficiencyEligibility operator&(EfficiencyEligibility a, EfficiencyEligibility b) {
@@ -55,7 +56,7 @@ inline EfficiencyEligibility& operator|=(EfficiencyEligibility& a, EfficiencyEli
 /// Result of the cheap-cut precheck (decay length, N daughters, eta only —
 /// PDG ID is NOT evaluated here since motherPdgId is not yet known).
 struct EfficiencyPrecheck {
-  // Bitmask over {kDecayLength, kNDaughters, kEta} only. kPdgId is never
+  // Bitmask over {kDecayLength, kNDaughters, kPt} only. kPdgId is never
   // set here; it is folded in later by finalizeEligibility().
   EfficiencyEligibility eligibility = EfficiencyEligibility::kNone;
 

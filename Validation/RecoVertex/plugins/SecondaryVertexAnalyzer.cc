@@ -108,6 +108,7 @@ SecondaryVertexAnalyzerBase<VertexCollection>::SecondaryVertexAnalyzerBase(const
           pset.getUntrackedParameter<bool>("doPerPdgPlots", true),
           pset.getParameter<double>("minDecayLength"),
           pset.getParameter<double>("maxDecayLength"),
+          pset.getParameter<double>("minPt"),
           pset.getParameter<double>("minPtReconstructableDaughters"),
           pset.getParameter<int>("minReconstructableDaughters"),
           pset.getParameter<bool>("bHadrons"),
@@ -257,6 +258,8 @@ void SecondaryVertexAnalyzerBase<VertexCollection>::fillDescriptions(edm::Config
       ->setComment(
           "Maximum 3D decay length [cm] for a TrackingVertex to be considered as an SV truth candidate for "
           "efficiency.");
+  desc.add<double>("minPt", 10.)
+      ->setComment("Minimum pT for the vector sum of all charged daughters to be included for the efficiency.");
   desc.add<double>("minPtReconstructableDaughters", 0.5)
       ->setComment("Minimum pT for charged daughters to be considered in the count for minReconstructableDaughters.");
   desc.add<int>("minReconstructableDaughters", 2)
