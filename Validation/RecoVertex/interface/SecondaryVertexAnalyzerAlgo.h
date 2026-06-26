@@ -100,6 +100,7 @@ public:
     // whose x-axis is that quantity (see SkipCuts below).
     double minDecayLength;                                    // minimum 3D decay length [cm]
     double maxDecayLength;                                    // maximum 3D decay length [cm]
+    double minPt;                                             // minimum pT of Sim SV (vector sum of charged daughters)
     double minPtReconstructableDaughters;                     // minimum pT of charged daughters
     int minReconstructableDaughters;                          // minimum charged daughters
     bool bHadrons, cHadrons, sHadrons, taus, otherParticles;  // include certain types for eff
@@ -283,7 +284,7 @@ private:
     BundleWithCutMask h_nTracks{.mask = EffElig::kNDaughters};
     BundleWithCutMask h_eta{};
     BundleWithCutMask h_chi2ndof{};
-    BundleWithCutMask h_pt{};
+    BundleWithCutMask h_pt{.mask = EffElig::kPt};
     BundleWithCutMask h_mass{};
 
     // Resolution bundles — filled only for matched reco-sim pairs,

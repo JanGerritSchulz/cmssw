@@ -123,6 +123,8 @@ namespace detail {
       append("decayLength");
     if ((mask & EfficiencyEligibility::kNDaughters) != EfficiencyEligibility::kNone)
       append("nTracks");
+    if ((mask & EfficiencyEligibility::kPt) != EfficiencyEligibility::kNone)
+      append("pt");
     if ((mask & EfficiencyEligibility::kPdgId) != EfficiencyEligibility::kNone)
       append("pdgId");
     return out.empty() ? "none" : out;
@@ -133,12 +135,10 @@ namespace detail {
 /// Prints position, decay geometry, daughter multiplicity, mother PDG ID,
 /// pileup flag, matching summary, and the efficiency-plot eligibility mask.
 inline std::ostream &operator<<(std::ostream &os, const SimSecondaryVertex &sv) {
-  const double eta = (sv.r > 0. || sv.z != 0.) ? std::atanh(sv.z / std::hypot(sv.r, sv.z)) : 0.;
-
   os << "SimSecondaryVertex["
      << "pos=(" << sv.x << ", " << sv.y << ", " << sv.z << ") cm"
-     << ", r=" << sv.r << " cm"
-     << ", eta=" << eta << ", decayLength=" << sv.decayLength << " cm"
+     << ", r=" << sv.r << " cm" << ", pt=" << sv.pt() << " GeV"
+     << ", eta=" << sv.eta() << ", decayLength=" << sv.decayLength << " cm"
      << ", decayLengthXY=" << sv.decayLengthXY << " cm"
      << ", nCharged=" << sv.nCharged << ", nReconstructable=" << sv.nReconstructable
      << ", motherPdgId=" << sv.motherPdgId.value_or(0) << ", isFromPileup=" << (sv.isFromPileup ? "true" : "false")
