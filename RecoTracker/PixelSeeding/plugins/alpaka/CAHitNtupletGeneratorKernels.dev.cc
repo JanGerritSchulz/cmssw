@@ -625,6 +625,24 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     alpaka::wait(queue);
     std::cout << "Kernel_fishboneCleaner   -> done!" << std::endl;
 #endif
+
+    // Allocate a device buffer for updated track Quality matching the number of tracks.
+    // Use type uint32_t since CUDA's atomicMin doesn't support the Quality's type of uint8_t.
+    // Logic: - use TrackSoA as a const read option for Quality
+    //        - use updatedQualView as the write option for Quality storing the updated values
+    // After the duplicate kernel has finished copy back the updated values to the SoA.
+    // This way the procedure is deterministic.
+    auto updatedQualBuf = alpaka::allocBuf<uint32_t, Idx>(alpaka::getDev(queue), static_cast<Idx>(maxTuples));
+    auto updatedQualView = alpaka::getPtrNative(updatedQualBuf);
+
+    if (this->m_params.algoParams_.doFastDuplicateRemover_ || this->m_params.algoParams_.doSharedHitCut_) {
+      // fill it with a dedicated kernel before the main one
+      numberOfBlocks = cms::alpakatools::divide_up_by(3 * maxTuples / 4, blockSize);
+      workDiv1D = cms::alpakatools::make_workdiv<Acc1D>(numberOfBlocks, blockSize);
+      alpaka::exec<Acc1D>(
+          queue, workDiv1D, Kernel_copyUpdatedQualFromTrackSoA{}, tracks_view, updatedQualView, maxTuples);
+    }
+
     if (this->m_params.algoParams_.doFastDuplicateRemover_) {
       // mark duplicates (tracks that share a doublet)
       numberOfBlocks = cms::alpakatools::divide_up_by(3 * maxDoublets / 4, blockSize);
@@ -636,11 +654,18 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                           this->device_nCells_->data(),
                           this->device_cellToTracks_->data(),
                           tracks_view,
+                          updatedQualView,
                           this->m_params.algoParams_.dupPassThrough_);
 #ifdef GPU_DEBUG
       alpaka::wait(queue);
       std::cout << "Kernel_fastDuplicateRemover   -> done!" << std::endl;
 #endif
+
+      // fill it with a dedicated kernel before the main one
+      numberOfBlocks = cms::alpakatools::divide_up_by(3 * maxTuples / 4, blockSize);
+      workDiv1D = cms::alpakatools::make_workdiv<Acc1D>(numberOfBlocks, blockSize);
+      alpaka::exec<Acc1D>(
+          queue, workDiv1D, Kernel_copyUpdatedQualToTrackSoA{}, tracks_view, updatedQualView, maxTuples);
     }
     if (this->m_params.algoParams_.doSharedHitCut_ || this->m_params.algoParams_.doStats_) {
       // fill hit->track "map"
@@ -674,6 +699,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                           workDiv1D,
                           Kernel_rejectDuplicate<TrackerTraits>{},
                           tracks_view,
+                          updatedQualView,
                           this->m_params.algoParams_.dupPassThrough_,
                           this->device_hitToTuple_->data());
 #ifdef GPU_DEBUG
@@ -681,12 +707,19 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       std::cout << "Kernel_rejectDuplicate   -> done!" << std::endl;
 #endif
 
+      // fill it with a dedicated kernel before the main one
+      numberOfBlocks = cms::alpakatools::divide_up_by(3 * maxTuples / 4, blockSize);
+      workDiv1D = cms::alpakatools::make_workdiv<Acc1D>(numberOfBlocks, blockSize);
+      alpaka::exec<Acc1D>(
+          queue, workDiv1D, Kernel_copyUpdatedQualToTrackSoA{}, tracks_view, updatedQualView, maxTuples);
+
       alpaka::exec<Acc1D>(queue,
                           workDiv1D,
                           Kernel_sharedHitCleaner<TrackerTraits>{},
                           hh,
                           this->device_layerStarts_->data(),
                           tracks_view,
+                          updatedQualView,
                           this->m_params.algoParams_.minHitsForSharingCut_,
                           this->m_params.algoParams_.dupPassThrough_,
                           this->device_hitToTuple_->data());
@@ -694,6 +727,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       alpaka::wait(queue);
       std::cout << "Kernel_sharedHitCleaner   -> done!" << std::endl;
 #endif
+
+      // fill it with a dedicated kernel before the main one
+      numberOfBlocks = cms::alpakatools::divide_up_by(3 * maxTuples / 4, blockSize);
+      workDiv1D = cms::alpakatools::make_workdiv<Acc1D>(numberOfBlocks, blockSize);
+      alpaka::exec<Acc1D>(
+          queue, workDiv1D, Kernel_copyUpdatedQualToTrackSoA{}, tracks_view, updatedQualView, maxTuples);
+
       if (this->m_params.algoParams_.doTripletCleaner_ && (this->m_params.algoParams_.minHitsPerNtuplet_ <= 3)) {
         if (this->m_params.algoParams_.useSimpleTripletCleaner_) {
           numberOfBlocks =

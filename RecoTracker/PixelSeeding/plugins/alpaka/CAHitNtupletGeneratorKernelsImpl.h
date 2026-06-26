@@ -342,6 +342,28 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::caHitNtupletGeneratorKernels {
     }
   };
 
+  class Kernel_copyUpdatedQualFromTrackSoA {
+  public:
+    ALPAKA_FN_ACC void operator()(Acc1D const &acc,
+                                  TkSoAView tracks_view,
+                                  uint32_t *__restrict__ qualSnapshot,
+                                  uint32_t nTracks) const {
+      for (auto i : cms::alpakatools::uniform_elements(acc, nTracks))
+        qualSnapshot[i] = static_cast<uint32_t>(tracks_view[i].quality());
+    }
+  };
+
+  class Kernel_copyUpdatedQualToTrackSoA {
+  public:
+    ALPAKA_FN_ACC void operator()(Acc1D const &acc,
+                                  TkSoAView tracks_view,
+                                  uint32_t *__restrict__ qualSnapshot,
+                                  uint32_t nTracks) const {
+      for (auto i : cms::alpakatools::uniform_elements(acc, nTracks))
+        tracks_view[i].quality() = static_cast<Quality>(qualSnapshot[i]);
+    }
+  };
+
   // assume the above (so, short tracks already removed)
   template <typename TrackerTraits>
   class Kernel_fastDuplicateRemover {
@@ -351,10 +373,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::caHitNtupletGeneratorKernels {
                                   uint32_t const *__restrict__ nCells,
                                   CellToTrack const *__restrict__ cellTracksHisto,
                                   TkSoAView tracks_view,
+                                  uint32_t  *__restrict__ qualUpdated,
                                   bool dupPassThrough) const {
       // quality to mark rejected
       auto const reject = dupPassThrough ? Quality::loose : Quality::dup;
+      auto const rejectUINT32 = static_cast<uint32_t>(reject);
       constexpr auto loose = Quality::loose;
+      constexpr auto looseUINT32 = static_cast<uint32_t>(loose);
 
       ALPAKA_ASSERT_ACC(nCells);
       const auto ntNCells = (*nCells);
@@ -366,7 +391,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::caHitNtupletGeneratorKernels {
         float mc = maxScore;
         uint32_t im = tkNotFound;
 
-        // auto score = [&](auto it) { return std::abs(reco::tip(tracks_view, it)); };
         auto score = [&](auto it) { return tracks_view[it].chi2(); };
 
         // full crazy combinatorics
@@ -408,10 +432,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::caHitNtupletGeneratorKernels {
             if (incompatibleTrackParams(jt))
               continue;
             if ((qj < qi) || (qj == qi && score(it) < score(jt)))
-              tracks_view[jt].quality() = reject;
+              alpaka::atomicMin(acc, &qualUpdated[jt], rejectUINT32);
             // explicitly check since they might be identical when using the same hits for fitting!
             else if ((qj > qi) || (qj == qi && score(it) > score(jt))) {
-              tracks_view[it].quality() = reject;
+              alpaka::atomicMin(acc, &qualUpdated[it], rejectUINT32);
               break;
             }
           }
@@ -444,7 +468,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::caHitNtupletGeneratorKernels {
         for (int i = 0; i < ntr; i++) {
           auto it = thisCellTracks[i];
           if (tracks_view[it].quality() > loose && score(it) > mc)
-            tracks_view[it].quality() = loose;  //no race:  simple assignment of the same constant
+            alpaka::atomicMin(acc, &qualUpdated[it], looseUINT32);
         }
       }
     }
@@ -460,6 +484,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::caHitNtupletGeneratorKernels {
                                   uint32_t const *__restrict__ nCells,
                                   CellToTrack const *__restrict__ cellTracksHisto,
                                   TkSoAView tracks_view,
+                                  uint32_t const *__restrict__ qualUpdated,
                                   bool dupPassThrough) const {
       // quality to mark rejected
       auto const reject = dupPassThrough ? Quality::loose : Quality::dup;
@@ -519,7 +544,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::caHitNtupletGeneratorKernels {
             maxQual = tracks_view[it].quality();
         }
 
-        if (maxQual <= loose)
+        if (maxQual <= reject)
           continue;
 
         // find min score
@@ -1071,10 +1096,12 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::caHitNtupletGeneratorKernels {
   public:
     ALPAKA_FN_ACC void operator()(Acc1D const &acc,
                                   TkSoAView tracks_view,
+                                  uint32_t  *__restrict__ qualUpdated,
                                   bool dupPassThrough,
                                   HitToTuple const *__restrict__ phitToTuple) const {
       // quality to mark rejected
       auto const reject = dupPassThrough ? Quality::loose : Quality::dup;
+      auto const rejectUINT32 = static_cast<uint32_t>(reject);
 
       auto &hitToTuple = *phitToTuple;
 
@@ -1124,18 +1151,18 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::caHitNtupletGeneratorKernels {
               continue;
             auto nlj = tracks_view[jt].nLayers();
             if (nlj < nli || (nlj == nli && (qj < qi || (qj == qi && score(it, nli) < score(jt, nlj)))))
-              tracks_view[jt].quality() = reject;
+              qualUpdated[jt] = rejectUINT32;
             // explicitly check since we can have actual duplicated tracks with identical parameters
             else if (nli < nlj || (nli == nlj && (qi < qj || (qi == qj && score(jt, nlj) < score(it, nli))))) {
-              tracks_view[it].quality() = reject;
+              qualUpdated[it] = rejectUINT32;
               break;
             }
             // if we have two tracks with the same length, parameters and quality, we keep the one with the lower index
             // (arbitrary but deterministic) and reject the other to avoid double counting
             else if (it < jt)
-              tracks_view[jt].quality() = reject;
+              qualUpdated[jt] = rejectUINT32;
             else
-              tracks_view[it].quality() = reject;
+              qualUpdated[it] = rejectUINT32;
           }
         }
       }
@@ -1149,6 +1176,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::caHitNtupletGeneratorKernels {
   public:
     ALPAKA_FN_ACC void operator()(Acc1D const &acc,
                                   TkSoAView tracks_view,
+                                  uint32_t  *__restrict__ qualUpdated,
                                   bool dupPassThrough,
                                   HitToTuple const *__restrict__ phitToTuple) const {
       // quality to mark rejected
@@ -1206,11 +1234,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::caHitNtupletGeneratorKernels {
                                   HitsConstView hh,
                                   uint32_t const *__restrict__ layerStarts,
                                   TkSoAView tracks_view,
+                                  uint32_t  *__restrict__ qualUpdated,
                                   int nmin,
                                   bool dupPassThrough,
                                   HitToTuple const *__restrict__ phitToTuple) const {
       // quality to mark rejected
       auto const reject = dupPassThrough ? Quality::loose : Quality::dup;
+      auto const rejectUINT32 = static_cast<uint32_t>(reject);
       // quality of longest track
       auto const longTqual = Quality::highPurity;
 
@@ -1252,7 +1282,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::caHitNtupletGeneratorKernels {
             continue;
 
           if (nl < maxNl && tracks_view[*it].quality() > reject)
-            tracks_view[*it].quality() = reject;
+            qualUpdated[*it] = rejectUINT32;
         }
       }
     }
