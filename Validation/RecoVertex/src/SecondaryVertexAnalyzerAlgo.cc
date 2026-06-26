@@ -244,6 +244,10 @@ bool SecondaryVertexAnalyzerAlgo::finalizeEligibility(SimSecondaryVertex &sv,
     passPdgIdCut = false;
   if (!(cfg_.cHadrons) && sim::isCHadron(pdgId))
     passPdgIdCut = false;
+  if (!(cfg_.sHadrons) && sim::isSHadron(pdgId))
+    passPdgIdCut = false;
+  if (!(cfg_.taus) && sim::isTau(pdgId))
+    passPdgIdCut = false;
   if (!(cfg_.otherParticles) && !(sim::isBHadron(pdgId) || sim::isCHadron(pdgId)))
     passPdgIdCut = false;
   if (!cfg_.signalPdgIds.empty()) {

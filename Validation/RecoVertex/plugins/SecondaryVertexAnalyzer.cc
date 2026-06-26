@@ -112,6 +112,8 @@ SecondaryVertexAnalyzerBase<VertexCollection>::SecondaryVertexAnalyzerBase(const
           pset.getParameter<int>("minReconstructableDaughters"),
           pset.getParameter<bool>("bHadrons"),
           pset.getParameter<bool>("cHadrons"),
+          pset.getParameter<bool>("sHadrons"),
+          pset.getParameter<bool>("taus"),
           pset.getParameter<bool>("otherParticles"),
           pset.getParameter<std::vector<int>>("signalPdgIds"),
       }) {
@@ -263,7 +265,9 @@ void SecondaryVertexAnalyzerBase<VertexCollection>::fillDescriptions(edm::Config
       ->setComment("List of PdgIds for the mother daughters of SVs to be included for the efficiency.");
   desc.add<bool>("bHadrons", true)->setComment("Include b-hadrons for the efficiency.");
   desc.add<bool>("cHadrons", true)->setComment("Include c-hadrons for the efficiency.");
-  desc.add<bool>("otherParticles", false)->setComment("Include other hadrons (not b/c) for the efficiency.");
+  desc.add<bool>("sHadrons", true)->setComment("Include s-hadrons for the efficiency.");
+  desc.add<bool>("taus", true)->setComment("Include taus for the efficiency.");
+  desc.add<bool>("otherParticles", false)->setComment("Include other particels (not b/c/s/tau) for the efficiency.");
 
   descriptions.addWithDefaultLabel(desc);
 }
