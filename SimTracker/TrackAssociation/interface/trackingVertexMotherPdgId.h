@@ -13,7 +13,8 @@
               or more particles were produced. Knowing the PDG ID of the
               decaying mother is essential for b/c-tagging validation,
               secondary vertex classification, and any analysis that needs to
-              distinguish B-hadron, D-hadron, and other-origin vertices.
+              distinguish B-hadron, D-hadron, K-hadron, tau, and other-origin 
+              vertices.
 
               The determination is non-trivial because:
 
@@ -41,7 +42,7 @@
    Case 1 — TP mother exists (sourceTracks non-empty):
              The source track(s) of the TrackingVertex are the TPs that decayed
              to produce it. Their PDG IDs are used directly, preferring B > C >
-             other when multiple source tracks are present.
+             S > tau > other when multiple source tracks are present.
 
    Case 2 — No TP mother, pileup vertex (eventId().event() != 0):
              Insufficient MC truth survives for pileup. Returns 0.
@@ -54,7 +55,7 @@
              genpartIndex(), checking all daughter TPs of the TrackingVertex
              and collecting ancestor PDG IDs from generator vertices within
              the merge radius. Returns the most interesting PDG ID found
-             (B > C > other non-zero).
+             (B > C > S > tau > other non-zero).
 
  Usage:
    #include "SimTracker/TrackAssociation/interface/trackingVertexMotherPdgId.h"
@@ -88,6 +89,8 @@ namespace sim {
   // Public interface — forward declarations of helpers used internally
   inline bool isBHadron(int pdgId);
   inline bool isCHadron(int pdgId);
+  inline bool isSHadron(int pdgId);
+  inline bool isTau(int pdgId);
 
   namespace detail {
     inline bool isMoreInteresting(int newPdg, int bestSoFar);
@@ -114,6 +117,21 @@ namespace sim {
            || (absPdg == 4);        // c quark (guard)
   }
 
+  /// Returns true if pdgId corresponds to a strange hadron.
+  inline bool isSHadron(const int pdgId) {
+    const int absPdg = std::abs(pdgId);
+    return (absPdg / 300 == 1)      // K mesons (3xx)
+           || (absPdg == 130)       // K0_L (130)
+           || (absPdg / 3000 == 1)  // strange baryons (4xxx)
+           || (absPdg == 4);        // s quark (guard)
+  }
+
+  /// Returns true if pdgId corresponds to a tau.
+  inline bool isTau(const int pdgId) {
+    const int absPdg = std::abs(pdgId);
+    return (absPdg == 15);  // tau (15)
+  }
+
   /// Determine the PDG ID of the mother particle responsible for a
   /// TrackingVertex. See file header for a full description of the four
   /// cases handled.
@@ -124,7 +142,8 @@ namespace sim {
   ///                  in that case signal vertices without a TP mother
   ///                  return 0.
   /// @returns         PDG ID of the most physics-relevant ancestor, with
-  ///                  B hadrons preferred over D hadrons over others.
+  ///                  B hadrons preferred over D hadrons over K hadrons 
+  ///                  over tau over others.
   ///                  Returns 0 when classification is not possible.
   inline int trackingVertexMotherPdgId(const TrackingVertex &tv, const HepMC::GenEvent *genEvent = nullptr) {
     using namespace detail;
@@ -225,11 +244,15 @@ namespace sim {
 
   namespace detail {
     /// Returns true if newPdg is more physics-relevant than bestSoFar
-    /// for secondary vertex classification purposes (B > C > other).
+    /// for secondary vertex classification purposes (B > C > S > tau > other).
     inline bool isMoreInteresting(int newPdg, int bestSoFar) {
       if (isBHadron(newPdg) && !isBHadron(bestSoFar))
         return true;
       if (isCHadron(newPdg) && !isBHadron(bestSoFar) && !isCHadron(bestSoFar))
+        return true;
+      if (isSHadron(newPdg) && !isBHadron(bestSoFar) && !isCHadron(bestSoFar) && !isSHadron(bestSoFar))
+        return true;
+      if (isTau(newPdg) && !isBHadron(bestSoFar) && !isCHadron(bestSoFar) && !isSHadron(bestSoFar) && !isTau(bestSoFar))
         return true;
       if (bestSoFar == 0 && newPdg != 0)
         return true;

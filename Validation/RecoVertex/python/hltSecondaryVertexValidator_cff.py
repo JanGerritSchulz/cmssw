@@ -19,6 +19,11 @@ hltSecondaryVertexValidator = secondaryVertexAnalyzerCPC.clone(
     minReconstructableDaughters = cms.int32(2),
     minPtReconstructableDaughters = cms.double(0.5),
     signalPdgIds = cms.vint32(),
+    bHadrons = cms.bool(True),
+    cHadrons = cms.bool(True),
+    sHadrons = cms.bool(True),
+    taus = cms.bool(True),
+    otherParticles = cms.bool(False),
 )
 
 hltSecondaryVertexValidation = cms.Sequence(

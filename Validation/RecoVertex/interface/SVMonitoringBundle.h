@@ -15,6 +15,7 @@
 */
 
 #include "DQMServices/Core/interface/DQMBookingHelpers.h"
+#include "SimTracker/TrackAssociation/interface/trackingVertexMotherPdgId.h"
 
 class SVMonitoringBundle {
 public:
@@ -83,18 +84,22 @@ public:
   // ---------------------------------------------------------------------------
   template <typename... Args>
   void fillSimVertexHistosByPdg(const int motherPdgId, const bool isMatched, Args... args) {
-    const int absPdg = std::abs(motherPdgId);
-    const bool isB = (absPdg / 500 == 1) || (absPdg / 5000 == 1);
-    const bool isC = !isB && ((absPdg / 400 == 1) || (absPdg / 4000 == 1));
-
-    if (isB && h_sim_b) {
+    if (sim::isBHadron(motherPdgId) && h_sim_b) {
       h_sim_b->Fill(args...);
       if (isMatched && h_assocSimToReco_b)
         h_assocSimToReco_b->Fill(args...);
-    } else if (isC && h_sim_c) {
+    } else if (sim::isCHadron(motherPdgId) && h_sim_c) {
       h_sim_c->Fill(args...);
       if (isMatched && h_assocSimToReco_c)
         h_assocSimToReco_c->Fill(args...);
+    } else if (sim::isSHadron(motherPdgId) && h_sim_s) {
+      h_sim_s->Fill(args...);
+      if (isMatched && h_assocSimToReco_s)
+        h_assocSimToReco_s->Fill(args...);
+    } else if (sim::isTau(motherPdgId) && h_sim_tau) {
+      h_sim_tau->Fill(args...);
+      if (isMatched && h_assocSimToReco_tau)
+        h_assocSimToReco_tau->Fill(args...);
     } else if (h_sim_other) {
       h_sim_other->Fill(args...);
       if (isMatched && h_assocSimToReco_other)
@@ -297,6 +302,40 @@ private:
                                       valMin,
                                       valMax,
                                       args...);
+        // c-hadron origin
+        h_sim_s = bookFunc(ibooker,
+                           logScale,
+                           ("num_sim_s_" + name).c_str(),
+                           ("N of simulated K-hadron SVs" + xylabels).c_str(),
+                           nBins,
+                           valMin,
+                           valMax,
+                           args...);
+        h_assocSimToReco_s = bookFunc(ibooker,
+                                      logScale,
+                                      ("num_assoc(simToReco)_s_" + name).c_str(),
+                                      ("N of simulated K-hadron SVs matched to a reco SV" + xylabels).c_str(),
+                                      nBins,
+                                      valMin,
+                                      valMax,
+                                      args...);
+        // tau-hadron origin
+        h_sim_tau = bookFunc(ibooker,
+                             logScale,
+                             ("num_sim_tau_" + name).c_str(),
+                             ("N of simulated tau SVs" + xylabels).c_str(),
+                             nBins,
+                             valMin,
+                             valMax,
+                             args...);
+        h_assocSimToReco_tau = bookFunc(ibooker,
+                                        logScale,
+                                        ("num_assoc(simToReco)_tau_" + name).c_str(),
+                                        ("N of simulated tau SVs matched to a reco SV" + xylabels).c_str(),
+                                        nBins,
+                                        valMin,
+                                        valMax,
+                                        args...);
         // other origin (light hadrons, nuclear interactions, etc.)
         h_sim_other = bookFunc(ibooker,
                                logScale,
@@ -382,9 +421,13 @@ private:
   // Per-PDG breakdown — only booked when bookPerPdgHistos=true
   dqm::reco::MonitorElement *h_sim_b = nullptr;
   dqm::reco::MonitorElement *h_sim_c = nullptr;
+  dqm::reco::MonitorElement *h_sim_s = nullptr;
+  dqm::reco::MonitorElement *h_sim_tau = nullptr;
   dqm::reco::MonitorElement *h_sim_other = nullptr;
   dqm::reco::MonitorElement *h_assocSimToReco_b = nullptr;
   dqm::reco::MonitorElement *h_assocSimToReco_c = nullptr;
+  dqm::reco::MonitorElement *h_assocSimToReco_s = nullptr;
+  dqm::reco::MonitorElement *h_assocSimToReco_tau = nullptr;
   dqm::reco::MonitorElement *h_assocSimToReco_other = nullptr;
 };
 
