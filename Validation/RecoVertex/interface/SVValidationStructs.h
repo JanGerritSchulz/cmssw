@@ -256,4 +256,17 @@ struct RecoSecondaryVertex {
   edm::RefToBase<VertexType> recoVertex() const;
 };
 
+/// Stream operator for debug printing of a SimSecondaryVertex.
+/// Prints position, decay geometry, daughter multiplicity, mother PDG ID,
+/// pileup flag, matching summary, and the efficiency-plot eligibility mask.
+inline std::ostream &operator<<(std::ostream &os, const RecoSecondaryVertex &rv) {
+  os << "RecoSecondaryVertex["
+     << "pos=(" << rv.x() << ", " << rv.y() << ", " << rv.z() << ") cm"
+     << ", r=" << rv.r() << " cm" << ", pt=" << rv.pt() << " GeV"
+     << ", eta=" << rv.eta() << ", decayLength=" << rv.decayLength() << " cm"
+     << ", decayLengthXY=" << rv.decayLengthXY() << " cm"
+     << ", nTracks=" << rv.nTracks << ", nMatchedSim=" << rv.nMatchedSimVertices << "]";
+  return os;
+}
+
 #endif  // Validation_RecoVertex_SVValidationStructs_h
