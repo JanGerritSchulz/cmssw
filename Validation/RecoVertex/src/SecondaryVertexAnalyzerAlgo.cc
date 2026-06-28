@@ -251,7 +251,8 @@ bool SecondaryVertexAnalyzerAlgo::finalizeEligibility(SimSecondaryVertex &sv,
     passPdgIdCut = false;
   if (!(cfg_.taus) && sim::isTau(pdgId))
     passPdgIdCut = false;
-  if (!(cfg_.otherParticles) && !(sim::isBHadron(pdgId) || sim::isCHadron(pdgId)))
+  if (!(cfg_.otherParticles) &&
+      !(sim::isBHadron(pdgId) || sim::isCHadron(pdgId) || sim::isSHadron(pdgId) || sim::isTau(pdgId)))
     passPdgIdCut = false;
   if (!cfg_.signalPdgIds.empty()) {
     const int absPdg = std::abs(pdgId);
@@ -311,6 +312,7 @@ std::vector<SimSecondaryVertex> SecondaryVertexAnalyzerAlgo::buildAllSimSVs(
     sv.nCharged = 0;
     sv.nReconstructable = 0;
     for (auto iTP = tv.daughterTracks_begin(); iTP != tv.daughterTracks_end(); ++iTP) {
+      sv.totalP4 += (*iTP)->p4();
       if ((*iTP)->charge() != 0) {
         ++sv.nCharged;
         sv.chargedP4 += (*iTP)->p4();
@@ -562,9 +564,12 @@ void SecondaryVertexAnalyzerAlgo::fillSimVertexHistograms(const std::string &lab
   fillBundle(ch.h_decayLength, sv.decayLength);
   fillBundle(ch.h_decayLengthXY, sv.decayLengthXY);
   fillBundle(ch.h_nTracks, sv.nCharged);
-  fillBundle(ch.h_eta, sv.eta());
-  fillBundle(ch.h_mass, sv.mass());
-  fillBundle(ch.h_pt, sv.pt());
+  fillBundle(ch.h_eta, sv.etaCharged());
+  fillBundle(ch.h_mass, sv.massCharged());
+  fillBundle(ch.h_pt, sv.ptCharged());
+
+  if (isEligibleForEff(sv, EffElig::kNone))
+    std::cout << "Built signal SV: " << sv << std::endl;
 }
 
 void SecondaryVertexAnalyzerAlgo::fillRecoVertexHistograms(const std::string &label, const RecoSecondaryVertex &rv) {
@@ -598,8 +603,8 @@ void SecondaryVertexAnalyzerAlgo::fillResolutionHistograms(const std::string &la
 
   const double decayLen = sv.decayLength;
   const double r = sv.r;
-  const double eta = sv.eta();
-  const double pt = sv.pt();
+  const double eta = sv.etaCharged();
+  const double pt = sv.ptCharged();
 
   const double nTrk = static_cast<double>(rv.nTracks);
 
@@ -610,10 +615,10 @@ void SecondaryVertexAnalyzerAlgo::fillResolutionHistograms(const std::string &la
   const double zRes = rv.z() - sv.z;
   const double lRes = rv.decayLength() - sv.decayLength;
   const double lxyRes = rv.decayLengthXY() - sv.decayLengthXY;
-  const double mRes = rv.mass() - sv.mass();
-  const double etaRes = rv.eta() - sv.eta();
-  const double phiRes = rv.phi() - sv.phi();
-  const double ptRes = rv.pt() - sv.pt();
+  const double mRes = rv.mass() - sv.massCharged();
+  const double etaRes = rv.eta() - sv.etaCharged();
+  const double phiRes = rv.phi() - sv.phiCharged();
+  const double ptRes = rv.pt() - sv.ptCharged();
   const double xPull = xRes / rv.xError();
   const double yPull = yRes / rv.yError();
   const double zPull = zRes / rv.zError();

@@ -73,10 +73,16 @@ struct SimSecondaryVertex {
 
   // Kinematics
   math::XYZTLorentzVector chargedP4;
-  double mass() const { return chargedP4.mass(); }
-  double pt() const { return chargedP4.pt(); }
-  double eta() const { return chargedP4.eta(); }
-  double phi() const { return chargedP4.phi(); }
+  double massCharged() const { return chargedP4.mass(); }
+  double ptCharged() const { return chargedP4.pt(); }
+  double etaCharged() const { return chargedP4.eta(); }
+  double phiCharged() const { return chargedP4.phi(); }
+  
+  math::XYZTLorentzVector totalP4;
+  double mass() const { return totalP4.mass(); }
+  double pt() const { return totalP4.pt(); }
+  double eta() const { return totalP4.eta(); }
+  double phi() const { return totalP4.phi(); }
 
   // Daughter track multiplicity
   int nCharged;          // number of charged daughter TrackingParticles
