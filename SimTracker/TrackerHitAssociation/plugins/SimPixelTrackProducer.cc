@@ -74,7 +74,7 @@
  * @date January 2025
  */
 template <typename TrackerTraits>
-class SimPixelTrackProducer : public edm::stream::EDProducer<> {
+class SimPixelTrackProducer : public edm::stream::EDProducer<edm::stream::WatchRuns> {
 public:
   // types for SimPixelTrack properties
   using float_type = SimPixelTrack::float_type;
