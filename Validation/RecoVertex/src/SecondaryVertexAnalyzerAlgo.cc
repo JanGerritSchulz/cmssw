@@ -66,7 +66,6 @@ void SecondaryVertexAnalyzerAlgo::bookHistograms(IBooker &ibook, const std::vect
     ibook.setCurrentFolder(folder);
 
     auto &ch = collectionHistos_[label];
-    auto &me = mes_[label];
 
     // ----- Monitoring bundles -----
     // Decay length — suppress kDecayLength cut for sim-side fills
@@ -156,9 +155,12 @@ void SecondaryVertexAnalyzerAlgo::bookHistograms(IBooker &ibook, const std::vect
     ch.h_trackQuality_chi2ndof.bookHistograms(ibook, false, "chi2ndof", "Normalised #chi^{2}/ndof", 50, 0., 10.);
 
     // ----- Plain per-collection histograms -----
-    me["numRecoSVs"] = ibook.book1D("numRecoSVs", "N reco SVs per event;N SVs;Entries", 20, 0., 20.);
-    me["numSimSVsAll"] = ibook.book1D("numSimSVsAll", "N all sim SVs per event;N SVs;Entries", 100, 0., 200.);
-    me["numSimSVsSignal"] = ibook.book1D("numSimSVsSignal", "N signal sim SVs per event;N SVs;Entries", 50, 0., 50.);
+    ch.mes["numRecoSVs"] = ibook.book1D("numRecoSVs", "N reco SVs per event;N SVs;Entries", 20, 0., 20.);
+    ch.mes["numSimSVsAll"] = ibook.book1D("numSimSVsAll", "N all sim SVs per event;N SVs;Entries", 100, 0., 200.);
+    ch.mes["numSimSVsSignal"] =
+        ibook.book1D("numSimSVsSignal", "N signal sim SVs per event;N SVs;Entries", 50, 0., 50.);
+    ch.mes["distMergedSimSVs"] =
+        ibook.book1D("distMergedSimSVs", "Distance between merged SimSVs;Distance [cm];Entries", 50, 0., 10.);
   }
 }
 
@@ -594,6 +596,17 @@ void SecondaryVertexAnalyzerAlgo::fillRecoVertexHistograms(const std::string &la
   fillBundle(ch.h_mass, rv.mass());
   fillBundle(ch.h_pt, rv.pt());
   fillBundle(ch.h_chi2ndof, rv.normalizedChi2());
+
+  auto const nSimVerticesMatched = rv.simVertices.size();
+  if (nSimVerticesMatched > 1) {
+    for (size_t i1{0}; i1 < nSimVerticesMatched; ++i1) {
+      const auto *sv1 = rv.simVertices[i1];
+      for (size_t i2{i1 + 1}; i2 < nSimVerticesMatched; ++i2) {
+        const auto *sv2 = rv.simVertices[i2];
+        ch.mes["distMergedSimSVs"]->Fill(sv1->dist(*sv2));
+      }
+    }
+  }
 }
 
 void SecondaryVertexAnalyzerAlgo::fillResolutionHistograms(const std::string &label,
@@ -694,10 +707,10 @@ void SecondaryVertexAnalyzerAlgo::analyzeImpl(std::vector<RecoSecondaryVertex> r
     genericSimHistos_.h_numSignalSimSVs->Fill(signalSimSVs_.size());
   }
 
-  auto &me = mes_.at(collectionLabel);
-  me.at("numRecoSVs")->Fill(recoSVs.size());
-  me.at("numSimSVsAll")->Fill(allSimSVs_.size());
-  me.at("numSimSVsSignal")->Fill(signalSimSVs_.size());
+  auto &mes = collectionHistos_.at(collectionLabel).mes;
+  mes.at("numRecoSVs")->Fill(recoSVs.size());
+  mes.at("numSimSVsAll")->Fill(allSimSVs_.size());
+  mes.at("numSimSVsSignal")->Fill(signalSimSVs_.size());
 
   // ------------------------------------------------------------------
   // 4. Fill sim-side histograms

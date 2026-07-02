@@ -306,6 +306,9 @@ private:
     SVTrackQualityBundle h_trackQuality_decayLength;
     SVTrackQualityBundle h_trackQuality_decayLengthXY;
     SVTrackQualityBundle h_trackQuality_chi2ndof;
+
+    // Additional MonitorElements keyed by histogram name
+    std::map<std::string, dqm::reco::MonitorElement *> mes;
   };
 
   // Generic sim-side histograms booked once (collection-independent).
@@ -325,8 +328,7 @@ private:
 
   const Config cfg_;
 
-  // MonitorElements and bundles keyed by [collectionLabel][histogramName].
-  std::map<std::string, std::map<std::string, dqm::reco::MonitorElement *>> mes_;
+  // MonitorElements and bundles keyed by [collectionLabel].
   std::map<std::string, CollectionHistograms> collectionHistos_;
   GenericSimHistograms genericSimHistos_;
 
