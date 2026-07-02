@@ -344,7 +344,7 @@ std::vector<SimSecondaryVertex *> SecondaryVertexAnalyzerAlgo::buildSignalSimSVs
     if (sv.isFromPileup)
       break;
 
-    // veto vertices with less than 2 charged daugters
+    // veto vertices with less than 2 charged daughters
     if (sv.nCharged < 2)
       continue;
 
