@@ -66,6 +66,12 @@ struct SimSecondaryVertex {
   // Position
   double x, y, z;
   double r;  // transverse decay radius
+  double dist(SimSecondaryVertex const &other) const {
+    const double dx = x - other.x;
+    const double dy = y - other.y;
+    const double dz = z - other.z;
+    return std::sqrt(dx * dx + dy * dy + dz * dz);
+  }
 
   // Decay geometry — filled after PV association
   double decayLength;    // 3D decay length [cm]
