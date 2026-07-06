@@ -51,6 +51,7 @@ struct SimSecondaryVertex {
         nMatchedRecoVertices(0),
         meanMatchedQuality(0.f),
         merged(false),
+        motherPt(std::nullopt),
         motherPdgId(std::nullopt),
         isFromPileup(false) {}
 
@@ -79,16 +80,10 @@ struct SimSecondaryVertex {
 
   // Kinematics
   math::XYZTLorentzVector chargedP4;
-  double massCharged() const { return chargedP4.mass(); }
-  double ptCharged() const { return chargedP4.pt(); }
-  double etaCharged() const { return chargedP4.eta(); }
-  double phiCharged() const { return chargedP4.phi(); }
-  
-  math::XYZTLorentzVector totalP4;
-  double mass() const { return totalP4.mass(); }
-  double pt() const { return totalP4.pt(); }
-  double eta() const { return totalP4.eta(); }
-  double phi() const { return totalP4.phi(); }
+  double mass() const { return chargedP4.mass(); }
+  double pt() const { return chargedP4.pt(); }
+  double eta() const { return chargedP4.eta(); }
+  double phi() const { return chargedP4.phi(); }
 
   // Daughter track multiplicity
   int nCharged;          // number of charged daughter TrackingParticles
@@ -108,6 +103,7 @@ struct SimSecondaryVertex {
   bool isReconstructable() const { return nMatchedRecoTracks >= 2; }
 
   // Generator-level information
+  std::optional<double> motherPt;  // pt of the immediate decaying particle
   std::optional<int> motherPdgId;  // PDG ID of the immediate decaying particle
   bool isFromPileup;               // true if this vertex comes from a pileup interaction
 
@@ -150,6 +146,7 @@ inline std::ostream &operator<<(std::ostream &os, const SimSecondaryVertex &sv) 
   os << "SimSecondaryVertex["
      << "pos=(" << sv.x << ", " << sv.y << ", " << sv.z << ") cm"
      << ", r=" << sv.r << " cm" << ", pt=" << sv.pt() << " GeV"
+     << ", pt(mother)=" << sv.motherPt.value_or(0.) << " GeV" << ", phi=" << sv.phi() << " rad"
      << ", eta=" << sv.eta() << ", decayLength=" << sv.decayLength << " cm"
      << ", decayLengthXY=" << sv.decayLengthXY << " cm"
      << ", nCharged=" << sv.nCharged << ", nReconstructable=" << sv.nReconstructable

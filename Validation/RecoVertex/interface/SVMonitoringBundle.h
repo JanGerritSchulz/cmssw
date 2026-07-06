@@ -15,7 +15,7 @@
 */
 
 #include "DQMServices/Core/interface/DQMBookingHelpers.h"
-#include "SimTracker/TrackAssociation/interface/trackingVertexMotherPdgId.h"
+#include "SimTracker/TrackAssociation/interface/trackingVertexMotherPdgIdAndPt.h"
 
 class SVMonitoringBundle {
 public:

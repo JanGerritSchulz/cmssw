@@ -7,7 +7,7 @@
 #include "DataFormats/Math/interface/deltaR.h"
 #include "DQMServices/Core/interface/DQMBookingHelpers.h"
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
-#include "SimTracker/TrackAssociation/interface/trackingVertexMotherPdgId.h"
+#include "SimTracker/TrackAssociation/interface/trackingVertexMotherPdgIdAndPt.h"
 #include "RecoVertex/VertexTools/interface/VertexDistance3D.h"
 #include "RecoVertex/VertexTools/interface/VertexDistanceXY.h"
 #include "RecoVertex/VertexPrimitives/interface/ConvertToFromReco.h"
@@ -224,17 +224,14 @@ double SecondaryVertexAnalyzerAlgo::decayLength(const TrackingVertex &tv,
 EfficiencyPrecheck SecondaryVertexAnalyzerAlgo::precheckEligibility(const SimSecondaryVertex &sv) const {
   const int failsDecayLength = (sv.decayLength < cfg_.minDecayLength) || (sv.decayLength > cfg_.maxDecayLength);
   const int failsNDaughters = sv.nReconstructable < cfg_.minReconstructableDaughters;
-  const int failsPt = sv.pt() < cfg_.minPt;
 
   EfficiencyPrecheck result;
-  result.nFailingCuts = failsDecayLength + failsNDaughters + failsPt;
+  result.nFailingCuts = failsDecayLength + failsNDaughters;
 
   if (result.nFailingCuts - failsDecayLength <= 0)  // eligible for eff vs. decay length
     result.eligibility |= EfficiencyEligibility::kDecayLength;
   if (result.nFailingCuts - failsNDaughters <= 0)  // eligible for eff vs. nTracks
     result.eligibility |= EfficiencyEligibility::kNDaughters;
-  if (result.nFailingCuts - failsPt <= 0)  // eligible for eff vs. pt
-    result.eligibility |= EfficiencyEligibility::kPt;
 
   return result;
 }
@@ -242,6 +239,8 @@ EfficiencyPrecheck SecondaryVertexAnalyzerAlgo::precheckEligibility(const SimSec
 bool SecondaryVertexAnalyzerAlgo::finalizeEligibility(SimSecondaryVertex &sv,
                                                       const EfficiencyPrecheck &precheck) const {
   EfficiencyEligibility result = precheck.eligibility;
+
+  const bool passPtCut = sv.motherPt.value_or(0.) > cfg_.minPt;
 
   bool passPdgIdCut = true;
   const auto pdgId = sv.motherPdgId.value();
@@ -261,18 +260,21 @@ bool SecondaryVertexAnalyzerAlgo::finalizeEligibility(SimSecondaryVertex &sv,
     passPdgIdCut = std::find(cfg_.signalPdgIds.begin(), cfg_.signalPdgIds.end(), absPdg) != cfg_.signalPdgIds.end();
   }
 
-  // The cheap-cut bundles additionally require the PDG cut to pass, since
+  // The cheap-cut bundles additionally require the PDG/pt cuts to pass, since
   // they do NOT suppress it.
-  if (!passPdgIdCut)
+  if (!passPdgIdCut or !passPtCut)
     // Clear all cheap-cut bits if the PDG cut fails — those bundles do not
     // suppress the PDG cut, so failing it disqualifies them regardless of
     // the cheap-cut outcome.
     result = EfficiencyEligibility::kNone;
 
-  // kPdgId bundle: eligible if all three cheap cuts pass (PDG cut itself
+  // kPdgId bundle: eligible if all three other cuts pass (PDG cut itself
   // is suppressed for this bundle's own plot).
-  if (precheck.nFailingCuts == 0)
+  if (passPtCut && precheck.nFailingCuts == 0)
     result |= EfficiencyEligibility::kPdgId;
+  // same idea for pt
+  if (passPdgIdCut && precheck.nFailingCuts == 0)
+    result |= EfficiencyEligibility::kPt;
 
   sv.eligibility = result;
   return result != EfficiencyEligibility::kNone;
@@ -314,7 +316,6 @@ std::vector<SimSecondaryVertex> SecondaryVertexAnalyzerAlgo::buildAllSimSVs(
     sv.nCharged = 0;
     sv.nReconstructable = 0;
     for (auto iTP = tv.daughterTracks_begin(); iTP != tv.daughterTracks_end(); ++iTP) {
-      sv.totalP4 += (*iTP)->p4();
       if ((*iTP)->charge() != 0) {
         ++sv.nCharged;
         sv.chargedP4 += (*iTP)->p4();
@@ -357,7 +358,9 @@ std::vector<SimSecondaryVertex *> SecondaryVertexAnalyzerAlgo::buildSignalSimSVs
     if (!preCheck.potentiallyEligible())
       continue;
 
-    sv.motherPdgId = sim::trackingVertexMotherPdgId(*(sv.simVertex), genEvent);
+    std::tie(sv.motherPdgId, sv.motherPt) = sim::trackingVertexMotherPdgIdAndPt(*(sv.simVertex), genEvent);
+
+    std::cout << "Checked signal SV: " << sv << std::endl;
 
     if (finalizeEligibility(sv, preCheck))
       result.push_back(&sv);
@@ -566,9 +569,9 @@ void SecondaryVertexAnalyzerAlgo::fillSimVertexHistograms(const std::string &lab
   fillBundle(ch.h_decayLength, sv.decayLength);
   fillBundle(ch.h_decayLengthXY, sv.decayLengthXY);
   fillBundle(ch.h_nTracks, sv.nCharged);
-  fillBundle(ch.h_eta, sv.etaCharged());
-  fillBundle(ch.h_mass, sv.massCharged());
-  fillBundle(ch.h_pt, sv.ptCharged());
+  fillBundle(ch.h_eta, sv.eta());
+  fillBundle(ch.h_mass, sv.mass());
+  fillBundle(ch.h_pt, sv.pt());
 
   if (isEligibleForEff(sv, EffElig::kNone))
     std::cout << "Built signal SV: " << sv << std::endl;
@@ -616,8 +619,8 @@ void SecondaryVertexAnalyzerAlgo::fillResolutionHistograms(const std::string &la
 
   const double decayLen = sv.decayLength;
   const double r = sv.r;
-  const double eta = sv.etaCharged();
-  const double pt = sv.ptCharged();
+  const double eta = sv.eta();
+  const double pt = sv.pt();
 
   const double nTrk = static_cast<double>(rv.nTracks);
 
@@ -628,10 +631,10 @@ void SecondaryVertexAnalyzerAlgo::fillResolutionHistograms(const std::string &la
   const double zRes = rv.z() - sv.z;
   const double lRes = rv.decayLength() - sv.decayLength;
   const double lxyRes = rv.decayLengthXY() - sv.decayLengthXY;
-  const double mRes = rv.mass() - sv.massCharged();
-  const double etaRes = rv.eta() - sv.etaCharged();
-  const double phiRes = rv.phi() - sv.phiCharged();
-  const double ptRes = rv.pt() - sv.ptCharged();
+  const double mRes = rv.mass() - sv.mass();
+  const double etaRes = rv.eta() - sv.eta();
+  const double phiRes = rv.phi() - sv.phi();
+  const double ptRes = rv.pt() - sv.pt();
   const double xPull = xRes / rv.xError();
   const double yPull = yRes / rv.yError();
   const double zPull = zRes / rv.zError();
