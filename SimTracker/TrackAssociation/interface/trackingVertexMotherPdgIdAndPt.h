@@ -1,10 +1,10 @@
-#ifndef SimTracker_TrackAssociation_trackingVertexMotherPdgId_h
-#define SimTracker_TrackAssociation_trackingVertexMotherPdgId_h
+#ifndef SimTracker_TrackAssociation_trackingVertexMotherPdgIdAndPt_h
+#define SimTracker_TrackAssociation_trackingVertexMotherPdgIdAndPt_h
 
 // Package:    SimTracker/TrackAssociation
 //
-/**\file trackingVertexMotherPdgId.h
-   SimTracker/TrackAssociation/interface/trackingVertexMotherPdgId.h
+/**\file trackingVertexMotherPdgIdAndPt.h
+   SimTracker/TrackAssociation/interface/trackingVertexMotherPdgIdAndPt.h
 
  Description: Utility function to determine the PDG ID of the mother particle
               responsible for a given TrackingVertex.
@@ -58,14 +58,14 @@
              (B > C > S > tau > other non-zero).
 
  Usage:
-   #include "SimTracker/TrackAssociation/interface/trackingVertexMotherPdgId.h"
+   #include "SimTracker/TrackAssociation/interface/trackingVertexMotherPdgIdAndPt.h"
 
    // With HepMC event (signal vertices get full classification):
    const HepMC::GenEvent* evt = mcProduct.GetEvent();
-   int pdgId = sim::trackingVertexMotherPdgId(tv, evt);
+   int pdgId = sim::trackingVertexMotherPdgIdAndPt(tv, evt);
 
    // Without HepMC event (pileup and TP-mother cases still handled):
-   int pdgId = sim::trackingVertexMotherPdgId(tv);
+   int pdgId = sim::trackingVertexMotherPdgIdAndPt(tv);
 
  Note: This header is self-contained and has no .cc counterpart.
        All functions are inline.
@@ -142,14 +142,15 @@ namespace sim {
   ///                  in that case signal vertices without a TP mother
   ///                  return 0.
   /// @returns         PDG ID of the most physics-relevant ancestor, with
-  ///                  B hadrons preferred over D hadrons over K hadrons 
+  ///                  B hadrons preferred over D hadrons over K hadrons
   ///                  over tau over others.
   ///                  Returns 0 when classification is not possible.
-  inline int trackingVertexMotherPdgId(const TrackingVertex &tv, const HepMC::GenEvent *genEvent = nullptr) {
+  inline std::pair<int, double> trackingVertexMotherPdgIdAndPt(const TrackingVertex &tv,
+                                                          const HepMC::GenEvent *genEvent = nullptr) {
     using namespace detail;
 
     if (tv.nDaughterTracks() == 0)
-      return 0;
+      return {0, 0.};
 
     // -----------------------------------------------------------------------
     // Case 1: TrackingParticle mother(s) exist — use source tracks directly.
@@ -157,25 +158,28 @@ namespace sim {
     // -----------------------------------------------------------------------
     if (tv.nSourceTracks() > 0) {
       int bestPdg = 0;
+      double bestPt = 0.0;
       for (auto iTP = tv.sourceTracks_begin(); iTP != tv.sourceTracks_end(); ++iTP) {
         const int pdg = (*iTP)->pdgId();
-        if (isMoreInteresting(pdg, bestPdg))
+        if (isMoreInteresting(pdg, bestPdg)) {
           bestPdg = pdg;
+          bestPt = (*iTP)->pt();
+        }
       }
-      return bestPdg;
+      return {bestPdg, bestPt};
     }
 
     // -----------------------------------------------------------------------
     // Case 2: No TP mother, pileup vertex → insufficient MC truth.
     // -----------------------------------------------------------------------
     if (tv.eventId().bunchCrossing() != 0 || tv.eventId().event() != 0)
-      return 0;
+      return {0, 0.};
 
     // -----------------------------------------------------------------------
     // Case 3: No TP mother, signal, no HepMC event available.
     // -----------------------------------------------------------------------
     if (!genEvent)
-      return 0;
+      return {0, 0.};
 
     // -----------------------------------------------------------------------
     // Case 4: No TP mother, signal vertex → climb HepMC GenParticle tree.
@@ -190,6 +194,7 @@ namespace sim {
     const math::XYZTLorentzVectorD tvPos(tv.position().x(), tv.position().y(), tv.position().z(), tv.position().t());
 
     int bestPdg = 0;
+    double bestPt = 0.0;
     bool foundB = false;
 
     for (auto iTP = tv.daughterTracks_begin(); iTP != tv.daughterTracks_end() && !foundB; ++iTP) {
@@ -217,8 +222,10 @@ namespace sim {
              ++iMother) {
           const int pdg = (*iMother)->pdg_id();
 
-          if (isMoreInteresting(pdg, bestPdg))
+          if (isMoreInteresting(pdg, bestPdg)) {
             bestPdg = pdg;
+            bestPt = (*iMother)->momentum().perp();
+          }
 
           // B hadron is the most interesting possible — stop everything
           if (isBHadron(pdg)) {
@@ -235,7 +242,7 @@ namespace sim {
       }
     }
 
-    return bestPdg;
+    return {bestPdg, bestPt};
   }
 
   // -------------------------------------------------------------------------
@@ -280,4 +287,4 @@ namespace sim {
 
 }  // namespace sim
 
-#endif  // SimTracker_TrackAssociation_trackingVertexMotherPdgId_h
+#endif  // SimTracker_TrackAssociation_trackingVertexMotherPdgIdAndPt_h
