@@ -9,5 +9,12 @@ hltPhase2PixelTracksCAExtension = cms.EDProducer("PixelTrackProducerFromSoAAlpak
     outerTrackerRecHitSrc = cms.InputTag("hltSiPhase2RecHits"),
     outerTrackerRecHitSoAConverterSrc = cms.InputTag("hltPhase2OtRecHitsSoA"),
     useOTExtension = cms.bool(True),
-    requireQuadsFromConsecutiveLayers = cms.bool(True)
+    requireQuadsFromConsecutiveLayers = cms.bool(True),
+    fillFullTrackExtras = cms.bool(False),
+    propagator = cms.string('RungeKuttaTrackerPropagator'),
 )
+
+from Configuration.ProcessModifiers.ngtScouting_cff import ngtScouting
+from Configuration.ProcessModifiers.ckf_cff import ckf
+
+(ngtScouting & ckf).toModify(hltPhase2PixelTracksCAExtension, fillFullTrackExtras=True)

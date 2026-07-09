@@ -60,6 +60,7 @@ fragment.load("HLTrigger/Configuration/HLT_75e33/eventsetup/hltESPChi2ChargeMeas
 fragment.load("HLTrigger/Configuration/HLT_75e33/eventsetup/hltESPChi2ChargeMeasurementEstimator30_cfi")
 fragment.load("HLTrigger/Configuration/HLT_75e33/eventsetup/hltESPChi2MeasurementEstimator100_cfi")
 fragment.load("HLTrigger/Configuration/HLT_75e33/eventsetup/hltESPChi2MeasurementEstimator30_cfi")
+fragment.load("HLTrigger/Configuration/HLT_75e33/eventsetup/hltESPChi2MeasurementEstimatorForRefit_cfi")
 fragment.load("HLTrigger/Configuration/HLT_75e33/eventsetup/hltESPDummyDetLayerGeometry_cfi")
 fragment.load("HLTrigger/Configuration/HLT_75e33/eventsetup/hltESPFastSteppingHelixPropagatorAny_cfi")
 fragment.load("HLTrigger/Configuration/HLT_75e33/eventsetup/hltESPFastSteppingHelixPropagatorOpposite_cfi")
