@@ -36,6 +36,8 @@
 #include "RecoTracker/PixelTrackFitting/interface/alpaka/FitUtils.h"
 #include "RecoTracker/Record/interface/TrackerRecoGeometryRecord.h"
 #include "TrackingTools/AnalyticalJacobians/interface/JacobianLocalToCurvilinear.h"
+#include "TrackingTools/GeomPropagators/interface/Propagator.h"
+#include "TrackingTools/Records/interface/TrackingComponentsRecord.h"
 #include "TrackingTools/TrajectoryParametrization/interface/CurvilinearTrajectoryError.h"
 #include "TrackingTools/TrajectoryParametrization/interface/GlobalTrajectoryParameters.h"
 
@@ -86,11 +88,13 @@ private:
   const edm::ESGetToken<MagneticField, IdealMagneticFieldRecord> idealMagneticFieldToken_;
   const edm::ESGetToken<TrackerTopology, TrackerTopologyRcd> trackerTopologyToken_;
   const edm::ESGetToken<TrackerGeometry, TrackerDigiGeometryRecord> trackerGeometryTokenRun_;
+  const edm::ESGetToken<Propagator, TrackingComponentsRecord> propagatorSrc_;
 
   int32_t const minNumberOfHits_;
   pixelTrack::Quality const minQuality_;
   const bool useOTExtension_;
   const bool requireQuadsFromConsecutiveLayers_;
+  const bool fillFullTrackExtras_ = false;
 };
 
 PixelTrackProducerFromSoAAlpaka::PixelTrackProducerFromSoAAlpaka(const edm::ParameterSet &iConfig)
@@ -102,10 +106,12 @@ PixelTrackProducerFromSoAAlpaka::PixelTrackProducerFromSoAAlpaka(const edm::Para
       idealMagneticFieldToken_(esConsumes()),
       trackerTopologyToken_(esConsumes()),
       trackerGeometryTokenRun_(esConsumes<edm::Transition::BeginRun>()),
+      propagatorSrc_(esConsumes(edm::ESInputTag("", iConfig.getParameter<std::string>("propagator")))),
       minNumberOfHits_(iConfig.getParameter<int>("minNumberOfHits")),
       minQuality_(pixelTrack::qualityByName(iConfig.getParameter<std::string>("minQuality"))),
       useOTExtension_(iConfig.getParameter<bool>("useOTExtension")),
-      requireQuadsFromConsecutiveLayers_(iConfig.getParameter<bool>("requireQuadsFromConsecutiveLayers")) {
+      requireQuadsFromConsecutiveLayers_(iConfig.getParameter<bool>("requireQuadsFromConsecutiveLayers")),
+      fillFullTrackExtras_(iConfig.getParameter<bool>("fillFullTrackExtras")) {
   if (minQuality_ == pixelTrack::Quality::notQuality) {
     throw cms::Exception("PixelTrackConfiguration")
         << iConfig.getParameter<std::string>("minQuality") + " is not a pixelTrack::Quality";
@@ -172,6 +178,7 @@ void PixelTrackProducerFromSoAAlpaka::fillDescriptions(edm::ConfigurationDescrip
   desc.add<edm::InputTag>("pixelRecHitLegacySrc", edm::InputTag("siPixelRecHitsPreSplittingLegacy"));
   desc.add<edm::InputTag>("outerTrackerRecHitSrc", edm::InputTag("hltSiPhase2RecHits"));
   desc.add<edm::InputTag>("outerTrackerRecHitSoAConverterSrc", edm::InputTag("phase2OTRecHitsSoAConverter"));
+  desc.add<std::string>("propagator", "RungeKuttaTrackerPropagator");
   desc.add<int>("minNumberOfHits", 0);
   desc.add<std::string>("minQuality", "loose");
   desc.add<bool>("useOTExtension", false);
@@ -179,6 +186,11 @@ void PixelTrackProducerFromSoAAlpaka::fillDescriptions(edm::ConfigurationDescrip
   // this option for removing tracks with exactly 4 hits is a temporary solution to reduce the fake rate in Phase-2
   // and is to be replaced by a smarter inclusive track selection in the CA directly
   desc.add<bool>("requireQuadsFromConsecutiveLayers", false);
+
+  // setting for properly filling the TrackExtras with outer/inner states and detIDs
+  // this is needed for direct refitting of the pixel tracks with CKF, but not needed if the pixel tracks
+  // are used directly with their GPU-side fit results or if they are used as seeds.
+  desc.add<bool>("fillFullTrackExtras", false);
 
   descriptions.addWithDefaultLabel(desc);
 }
@@ -195,6 +207,11 @@ void PixelTrackProducerFromSoAAlpaka::produce(edm::StreamID streamID,
                                                  reco::TrackBase::tight,
                                                  reco::TrackBase::highPurity};
   assert(reco::TrackBase::highPurity == recoQuality[int(pixelTrack::Quality::highPurity)]);
+
+  edm::ESHandle<Propagator> propagator_;
+  if (fillFullTrackExtras_) {
+    propagator_ = iSetup.getHandle(propagatorSrc_);
+  }
 
 #ifdef GPU_DEBUG
   std::cout << "Converting soa helix in reco tracks" << std::endl;
@@ -509,8 +526,15 @@ void PixelTrackProducerFromSoAAlpaka::produce(edm::StreamID streamID,
   std::cout << "processed " << nt << " good tuples " << tracks.size() << " out of " << indToEdm.size() << std::endl;
 #endif
 
-  // store tracks
-  storeTracks(iEvent, tracks, trackerTopology);
+  // store tracks — pass propagator and magnetic field when fillFullTrackExtras_
+  // is enabled so that storeTracks can propagate the PCA state to the inner
+  // and outer hit surfaces (required for downstream TrackRefitter consumption).
+  storeTracks(iEvent,
+              tracks,
+              trackerTopology,
+              fillFullTrackExtras_,
+              fillFullTrackExtras_ ? propagator_.product() : nullptr,
+              fillFullTrackExtras_ ? &idealField : nullptr);
   iEvent.put(std::move(indToEdmP));
 }
 

@@ -105,7 +105,7 @@ bool TrackProducerAlgorithm<reco::Track>::buildTrack(const TrajectoryFitter* the
   Trajectory&& trajTmp =
       theFitter->fitOne(seed, hits, theTSOS, (nLoops > 0) ? TrajectoryFitter::looper : TrajectoryFitter::standard);
   if UNLIKELY (!trajTmp.isValid()) {
-    DPRINT("TrackFitters") << "fit failed " << algo_ << ": " << hits.size() << '|' << int(nLoops) << ' ' << std::endl;
+    // std::cout << "SOMETHING VERY WRONG ! fit failed " << algo_ << ": " << hits.size() << '|' << int(nLoops) << ' ' << std::endl;
     return false;
   }
 
@@ -190,7 +190,7 @@ bool TrackProducerAlgorithm<reco::Track>::buildTrack(const TrajectoryFitter* the
   }
 
   if UNLIKELY (!stateForProjectionToBeamLineOnSurface.isValid()) {
-    edm::LogError("CannotPropagateToBeamLine") << "the state on the closest measurement isnot valid. skipping track.";
+    // std::cout << "SOMETHING VERY WRONG ! the state on the closest measurement isnot valid. skipping track.\n";
     delete theTraj;
     return false;
   }
@@ -212,6 +212,7 @@ bool TrackProducerAlgorithm<reco::Track>::buildTrack(const TrajectoryFitter* the
   }
 
   if UNLIKELY (!tscbl.isValid()) {
+    // std::cout << "SOMETHING VERY WRONG ! !tscbl.isValid()\n";
     delete theTraj;
     return false;
   }
@@ -241,7 +242,7 @@ bool TrackProducerAlgorithm<reco::Track>::buildTrack(const TrajectoryFitter* the
 
   LogDebug("TrackProducer") << "theTrack->pt()=" << theTrack->pt();
 
-  LogDebug("TrackProducer") << "track done\n";
+  // std::cout << "GOOD JOB ! track done\n";
 
   AlgoProduct aProduct{theTraj, theTrack, seedDir, 0};
   algoResults.push_back(aProduct);

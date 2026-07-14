@@ -72,14 +72,18 @@ namespace reco {
 
       /// outermost hit position
       const Point &outerPosition() const { return outerPosition_; }
+      void setOuterPosition(const Point &pos) { outerPosition_ = pos; }
       /// momentum vector at outermost hit position
       const Vector &outerMomentum() const { return outerMomentum_; }
+      void setOuterMomentum(const Vector &mom) { outerMomentum_ = mom; }
       /// returns true if the outermost hit is valid
       bool outerOk() const { return outerOk_; }
       /// innermost hit position
       const Point &innerPosition() const { return innerPosition_; }
+      void setInnerPosition(const Point &pos) { innerPosition_ = pos; }
       /// momentum vector at innermost hit position
       const Vector &innerMomentum() const { return innerMomentum_; }
+      void setInnerMomentum(const Vector &mom) { innerMomentum_ = mom; }
       /// returns true if the innermost hit is valid
       bool innerOk() const { return innerOk_; }
       /// x coordinate of momentum vector at the outermost hit position
@@ -117,10 +121,13 @@ namespace reco {
       CovarianceMatrix &fillInner CMS_THREAD_SAFE(CovarianceMatrix &v) const;
       /// DetId of the detector on which surface the outermost state is located
       unsigned int outerDetId() const { return outerDetId_; }
+      void setOuterDetId(unsigned int detId) { outerDetId_ = detId; }
       /// DetId of the detector on which surface the innermost state is located
       unsigned int innerDetId() const { return innerDetId_; }
+      void setInnerDetId(unsigned int detId) { innerDetId_ = detId; }
       // direction how the hits were sorted in the original seed
       const PropagationDirection &seedDirection() const { return seedDir_; }
+      void setSeedDirection(const PropagationDirection &dir) { seedDir_ = dir; }
 
       /**  return the edm::reference to the trajectory seed in the original
      *   seeds collection. If the collection has been dropped from the

@@ -71,7 +71,7 @@ Trajectory KFTrajectoryFitter::fitOne(const TrajectorySeed& aSeed,
     // if UNLIKELY(hit.det() == nullptr) continue;
 
     if UNLIKELY ((!hit.isValid()) && hit.surface() == nullptr) {
-      LogDebug("TrackFitters") << " Error: invalid hit with no GeomDet attached .... skipping";
+      // std::cout << " Error: invalid hit with no GeomDet attached .... skipping\n";
       continue;
     }
     // if (hit.det() && hit.geographicalId()<1000U) LogDebug("TrackFitters")<< "Problem 0 det id for " << typeid(hit).name() << ' ' <<  hit.det()->geographicalId() ;
@@ -81,21 +81,21 @@ Trajectory KFTrajectoryFitter::fitOne(const TrajectorySeed& aSeed,
       predTsos = p_cloned->propagate(currTsos, *(hit.surface()));
 
     if UNLIKELY (!predTsos.isValid()) {
-      LogDebug("TrackFitters") << "SOMETHING WRONG !"
-                               << "\n"
-                               << "KFTrajectoryFitter: predicted tsos not valid!\n"
-                               << "current TSOS: " << currTsos << "\n";
+      // std::cout << "SOMETHING WRONG !"
+      //           << "\n"
+      //           << "KFTrajectoryFitter: predicted tsos not valid!\n"
+      //           << "current TSOS: " << currTsos << "\n";
 
       if (hit.surface())
         LogTrace("TrackFitters") << "next Surface: " << hit.surface()->position() << "\n";
 
       if (myTraj.foundHits() >= minHits_) {
-        LogDebug("TrackFitters") << " breaking trajectory"
-                                 << "\n";
+        // std::cout << "SOMETHING WRONG ! breaking trajectory"
+        //           << "\n";
         break;
       } else {
-        LogDebug("TrackFitters") << " killing trajectory"
-                                 << "\n";
+        // std::cout << "SOMETHING WRONG ! killing trajectory"
+        //           << "\n";
         return Trajectory();
       }
     }
@@ -114,8 +114,8 @@ Trajectory KFTrajectoryFitter::fitOne(const TrajectorySeed& aSeed,
       assert(preciseHit->surface() != nullptr);
 
       if UNLIKELY (!preciseHit->isValid()) {
-        LogTrace("TrackFitters") << "THE Precise HIT IS NOT VALID: using currTsos = predTsos"
-                                 << "\n";
+        // std::cout << "SOMETHING WRONG !THE Precise HIT IS NOT VALID: using currTsos = predTsos"
+                  // << "\n";
         currTsos = predTsos;
         myTraj.push(TM(predTsos, ihit, 0, theGeometry->idToLayer((ihit)->geographicalId())));
       } else {
@@ -131,28 +131,28 @@ Trajectory KFTrajectoryFitter::fitOne(const TrajectorySeed& aSeed,
                         edm::isNotFinite(currTsos.localParameters().qbp()) || !currTsos.localError().posDef();
         if UNLIKELY (badState) {
           if (!currTsos.isValid()) {
-            edm::LogError("FailedUpdate") << "updating with the hit failed. Not updating the trajectory with the hit";
+            // std::cout << "SOMETHING WRONG ! updating with the hit failed. Not updating the trajectory with the hit\n";
 
           } else if (edm::isNotFinite(currTsos.localParameters().qbp())) {
-            edm::LogError("TrajectoryNaN") << "Trajectory has NaN";
+            // std::cout << "SOMETHING WRONG !Trajectory has NaN\n";
 
           } else if (!currTsos.localError().posDef()) {
-            edm::LogError("TrajectoryNotPosDef") << "Trajectory covariance is not positive-definite";
+            // std::cout << "SOMETHING WRONG ! Trajectory covariance is not positive-definite\n";
 
           } else {
-            LogTrace("FailedUpdate") << "updated state is valid but pretty bad, skipping. currTsos " << currTsos
-                                     << "\n predTsos " << predTsos;
+            // std::cout << "SOMETHING WRONG ! updated state is valid but pretty bad, skipping. currTsos " << currTsos
+            //           << "\n predTsos " << predTsos << std::endl;
           }
           myTraj.push(TM(predTsos, ihit, 0, theGeometry->idToLayer((ihit)->geographicalId())));
           //There is a no-fail policy here. So, it's time to give up
           //Keep the traj with invalid TSOS so that it's clear what happened
           if (myTraj.foundHits() >= minHits_) {
-            LogDebug("TrackFitters") << " breaking trajectory"
-                                     << "\n";
+            // std::cout << " breaking trajectory"
+                      // << "\n";
             break;
           } else {
-            LogDebug("TrackFitters") << " killing trajectory"
-                                     << "\n";
+            // std::cout << " killing trajectory"
+                      // << "\n";
             return Trajectory();
           }
         } else {
@@ -170,23 +170,28 @@ Trajectory KFTrajectoryFitter::fitOne(const TrajectorySeed& aSeed,
     } else {  // invalid hit
       dump(hit, hitcounter, "TrackFitters");
       //no update
-      LogDebug("TrackFitters") << "THE HIT IS NOT VALID: using currTsos"
-                               << "\n";
+      // std::cout << "SOMETHING WRONG ! THE HIT IS NOT VALID: using currTsos"
+      //           << "\n";
       currTsos = predTsos;
       assert(((ihit)->det() == nullptr) || (ihit)->geographicalId() != 0U);
-      if ((ihit)->det())
+      if ((ihit)->det()) {
         myTraj.push(TM(predTsos, ihit, 0, theGeometry->idToLayer((ihit)->geographicalId())));
-      else
+        // std::cout << "   not valid because of geographicalId() = " << (ihit)->geographicalId().rawId()
+        //           << " and subdet = " << (ihit)->geographicalId().subdetId() << "\n";
+      } else {
         myTraj.push(TM(predTsos, ihit, 0));
+        // std::cout << "   not valid because of det()==nullptr"
+        //           << "\n";
+      }
     }
     LogTrace("TrackFitters") << "predTsos !"
                              << "\n"
                              << predTsos << " with local position " << predTsos.localPosition() << "currTsos !"
                              << "\n"
-                             << currTsos << " with local position " << currTsos.localPosition();
+                             << currTsos << " with local position " << currTsos.localPosition() << std::endl;
   }
 
-  LogDebug("TrackFitters") << "Found 1 trajectory with " << myTraj.foundHits() << " valid hits\n";
+  // std::cout << "Found 1 trajectory with " << myTraj.foundHits() << " valid hits\n";
 
   return ret;
 }

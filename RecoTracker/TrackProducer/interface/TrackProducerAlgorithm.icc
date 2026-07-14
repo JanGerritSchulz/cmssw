@@ -93,7 +93,7 @@ void TrackProducerAlgorithm<T>::runWithTrack(const TrackingGeometry* theG,
                                              const TransientTrackingRecHitBuilder* gbuilder,
                                              const reco::BeamSpot& bs,
                                              AlgoProductCollection& algoResults) {
-  LogDebug("TrackProducer") << "Number of input Tracks: " << theTCollection.size() << "\n";
+  std::cout << "STATISTICS Number of input Tracks: " << theTCollection.size() << "\n";
   const TkTransientTrackingRecHitBuilder* builder = dynamic_cast<TkTransientTrackingRecHitBuilder const*>(gbuilder);
   assert(builder);
   int cont = 0;
@@ -185,14 +185,18 @@ void TrackProducerAlgorithm<T>::runWithTrack(const TrackingGeometry* theG,
                            theT->seedRef(),
                            theT->qualityMask(),
                            theT->nLoops());
-      if (ok)
+      if (ok){
+        //std::cout << "YES! Track is actually ok" << std::endl;
         cont++;
+      }
+      //else 
+        //std::cout << "OH NO! Track discarded as not ok" << std::endl;
     } catch (cms::Exception& e) {
       edm::LogError("TrackProducer") << "Genexception1: " << e.explainSelf() << "\n";
       throw;
     }
   }
-  LogDebug("TrackProducer") << "Number of Tracks found: " << cont << "\n";
+  std::cout << "STATISTICS Number of Tracks found: " << cont << "\n";
 }
 
 template <class T>
@@ -455,7 +459,7 @@ TrajectoryStateOnSurface TrackProducerAlgorithm<T>::getInitialState(const T* the
   TrajectoryStateOnSurface innerStateFromTrack = trajectoryStateTransform::innerStateOnSurface(*theT, *theG, theMF);
   TrajectoryStateOnSurface outerStateFromTrack = trajectoryStateTransform::outerStateOnSurface(*theT, *theG, theMF);
   TrajectoryStateOnSurface initialStateFromTrack =
-      ((innerStateFromTrack.globalPosition() - hits.front()->det()->position()).mag2() <
+      ((innerStateFromTrack.globalPosition() - hits.front()->det()->position()).mag2() <=
        (outerStateFromTrack.globalPosition() - hits.front()->det()->position()).mag2())
           ? innerStateFromTrack
           : outerStateFromTrack;

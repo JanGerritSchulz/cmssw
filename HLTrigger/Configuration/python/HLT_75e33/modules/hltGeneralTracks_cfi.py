@@ -39,6 +39,7 @@ hltPhase2LegacyTracking.toReplaceWith(hltGeneralTracks, _hltGeneralTracksLegacy)
 
 
 from Configuration.ProcessModifiers.ngtScouting_cff import ngtScouting
+from Configuration.ProcessModifiers.ckf_cff import ckf
 from Configuration.ProcessModifiers.trackingLST_cff import trackingLST
 
 _hltGeneralTracksNGTScouting = cms.EDProducer("RecoTrackSelector",
@@ -61,7 +62,42 @@ _hltGeneralTracksNGTScouting = cms.EDProducer("RecoTrackSelector",
                                               minPhi = cms.double(-3.2),
                                               maxPhi = cms.double(3.2),
                                               quality = cms.vstring(),
-                                              algorithm = cms.vstring())
+                                              algorithm = cms.vstring(),
+                                              )
+                                            
+
+from RecoTracker.TrackProducer.TrackRefitter_cfi import TrackRefitter
+
+# _hltGeneralTracksNGTScoutingCKF = TrackRefitter.clone(
+#     src            = "hltPhase2PixelTracks",  # your pixel track input
+#     beamSpot       = "hltOnlineBeamSpot",
+#     constraint     = "",                       # no constraint — free refit
+#     useHitsSplitting = False,
+#     TrajectoryInEvent = True,
+#     TTRHBuilder    = "WithTrackAngle",         # standard Phase-2 builder
+#     Fitter         = "FlexibleKFFittingSmoother",
+#     Propagator     = "PropagatorWithMaterial",
+# )
+
+_hltGeneralTracksNGTScoutingCKF = TrackRefitter.clone(
+    constraint     = "",                       # no constraint — free refit
+    AlgorithmName = cms.string('initialStep'),
+    Fitter = cms.string('FlexibleKFFittingSmoother'), #KFFittingSmootherWithOutliersRejectionAndRobustness
+    GeometricInnerState = cms.bool(True),
+    MeasurementTracker = cms.string(''),
+    # MeasurementTrackerEvent = cms.InputTag("hltSiStripClusters"),
+    MeasurementTrackerEvent = cms.InputTag("hltMeasurementTrackerEvent"),
+    NavigationSchool = cms.string('SimpleNavigationSchool'),
+    Propagator = cms.string('RungeKuttaTrackerPropagator'),
+    SimpleMagneticField = cms.string(''),
+    TTRHBuilder = cms.string('WithTrackAngle'),
+    TrajectoryInEvent = cms.bool(False),
+    beamSpot = cms.InputTag("hltOnlineBeamSpot"),
+    # clusterRemovalInfo = cms.InputTag(""),
+    src = cms.InputTag("hltPhase2PixelTracks"),
+    useHitsSplitting = cms.bool(False),
+    useSimpleMF = cms.bool(False),
+)
 
 _hltGeneralTracksNGTScoutingLST = hltGeneralTracks.clone(
     MinPT = cms.double(0.9),
@@ -72,5 +108,6 @@ _hltGeneralTracksNGTScoutingLST = hltGeneralTracks.clone(
     setsToMerge = {0: dict(pQual=True, tLists=[0,1])}
 )
 
-(ngtScouting & ~trackingLST).toReplaceWith(hltGeneralTracks, _hltGeneralTracksNGTScouting)
+(ngtScouting & ~trackingLST & ~ckf).toReplaceWith(hltGeneralTracks, _hltGeneralTracksNGTScouting)
+(ngtScouting & ~trackingLST & ckf).toReplaceWith(hltGeneralTracks, _hltGeneralTracksNGTScoutingCKF)
 (ngtScouting & trackingLST).toReplaceWith(hltGeneralTracks, _hltGeneralTracksNGTScoutingLST)
