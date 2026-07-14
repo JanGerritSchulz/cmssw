@@ -43,8 +43,8 @@ phase2_tracker.toModify(hltPixelPVanalysis, _modifyPixelPVanalysisForPhase2)
 phase2_tracker.toModify(hltPixelPVanalysisReconstructable, _modifyPixelPVanalysisForPhase2)
 
 def _modifyPixelPVanalysisForCAExt(pvanalysis):
-    pvanalysis.trackAssociatorMap = "tpToHLTpixelTracksCAExtAssociation"
-    pvanalysis.vertexAssociator = "hltPVAssociatorByPositionAndTracks4ExtendedPixelTracks"
+    pvanalysis.trackAssociatorMap = "tpToHLTpixelTracksAssociation"
+    pvanalysis.vertexAssociator = "hltPVAssociatorByPositionAndTracks4PixelTracks"
 
 from Configuration.ProcessModifiers.hltPhase2LegacyTracking_cff import hltPhase2LegacyTracking
 

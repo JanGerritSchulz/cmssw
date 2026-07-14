@@ -1,7 +1,7 @@
 import FWCore.ParameterSet.Config as cms
 
 # Track associations
-from Validation.RecoTrack.associators_cff import hltTPClusterProducer, hltTrackAssociatorByHits, tpToHLTpixelTrackAssociation, tpToHLTpixelTracksCAExtAssociation
+from Validation.RecoTrack.associators_cff import hltTPClusterProducer, hltTrackAssociatorByHits, tpToHLTpixelTrackAssociation
 
 # Vertex associators
 from SimTracker.VertexAssociation.vertexAssociatorByPositionAndTracksProducer_cfi import vertexAssociatorByPositionAndTracksProducer as _VertexAssociatorByPositionAndTracks
@@ -28,9 +28,6 @@ hltPVAssociatorByPositionAndTracks4PixelTracks = _VertexAssociatorByPositionAndT
     sharedTrackFraction = -1, # requires optimization
     weightMethod = "dzError",
     sigmaZ = 10e6
-)
-hltPVAssociatorByPositionAndTracks4ExtendedPixelTracks = hltPVAssociatorByPositionAndTracks4PixelTracks.clone(
-    trackAssociations = ["tpToHLTpixelTracksCAExtAssociation"],
 )
 
 # -------------- PVs from hltPFMuonMerging ---------------------------------------------------------------------------
@@ -85,8 +82,6 @@ from Configuration.ProcessModifiers.hltPhase2LegacyTracking_cff import hltPhase2
         hltOtherTPClusterProducer,
         hltTrackAssociatorByHits,
         hltOtherTrackAssociatorByHits,
-        tpToHLTpixelTracksCAExtAssociation,
-        hltPVAssociatorByPositionAndTracks4ExtendedPixelTracks,
         tpToHLTpfMuonMergingTrackAssociation,
         hltPVAssociatorByPositionAndTracks4pfMuonMergingTracks,
         tpToHLTGeneralTrackAssociation,
