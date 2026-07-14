@@ -360,7 +360,7 @@ std::vector<SimSecondaryVertex *> SecondaryVertexAnalyzerAlgo::buildSignalSimSVs
 
     std::tie(sv.motherPdgId, sv.motherPt) = sim::trackingVertexMotherPdgIdAndPt(*(sv.simVertex), genEvent);
 
-    std::cout << "Checked signal SV: " << sv << std::endl;
+    // std::cout << "Checked signal SV: " << sv << std::endl;
 
     if (finalizeEligibility(sv, preCheck))
       result.push_back(&sv);
@@ -573,8 +573,8 @@ void SecondaryVertexAnalyzerAlgo::fillSimVertexHistograms(const std::string &lab
   fillBundle(ch.h_mass, sv.mass());
   fillBundle(ch.h_pt, sv.pt());
 
-  if (isEligibleForEff(sv, EffElig::kNone))
-    std::cout << "Built signal SV: " << sv << std::endl;
+  // if (isEligibleForEff(sv, EffElig::kNone))
+  //   std::cout << "Built signal SV: " << sv << std::endl;
 }
 
 void SecondaryVertexAnalyzerAlgo::fillRecoVertexHistograms(const std::string &label, const RecoSecondaryVertex &rv) {
