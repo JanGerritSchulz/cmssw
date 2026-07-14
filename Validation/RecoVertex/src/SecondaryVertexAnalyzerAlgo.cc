@@ -160,7 +160,7 @@ void SecondaryVertexAnalyzerAlgo::bookHistograms(IBooker &ibook, const std::vect
     ch.mes["numSimSVsSignal"] =
         ibook.book1D("numSimSVsSignal", "N signal sim SVs per event;N SVs;Entries", 50, 0., 50.);
     ch.mes["distMergedSimSVs"] =
-        book1DLogX(ibook, "distMergedSimSVs", "Distance between merged SimSVs;Distance [cm];Entries", 50, 0., 10.);
+        book1DLogX(ibook, "distMergedSimSVs", "Distance between merged SimSVs;Distance [cm];Entries", 50, 1.e-4, 10.);
   }
 }
 
