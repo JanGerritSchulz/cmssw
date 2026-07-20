@@ -185,6 +185,7 @@ void SecondaryVertexAnalyzerBase<VertexCollection>::analyze(const edm::Event &iE
   algo_.setPrimaryVertex(primaryVertices);
 
   algo_.prepareEventTruth(simVertices, genEvent);
+  algo_.fillEventTruthHistograms();
 
   // Loop over configured reco vertex collections
   for (size_t i = 0; i < recoVertexTokens_.size(); ++i) {

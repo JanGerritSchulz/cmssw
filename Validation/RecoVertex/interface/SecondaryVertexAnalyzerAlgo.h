@@ -159,6 +159,9 @@ public:
   /// Clear the SimVertex SVs at the end of the event.
   void clearEventTruth();
 
+  /// Fill generic SimVertex histograms (collection-independent, filled once per event).
+  void fillEventTruthHistograms() { fillGenericSimVertexHistograms(); };
+
 private:
   // =========================================================================
   // Sim vertex building
@@ -233,6 +236,10 @@ private:
   // =========================================================================
   // Histogram filling
   // =========================================================================
+
+  /// Fill generic sim-side histograms for all SimSecondaryVertices.
+  /// Fill collection independent histograms once.
+  void fillGenericSimVertexHistograms();
 
   /// Fill sim-side histograms for one SimSecondaryVertex.
   /// Each bundle is filled with its associated SkipCuts mask applied to the

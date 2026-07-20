@@ -361,7 +361,7 @@ std::vector<SimSecondaryVertex *> SecondaryVertexAnalyzerAlgo::buildSignalSimSVs
     std::tie(sv.motherPdgId, sv.motherPt) = sim::trackingVertexMotherPdgIdAndPt(*(sv.simVertex), genEvent);
 
     if (cfg_.verbose)
-      edm::LogDebug("SecondaryVertexAnalyzer") << "Checked signal SV: " << sv;
+      LogDebug("SecondaryVertexAnalyzer") << "Checked signal SV: " << sv;
 
     if (finalizeEligibility(sv, preCheck))
       result.push_back(&sv);
@@ -542,20 +542,23 @@ void SecondaryVertexAnalyzerAlgo::setSignalSimSVReconstructability(const reco::S
 // Histogram filling
 // =============================================================================
 
+void SecondaryVertexAnalyzerAlgo::fillGenericSimVertexHistograms() {
+  if (cfg_.doGenericSimPlots && genericSimHistos_.h_decayLength)
+    // Generic sim plots (collection-independent, filled once per all-sim pass)
+    for (const SimSecondaryVertex *sv : signalSimSVs_) {
+      genericSimHistos_.h_decayLength->Fill(sv->decayLength);
+      genericSimHistos_.h_decayLengthXY->Fill(sv->decayLengthXY);
+      genericSimHistos_.h_nDaughters->Fill(sv->nCharged);
+      if (sv->motherPdgId)
+        genericSimHistos_.h_motherPdgId->Fill(std::abs(sv->motherPdgId.value()));
+    }
+}
+
 void SecondaryVertexAnalyzerAlgo::fillSimVertexHistograms(const std::string &label, const SimSecondaryVertex &sv) {
   const bool isMatched = sv.isMatched();
   const bool isReconstructable = sv.isReconstructable();
   bool isMerged = sv.isMerged();
   auto &ch = collectionHistos_.at(label);
-
-  // Generic sim plots (collection-independent, filled once per all-sim pass)
-  if (cfg_.doGenericSimPlots && genericSimHistos_.h_decayLength) {
-    genericSimHistos_.h_decayLength->Fill(sv.decayLength);
-    genericSimHistos_.h_decayLengthXY->Fill(sv.decayLengthXY);
-    genericSimHistos_.h_nDaughters->Fill(sv.nCharged);
-    if (sv.motherPdgId)
-      genericSimHistos_.h_motherPdgId->Fill(std::abs(sv.motherPdgId.value()));
-  }
 
   // Helper lambda: fill a BundleWithCutMask, evaluating reconstructability
   // with the bundle's own mask.
