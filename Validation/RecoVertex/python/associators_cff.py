@@ -5,7 +5,8 @@ from Validation.RecoTrack.associators_cff import hltTPClusterProducer, hltTrackA
 
 # Vertex associators
 from SimTracker.VertexAssociation.vertexAssociatorByPositionAndTracksProducer_cfi import vertexAssociatorByPositionAndTracksProducer as _VertexAssociatorByPositionAndTracks
-from SimTracker.VertexAssociation.secondaryVertexAssociatorByPositionAndTracks_cfi import secondaryVertexAssociatorByPositionAndTracksCPC as _SecondaryVertexAssociatorByPositionAndTracks
+from SimTracker.VertexAssociation.secondaryVertexAssociatorByPositionAndTracks_cfi import secondaryVertexAssociatorByPositionAndTracks as _SecondaryVertexAssociatorByPositionAndTracks
+from SimTracker.VertexAssociation.secondaryVertexAssociatorByPositionAndTracks_cfi import secondaryVertexAssociatorByPositionAndTracksCPC as _SecondaryVertexAssociatorByPositionAndTracksCPC
 
 # Vertex association producers
 from SimTracker.VertexAssociation.vertexCompositePtrCandidateAssociatorEDProducer_cfi import vertexCompositePtrCandidateAssociatorEDProducer as _VertexAssociationCPC
@@ -49,10 +50,18 @@ hltPVAssociatorByPositionAndTracks4pfMuonMergingTracks = _VertexAssociatorByPosi
 hltSVAssociatorByPositionAndTracks4GeneralTracks = _SecondaryVertexAssociatorByPositionAndTracks.clone(
     trackAssociations = ["tpToHLTGeneralTrackAssociation"]
 )
+hltSVAssociatorByPositionAndTracks4GeneralTracksCPC = _SecondaryVertexAssociatorByPositionAndTracksCPC.clone(
+    trackAssociations = ["tpToHLTGeneralTrackAssociation"]
+)
 hltSVAssociation = _VertexAssociationCPC.clone(
-    recoVertices = cms.InputTag("hltDeepInclusiveMergedVerticesPF"),
+    recoVertices = cms.InputTag("hltDeepInclusiveMergedVertices"),
     simVertices = cms.InputTag("mix", "MergedTrackTruth"),
     associator = cms.InputTag("hltSVAssociatorByPositionAndTracks4GeneralTracks"),
+)
+hltSVAssociationCPC = _VertexAssociationCPC.clone(
+    recoVertices = cms.InputTag("hltDeepInclusiveMergedVerticesPF"),
+    simVertices = cms.InputTag("mix", "MergedTrackTruth"),
+    associator = cms.InputTag("hltSVAssociatorByPositionAndTracks4GeneralTracksCPC"),
 )
 
 
@@ -94,5 +103,7 @@ from Configuration.ProcessModifiers.hltPhase2LegacyTracking_cff import hltPhase2
 hltSVAssociationsTask = cms.Task(
     tpToHLTGeneralTrackAssociation,
     hltSVAssociatorByPositionAndTracks4GeneralTracks,
+    hltSVAssociatorByPositionAndTracks4GeneralTracksCPC,
     hltSVAssociation,
+    hltSVAssociationCPC,
 )

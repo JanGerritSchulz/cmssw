@@ -19,3 +19,8 @@ from Configuration.ProcessModifiers.mtd_at_hlt_cff import mtd_at_hlt
 mtd_at_hlt.toReplaceWith(HLTVertexRecoSequence,
                          cms.Sequence(_HLTVertexRecoSequence+
                                       HLTVertex4DRecoSequence))
+
+from ..sequences.HLTSecondaryVertexSequence_cfi import *
+from Configuration.ProcessModifiers.ngtSVs_cff import ngtSVs
+ngtSVs.toReplaceWith(HLTVertexRecoSequence, cms.Sequence(_HLTVertexRecoSequence + HLTSecondaryVertexSequence))
+(ngtSVs & mtd_at_hlt).toReplaceWith(HLTVertexRecoSequence, cms.Sequence(_HLTVertexRecoSequence + HLTSecondaryVertexSequence + HLTVertex4DRecoSequence))
