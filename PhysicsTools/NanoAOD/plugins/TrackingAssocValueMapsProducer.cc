@@ -114,6 +114,8 @@ TrackingAssocValueMapsProducer::TrackingAssocValueMapsProducer(const edm::Parame
   produces<edm::ValueMap<int>>("tpPdgId");
   produces<edm::ValueMap<int>>("tpCharge");
   produces<edm::ValueMap<int>>("tpVtxIdx");
+  produces<edm::ValueMap<float>>("tpVtxDxy");
+  produces<edm::ValueMap<float>>("tpVtxPt2Sum");
   if (storeTPKinematics_) {
     produces<edm::ValueMap<float>>("tpPt");
     produces<edm::ValueMap<float>>("tpEta");
@@ -164,6 +166,8 @@ void TrackingAssocValueMapsProducer::produce(edm::Event& iEvent, const edm::Even
   std::vector<int> tpPdgId(nTracks, 0);
   std::vector<int> tpCharge(nTracks, 0);
   std::vector<int> tpVtxIdx(nTracks, -1);
+  std::vector<float> tpVtxDxy(nTracks, -1);
+  std::vector<float> tpVtxPt2Sum(nTracks, -1);
 
   std::vector<float> tpPt, tpEta, tpPhi;
   if (storeTPKinematics_) {
@@ -181,6 +185,8 @@ void TrackingAssocValueMapsProducer::produce(edm::Event& iEvent, const edm::Even
     fillAndPut<int>(iEvent, tracksH, std::make_unique<edm::ValueMap<int>>(), tpPdgId, "tpPdgId");
     fillAndPut<int>(iEvent, tracksH, std::make_unique<edm::ValueMap<int>>(), tpCharge, "tpCharge");
     fillAndPut<int>(iEvent, tracksH, std::make_unique<edm::ValueMap<int>>(), tpVtxIdx, "tpVtxIdx");
+    fillAndPut<float>(iEvent, tracksH, std::make_unique<edm::ValueMap<float>>(), tpVtxDxy, "tpVtxDxy");
+    fillAndPut<float>(iEvent, tracksH, std::make_unique<edm::ValueMap<float>>(), tpVtxPt2Sum, "tpVtxPt2Sum");
     if (storeTPKinematics_) {
       fillAndPut<float>(iEvent, tracksH, std::make_unique<edm::ValueMap<float>>(), tpPt, "tpPt");
       fillAndPut<float>(iEvent, tracksH, std::make_unique<edm::ValueMap<float>>(), tpEta, "tpEta");
@@ -240,6 +246,12 @@ void TrackingAssocValueMapsProducer::produce(edm::Event& iEvent, const edm::Even
         const auto& vtxRef = tp[0].first->parentVertex();
         if (vtxRef.isNonnull()) {
           tpVtxIdx[i] = static_cast<int>(vtxRef.key());
+          tpVtxDxy[i] = static_cast<float>(vtxRef->position().rho());
+          tpVtxPt2Sum[i] = 0.f;
+          for (const auto& daughter : vtxRef->daughterTracks()) {
+            if (daughter->charge() != 0.)
+              tpVtxPt2Sum[i] += daughter->pt() * daughter->pt();
+          }
         }
       }
       if (simToRecoColl.find(tp[0].first) != simToRecoColl.end()) {
@@ -253,10 +265,12 @@ void TrackingAssocValueMapsProducer::produce(edm::Event& iEvent, const edm::Even
   // Produce ValueMaps and store in the event
   fillAndPut<int>(iEvent, tracksH, std::make_unique<edm::ValueMap<int>>(), matched, "matched");
   fillAndPut<int>(iEvent, tracksH, std::make_unique<edm::ValueMap<int>>(), duplicate, "duplicate");
-    fillAndPut<int>(iEvent, tracksH, std::make_unique<edm::ValueMap<int>>(), pileup, "pileup");
+  fillAndPut<int>(iEvent, tracksH, std::make_unique<edm::ValueMap<int>>(), pileup, "pileup");
   fillAndPut<int>(iEvent, tracksH, std::make_unique<edm::ValueMap<int>>(), tpPdgId, "tpPdgId");
   fillAndPut<int>(iEvent, tracksH, std::make_unique<edm::ValueMap<int>>(), tpCharge, "tpCharge");
-    fillAndPut<int>(iEvent, tracksH, std::make_unique<edm::ValueMap<int>>(), tpVtxIdx, "tpVtxIdx");
+  fillAndPut<int>(iEvent, tracksH, std::make_unique<edm::ValueMap<int>>(), tpVtxIdx, "tpVtxIdx");
+  fillAndPut<float>(iEvent, tracksH, std::make_unique<edm::ValueMap<float>>(), tpVtxDxy, "tpVtxDxy");
+  fillAndPut<float>(iEvent, tracksH, std::make_unique<edm::ValueMap<float>>(), tpVtxPt2Sum, "tpVtxPt2Sum");
   if (storeTPKinematics_) {
     fillAndPut<float>(iEvent, tracksH, std::make_unique<edm::ValueMap<float>>(), tpPt, "tpPt");
     fillAndPut<float>(iEvent, tracksH, std::make_unique<edm::ValueMap<float>>(), tpEta, "tpEta");
