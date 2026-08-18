@@ -4,7 +4,7 @@ from PhysicsTools.NanoAOD.common_cff import *
 from PhysicsTools.NanoAOD.trackingAssocValueMapsProducer_cfi import trackingAssocValueMapsProducer
 
 tpSelectorPixelTracks = cms.PSet(
-    lip = cms.double(30.0),
+    lip = cms.double(300.0),
     chargedOnly = cms.bool(True),
     stableOnly = cms.bool(False),
     pdgId = cms.vint32(),
@@ -12,10 +12,10 @@ tpSelectorPixelTracks = cms.PSet(
     intimeOnly = cms.bool(True),
     minRapidity = cms.double(-4.5),
     minHit = cms.int32(0),
-    ptMin = cms.double(0.9),
+    ptMin = cms.double(0.5),
     ptMax = cms.double(1e100),
     maxRapidity = cms.double(4.5),
-    tip = cms.double(2.5),
+    tip = cms.double(200.5),
     invertRapidityCut = cms.bool(False),
     minPhi = cms.double(-3.2),
     maxPhi = cms.double(3.2),
@@ -125,6 +125,39 @@ hltPixelTrackRecHitsTable = cms.EDProducer("HLTTracksRecHitsTableProducer",
                                            tracksSrc = cms.InputTag("hltPhase2PixelTracks"),
                                            maxRecHits = cms.uint32(16),
                                            precision = cms.int32(7)
+)
+
+hltPhase2PixelTrackSoATableProducer = cms.EDProducer("HLTPixelTrackSoATableProducer",
+    trackSrc = cms.InputTag("hltPhase2PixelTrackTorchHighPuritySelector"),
+)
+
+hltPixelTrackSoATable = cms.EDProducer(
+    "SimplePixelTrackSoATabFlatTableProducer",
+    src = cms.InputTag("hltPhase2PixelTrackSoATableProducer"),
+    name = cms.string("hltPixelTrackSoA"),
+    doc  = cms.string("Pixel tracks from TrackSoA"),
+    singleton = cms.bool(False),
+    extension = cms.bool(False),
+
+    variables = cms.PSet(
+        chi2 = Var("chi2()", "float"),
+        dzError = Var("dzError()", "float"),
+        dxyError = Var("dxyError()", "float"),
+        eta = Var("eta()","float"),
+        nHits  = Var("nHits()","float"),
+        phi = Var("phi()","float"),
+        phiError = Var("phiError()","float"),
+        pt = Var("pt()","float"),
+        qOverPtError = Var("qOverPtError()","float"),
+        dzBS = Var("dzBS()","float"),
+        dxyBS = Var("dxyBS()","float"),
+        nLayers = Var("nLayers()","float"),
+        cotThetaError = Var("cotThetaError()","float"),
+        covCotThetaDz = Var("covCotThetaDz()","float"),
+        covDxyQOverPt = Var("covDxyQOverPt()","float"),
+        covPhiDxy = Var("covPhiDxy()","float"),
+        covPhiQOverPt = Var("covPhiQOverPt()","float")
+    )
 )
 
 # TrackingParticle <-> hltGeneralTracks NanoAOD tables (Phase-2 HLT
