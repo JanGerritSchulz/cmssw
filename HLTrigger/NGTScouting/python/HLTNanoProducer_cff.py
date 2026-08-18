@@ -13,6 +13,7 @@ from PhysicsTools.PatAlgos.slimming.slimmedGenJetsFlavourInfos_cfi import *
 from PhysicsTools.PatAlgos.slimming.slimmedGenJets_cfi   import *
 from RecoJets.Configuration.GenJetParticles_cff import *
 from RecoJets.Configuration.RecoGenJets_cff import *
+from HLTrigger.NGTScouting.hltBeamSpot_cfi import *
 from HLTrigger.NGTScouting.hltVertices_cfi import *
 from HLTrigger.NGTScouting.hltEGammaPacker_cfi import *
 from HLTrigger.NGTScouting.hltPhotons_cfi import *
@@ -57,6 +58,7 @@ NanoGenTables = cms.Sequence(
 # Store hlt objects for NGT scouting
 NanoHltTables = cms.Sequence(
     hltTriggerObjP4Table
+    + hltBeamSpotTable
     + hltVertexTable
     + hltPixelVertexTable
     + hltGeneralTrackTable
