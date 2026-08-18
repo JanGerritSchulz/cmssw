@@ -378,7 +378,7 @@ void PixelTrackProducerFromSoAAlpaka::produce(edm::StreamID streamID,
   // sort good-quality tracks by pt, keep bad-quality tracks at the bottom
   std::sort(sortIdxs.begin(), sortIdxs.end(), [&](int32_t const i1, int32_t const i2) {
     if (quality[i1] >= minQuality_ && quality[i2] >= minQuality_)
-      return tsoa.view().tracks()[i1].pt() > tsoa.view().tracks()[i2].pt();
+      return i2 > i1;  // return tsoa.view().tracks()[i1].pt() > tsoa.view().tracks()[i2].pt();
     else
       return quality[i1] > quality[i2];
   });
@@ -395,7 +395,7 @@ void PixelTrackProducerFromSoAAlpaka::produce(edm::StreamID streamID,
     if (q < minQuality_)
       // since the tracks are sorted according to quality,
       // we can break after the first track with low quality
-      break;
+      continue;                    //break;
     if (nHits < minNumberOfHits_)  //move to nLayers?
       continue;
 
