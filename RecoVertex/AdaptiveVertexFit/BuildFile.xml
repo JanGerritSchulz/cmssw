@@ -1,5 +1,6 @@
 <use name="FWCore/ParameterSet"/>
 <use name="DataFormats/GeometryCommonDetAlgo"/>
+<use name="HeterogeneousCore/AlpakaInterface"/>
 <use name="RecoVertex/VertexPrimitives"/>
 <use name="RecoVertex/KalmanVertexFit"/>
 <export>
