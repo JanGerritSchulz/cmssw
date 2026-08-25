@@ -1,0 +1,6 @@
+<bin name="testAlpakaAdaptiveVertexFit" file="alpaka/testAlpakaAdaptiveVertexFit.dev.cc">
+  <use name="alpaka"/>
+  <use name="catch2"/>
+  <use name="RecoVertex/AdaptiveVertexFit"/>
+  <flags ALPAKA_BACKENDS="1"/>
+</bin>
