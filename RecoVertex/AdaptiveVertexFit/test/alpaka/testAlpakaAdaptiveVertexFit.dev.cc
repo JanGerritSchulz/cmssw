@@ -22,8 +22,7 @@ using TrackCovariances = vertexfit::VertexFit<maxTracksPerVertex>::TrackCovarian
 // Build a TrackParameters matrix (5 params x maxTracksPerVertex tracks) from
 // human-readable "one row per track" data: {param0, param1, param2, param3, param4}.
 template <typename Matrix, size_t nParam>
-Matrix makeTrackParameters(
-    std::array<std::array<float, nParam>, maxTracksPerVertex> const& tracksByRow) {
+Matrix makeTrackParameters(std::array<std::array<float, nParam>, maxTracksPerVertex> const& tracksByRow) {
   Matrix m;
   for (std::size_t track = 0; track < maxTracksPerVertex; ++track) {
     for (std::size_t param = 0; param < nParam; ++param) {
@@ -53,22 +52,21 @@ Matrix makeTrackParameters(
 // [mixed_closeMerge_hardToSplit] Python reference fit (fitVertexWeighted): V=(-0.101394, 0.061800, -0.474222) cm, sigma=(0.004991, 0.003496, 0.008980) cm, chi2/ndof=21.7069
 //   true vertex: (-0.150000, 0.100000, -0.500000) cm
 
+constexpr float bField = 3.8f;
 constexpr int nTestVertices = 1;
 std::array<int, nTestVertices> nTracksPerVertex{8};
 
 // testVertexTrackParameters: 5 test vertices x 40 floats each
 std::array<std::array<std::array<float, 5>, maxTracksPerVertex>, nTestVertices> testTrackParametersByTrack = {{
     // V0
-    {{
-        {-0.35424806f, 0.014392954f, -0.54955008f, 1.9500064f, -0.11085489f},
-        {2.266534f, 0.048376235f, 0.64028004f, -0.93060119f, -0.018712188f},
-        {-1.3554805f, -0.054512728f, 0.43756635f, 1.0558566f, -0.034839579f},
-        {-2.5618537f, -0.03251268f, 0.63244026f, 0.56689364f, 0.042290629f},
-        {1.8452501f, 0.028539189f, -0.53646257f, -0.090866506f, 0.024347949f},
-        {-0.48359425f, 0.010888745f, 0.55378452f, -1.9181496f, 0.1206391f},
-        {-0.82108677f, -0.018609972f, 0.89783605f, 1.4773234f, -0.048106194f},
-        {2.2920082f, 0.026734507f, -0.59739806f, 0.21975429f, 0.040328298f}
-    }}
+    {{{-0.35424806f, 0.014392954f, -0.54955008f, 1.9500064f, -0.11085489f},
+      {2.266534f, 0.048376235f, 0.64028004f, -0.93060119f, -0.018712188f},
+      {-1.3554805f, -0.054512728f, 0.43756635f, 1.0558566f, -0.034839579f},
+      {-2.5618537f, -0.03251268f, 0.63244026f, 0.56689364f, 0.042290629f},
+      {1.8452501f, 0.028539189f, -0.53646257f, -0.090866506f, 0.024347949f},
+      {-0.48359425f, 0.010888745f, 0.55378452f, -1.9181496f, 0.1206391f},
+      {-0.82108677f, -0.018609972f, 0.89783605f, 1.4773234f, -0.048106194f},
+      {2.2920082f, 0.026734507f, -0.59739806f, 0.21975429f, 0.040328298f}}}
     // V1, V2, ... add more vertices here as {{ ...tracks... }}, if nTestVertices > 1
 }};
 
@@ -80,7 +78,6 @@ std::array<TrackParameters, nTestVertices> testTrackParameters = [] {
   }
   return result;
 }();
-
 
 // testTrackCovariances: 5 test vertices x 120 floats each
 std::array<std::array<std::array<float, 15>, maxTracksPerVertex>, nTestVertices> testTrackCovariancesByTrack = {{
@@ -222,6 +219,36 @@ std::array<std::array<float, 3>, nTestVertices> testTrueVertices{{
     {0.05f, -0.03f, 0.02f}  // V0
 }};
 
+// printer function for fitted vertices
+void printFitResult(std::array<vertexFit::VertexFitResult, nTestVertices> results, size_t i) {
+  auto const& r = results[i];
+  auto const& t = testTrueVertices[i];
+
+  std::cout << "Vertex " << i << ":\n";
+  std::cout << std::fixed << std::setprecision(6);
+
+  std::cout << "  true position (x, y, z) = (" << t[0] << ", " << t[1] << ", " << t[2]
+            << ")\n";
+
+  std::cout << "  position (x, y, z) = (" << r.position.x() << ", " << r.position.y() << ", " << r.position.z()
+            << ")\n";
+
+  std::cout << "  covariance matrix:\n";
+  for (int row = 0; row < 3; ++row) {
+    std::cout << "    ";
+    for (int col = 0; col < 3; ++col) {
+      std::cout << std::setw(14) << r.covariances(row, col) << " ";
+    }
+    std::cout << "\n";
+  }
+
+  std::cout << "  chi2 / ndof = " << r.chi2 << " / " << r.ndof;
+  if (r.ndof > 0) {
+    std::cout << "  (chi2/ndof = " << (r.chi2 / static_cast<float>(r.ndof)) << ")";
+  }
+  std::cout << "\n";
+}
+
 int main() {
   // get the list of devices on the current platform
   auto const& devices = cms::alpakatools::devices<Platform>();
@@ -259,7 +286,7 @@ int main() {
   for (auto const& device : devices) {
     std::cout << "Test prefix scan on " << alpaka::getName(device) << '\n';
     auto queue = Queue(device);
-    const auto warpSize = alpaka::getPreferredWarpSize(device);
+    // const auto warpSize = alpaka::getPreferredWarpSize(device);
 
     auto trackParams_d = make_device_buffer<TrackParameters[]>(queue, nTestVertices);
     auto trackParams_h = make_host_view(testTrackParameters.data(), nTestVertices);
@@ -268,6 +295,30 @@ int main() {
     auto trackCovs_d = make_device_buffer<TrackCovariances[]>(queue, nTestVertices);
     auto trackCovs_h = make_host_view(testTrackCovariances.data(), nTestVertices);
     alpaka::memcpy(queue, trackCovs_d, trackCovs_h);
+
+    auto blockSize = 64;
+    auto numberOfBlocks = 1;  //cms::alpakatools::divide_up_by(nTestVertices, blockSize);
+    auto workDiv1D = cms::alpakatools::make_workdiv<Acc1D>(numberOfBlocks, blockSize);
+
+    auto results_d = make_device_buffer<vertexFit::VertexFitResult[]>(queue, nTestVertices);
+
+    alpaka::exec<Acc1D>(queue,
+                        workDiv1D,
+                        vertexfit::VertexFit<maxTracksPerVertex>{},
+                        trackParams_d.data(),
+                        trackCovs_d.data(),
+                        bField,
+                        nTestVertices,
+                        results_d.data());
+
+    std::array<vertexFit::VertexFitResult, nTestVertices> results_h{};
+    alpaka::memcpy(queue, results_h, results_d);
+    // alpaka::wait(queue);
+
+    ALPAKA_ASSERT_ACC(8 == results_h[0].ndof);
+
+    for (size_t i{0}; i < nTestVertices; i++)
+      printFitResult(results_h, i);
   }
 
   return 0;
