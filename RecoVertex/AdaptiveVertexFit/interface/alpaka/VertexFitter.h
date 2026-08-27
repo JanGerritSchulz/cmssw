@@ -22,7 +22,27 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vertexfit {
                                                    const TrackParameters* tracks,
                                                    const TrackCovariances* trackCovs,
                                                    const float bField,
-                                                   ::vertexFit::VertexFitResult* result) const {}
+                                                   const size_t nVertices,
+                                                   ::vertexFit::VertexFitResult* result) const {
+      for (auto it : cms::alpakatools::uniform_elements(acc, nVertices)) {
+        result[it].position(0) = 0.0f;
+        result[it].position(1) = 0.0f;
+        result[it].position(2) = 10.0f;
+
+        result[it].covariances(0, 0) = 1.0f;
+        result[it].covariances(0, 1) = 2.0f;
+        result[it].covariances(0, 2) = 3.0f;
+        result[it].covariances(1, 0) = 4.0f;
+        result[it].covariances(1, 1) = 5.0f;
+        result[it].covariances(1, 2) = 6.0f;
+        result[it].covariances(2, 0) = 7.0f;
+        result[it].covariances(2, 1) = 8.0f;
+        result[it].covariances(2, 2) = 9.0f;
+
+        result[it].chi2 = 1.0f;
+        result[it].ndof = 8;
+      }
+    }
   };
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE::vertexfit
 
