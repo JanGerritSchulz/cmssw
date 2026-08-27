@@ -12,7 +12,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vertexfit {
 
   // N: number of tracks to consider for the fit
   template <int N>
-  class vertexFit {
+  class VertexFit {
   public:
     using TrackParameters = Eigen::Matrix<float, 5, N>;
     using TrackCovariances = Eigen::Matrix<float, 15, N>;
