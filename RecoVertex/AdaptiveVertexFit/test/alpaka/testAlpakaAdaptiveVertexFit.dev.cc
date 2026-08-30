@@ -57,7 +57,7 @@ Matrix makeTrackParameters(std::array<std::array<float, nParam>, maxTracksPerVer
 
 constexpr float bField = 3.8f;
 constexpr int nTestVertices = 1;
-std::array<int, nTestVertices> nTracksPerVertex{8};
+std::array<uint8_t, nTestVertices> nTracksPerVertex{8};
 
 // testVertexTrackParameters: 5 test vertices x 40 floats each
 std::array<std::array<std::array<float, 5>, maxTracksPerVertex>, nTestVertices> testTrackParametersByTrack = {{
@@ -228,7 +228,7 @@ void printFitResult(std::array<vertexfit::VertexFitResult, nTestVertices> result
 
   std::cout << "  true position (x, y, z) = (" << t[0] << ", " << t[1] << ", " << t[2] << ")\n";
 
-  std::cout << "  position (x, y, z) = (" << r.position.x() << ", " << r.position.y() << ", " << r.position.z()
+  std::cout << "  reco position (x, y, z) = (" << r.position.x() << ", " << r.position.y() << ", " << r.position.z()
             << ")\n";
 
   std::cout << "  covariance matrix:\n";
@@ -286,6 +286,11 @@ int main() {
     auto queue = Queue(device);
     // const auto warpSize = alpaka::getPreferredWarpSize(device);
 
+    // copy Track numbers to device
+    auto nTracks_d = make_device_buffer<uint8_t[]>(queue, nTestVertices);
+    auto nTracks_h = make_host_view(nTracksPerVertex.data(), nTestVertices);
+    alpaka::memcpy(queue, nTracks_d, nTracks_h);
+
     // copy Track parameters to device
     auto trackParams_d = make_device_buffer<TrackParameters[]>(queue, nTestVertices);
     auto trackParams_h = make_host_view(testTrackParameters.data(), nTestVertices);
@@ -310,6 +315,7 @@ int main() {
     alpaka::exec<Acc1D>(queue,
                         workDiv1D,
                         VertexFitter<maxTracksPerVertex>{},
+                        nTracks_d.data(),
                         trackParams_d.data(),
                         trackCovs_d.data(),
                         vertexSeed_d.data(),

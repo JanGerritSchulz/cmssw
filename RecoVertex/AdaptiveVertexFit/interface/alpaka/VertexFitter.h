@@ -25,6 +25,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
     template <alpaka::concepts::Acc TAcc>
     ALPAKA_FN_ACC ALPAKA_FN_INLINE void operator()(const TAcc& acc,
+                                                   const uint8_t* nTracks,
                                                    const TrackParameters* tracks,
                                                    const TrackCovariances* trackCovs,
                                                    const VertexPosition* seedPos,
@@ -36,7 +37,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         // const auto covs = trackCovs[iv];
         TrackGeomParameters geom;
         // get derrived geometric track parameters like radius R and center C=(cx,cy) in the x-y plane
-        for (size_t it{0}; it < N; it++) {
+        for (uint8_t it{0}; it < nTracks[iv]; it++) {
           geom.q[it] = trks.qOverPt[it] > 0.f ? 1.0f : -1.0f;
           geom.r[it] = 1 / (alpaka::math::abs(acc, trks.qOverPt[it]) * SPEED_OF_LIGHT_FACTOR * bField);
           const float sinPhi = alpaka::math::sin(acc, trks.phi[it]);
