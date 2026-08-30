@@ -4,7 +4,7 @@
 #include <Eigen/Core>
 #include <Eigen/Eigenvalues>
 
-namespace vertexFit {
+namespace vertexfit {
 
   using Vector3d = Eigen::Vector3d;
   using Matrix3d = Eigen::Matrix3d;

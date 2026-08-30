@@ -16,8 +16,9 @@ constexpr int maxTracksPerVertex = 8;
 using namespace ALPAKA_ACCELERATOR_NAMESPACE;
 using namespace cms::alpakatools;
 
-using TrackParameters = vertexfit::VertexFit<maxTracksPerVertex>::TrackParameters;
-using TrackCovariances = vertexfit::VertexFit<maxTracksPerVertex>::TrackCovariances;
+using TrackParameters = VertexFitter<maxTracksPerVertex>::TrackParameters;
+using TrackCovariances = VertexFitter<maxTracksPerVertex>::TrackCovariances;
+using VertexPosition = VertexFitter<maxTracksPerVertex>::VertexPosition;
 
 // Build a TrackParameters matrix (5 params x maxTracksPerVertex tracks) from
 // human-readable "one row per track" data: {param0, param1, param2, param3, param4}.
@@ -25,9 +26,11 @@ template <typename Matrix, size_t nParam>
 Matrix makeTrackParameters(std::array<std::array<float, nParam>, maxTracksPerVertex> const& tracksByRow) {
   Matrix m;
   for (std::size_t track = 0; track < maxTracksPerVertex; ++track) {
-    for (std::size_t param = 0; param < nParam; ++param) {
-      m(param, track) = tracksByRow[track][param];
-    }
+    m.phi[track] = tracksByRow[track][0];
+    m.dxy[track] = tracksByRow[track][1];
+    m.qOverPt[track] = tracksByRow[track][2];
+    m.cotTheta[track] = tracksByRow[track][3];
+    m.dz[track] = tracksByRow[track][4];
   }
   return m;
 }
@@ -80,139 +83,135 @@ std::array<TrackParameters, nTestVertices> testTrackParameters = [] {
 }();
 
 // testTrackCovariances: 5 test vertices x 120 floats each
-std::array<std::array<std::array<float, 15>, maxTracksPerVertex>, nTestVertices> testTrackCovariancesByTrack = {{
+std::array<TrackCovariances, nTestVertices> testTrackCovariances = {{
     // V0
-    {{{1.406688e-05f,
-       4.1178298e-05f,
-       0.00010569133f,
-       0.0f,
-       0.0f,
-       0.00012753452f,
-       0.00023455388f,
-       0.0f,
-       0.0f,
-       0.0020219088f,
-       0.0f,
-       0.0f,
-       9.5846589e-05f,
-       -0.00031277455f,
-       0.0010562802f},
-      {1.227701e-05f,
-       3.5938772e-05f,
-       9.2243167e-05f,
-       0.0f,
-       0.0f,
-       0.00011130703f,
-       0.00020470925f,
-       0.0f,
-       0.0f,
-       0.0017646412f,
-       0.0f,
-       0.0f,
-       8.3651071e-05f,
-       -0.00027297713f,
-       0.00092187911f},
-      {5.6197844e-06f,
-       1.6450923e-05f,
-       4.2224182e-05f,
-       0.0f,
-       0.0f,
-       5.0950641e-05f,
-       9.3705376e-05f,
-       0.0f,
-       0.0f,
-       0.00080776205f,
-       0.0f,
-       0.0f,
-       3.8291162e-05f,
-       -0.0001249549f,
-       0.00042198888f},
-      {8.9078948e-06f,
-       2.6076284e-05f,
-       6.692936e-05f,
-       0.0f,
-       0.0f,
-       8.076163e-05f,
-       0.00014853197f,
-       0.0f,
-       0.0f,
-       0.00128038f,
-       0.0f,
-       0.0f,
-       6.0695147e-05f,
-       -0.00019806545f,
-       0.00066889267f},
-      {1.3869153e-05f,
-       4.0599488e-05f,
-       0.00010420571f,
-       0.0f,
-       0.0f,
-       0.00012574188f,
-       0.00023125695f,
-       0.0f,
-       0.0f,
-       0.0019934885f,
-       0.0f,
-       0.0f,
-       9.4499352e-05f,
-       -0.00030837814f,
-       0.0010414329f},
-      {1.1558748e-05f,
-       3.3836186e-05f,
-       8.6846511e-05f,
-       0.0f,
-       0.0f,
-       0.00010479505f,
-       0.0001927328f,
-       0.0f,
-       0.0f,
-       0.0016614014f,
-       0.0f,
-       0.0f,
-       7.8757093e-05f,
-       -0.00025700669f,
-       0.00086794488f},
-      {6.7977157e-06f,
-       1.9899108e-05f,
-       5.1074555e-05f,
-       0.0f,
-       0.0f,
-       6.1630117e-05f,
-       0.00011334643f,
-       0.0f,
-       0.0f,
-       0.00097707249f,
-       0.0f,
-       0.0f,
-       4.6317156e-05f,
-       -0.00015114599f,
-       0.00051043959f},
-      {7.8329157e-06f,
-       2.2929473e-05f,
-       5.8852517e-05f,
-       0.0f,
-       0.0f,
-       7.1015549e-05f,
-       0.00013060756f,
-       0.0f,
-       0.0f,
-       0.0011258674f,
-       0.0f,
-       0.0f,
-       5.3370632e-05f,
-       -0.00017416348f,
-       0.00058817263f}}}
+    TrackCovariances{{{{{1.406688e-05f,
+                         4.1178298e-05f,
+                         0.00010569133f,
+                         0.0f,
+                         0.0f,
+                         0.00012753452f,
+                         0.00023455388f,
+                         0.0f,
+                         0.0f,
+                         0.0020219088f,
+                         0.0f,
+                         0.0f,
+                         9.5846589e-05f,
+                         -0.00031277455f,
+                         0.0010562802f}},
+                       {{1.227701e-05f,
+                         3.5938772e-05f,
+                         9.2243167e-05f,
+                         0.0f,
+                         0.0f,
+                         0.00011130703f,
+                         0.00020470925f,
+                         0.0f,
+                         0.0f,
+                         0.0017646412f,
+                         0.0f,
+                         0.0f,
+                         8.3651071e-05f,
+                         -0.00027297713f,
+                         0.00092187911f}},
+                       {{5.6197844e-06f,
+                         1.6450923e-05f,
+                         4.2224182e-05f,
+                         0.0f,
+                         0.0f,
+                         5.0950641e-05f,
+                         9.3705376e-05f,
+                         0.0f,
+                         0.0f,
+                         0.00080776205f,
+                         0.0f,
+                         0.0f,
+                         3.8291162e-05f,
+                         -0.0001249549f,
+                         0.00042198888f}},
+                       {{8.9078948e-06f,
+                         2.6076284e-05f,
+                         6.692936e-05f,
+                         0.0f,
+                         0.0f,
+                         8.076163e-05f,
+                         0.00014853197f,
+                         0.0f,
+                         0.0f,
+                         0.00128038f,
+                         0.0f,
+                         0.0f,
+                         6.0695147e-05f,
+                         -0.00019806545f,
+                         0.00066889267f}},
+                       {{1.3869153e-05f,
+                         4.0599488e-05f,
+                         0.00010420571f,
+                         0.0f,
+                         0.0f,
+                         0.00012574188f,
+                         0.00023125695f,
+                         0.0f,
+                         0.0f,
+                         0.0019934885f,
+                         0.0f,
+                         0.0f,
+                         9.4499352e-05f,
+                         -0.00030837814f,
+                         0.0010414329f}},
+                       {{1.1558748e-05f,
+                         3.3836186e-05f,
+                         8.6846511e-05f,
+                         0.0f,
+                         0.0f,
+                         0.00010479505f,
+                         0.0001927328f,
+                         0.0f,
+                         0.0f,
+                         0.0016614014f,
+                         0.0f,
+                         0.0f,
+                         7.8757093e-05f,
+                         -0.00025700669f,
+                         0.00086794488f}},
+                       {{6.7977157e-06f,
+                         1.9899108e-05f,
+                         5.1074555e-05f,
+                         0.0f,
+                         0.0f,
+                         6.1630117e-05f,
+                         0.00011334643f,
+                         0.0f,
+                         0.0f,
+                         0.00097707249f,
+                         0.0f,
+                         0.0f,
+                         4.6317156e-05f,
+                         -0.00015114599f,
+                         0.00051043959f}},
+                       {{7.8329157e-06f,
+                         2.2929473e-05f,
+                         5.8852517e-05f,
+                         0.0f,
+                         0.0f,
+                         7.1015549e-05f,
+                         0.00013060756f,
+                         0.0f,
+                         0.0f,
+                         0.0011258674f,
+                         0.0f,
+                         0.0f,
+                         5.3370632e-05f,
+                         -0.00017416348f,
+                         0.00058817263f}}}}}
     // add more vertices here as {{ ...8 rows... }}, if nTestVertices > 1
 }};
 
-// Transpose each vertex's rows into the Eigen matrix layout the kernel actually needs.
-std::array<TrackCovariances, nTestVertices> testTrackCovariances = [] {
-  std::array<TrackCovariances, nTestVertices> result;
-  for (std::size_t v = 0; v < nTestVertices; ++v) {
-    result[v] = makeTrackParameters<TrackCovariances>(testTrackCovariancesByTrack[v]);
-  }
-  return result;
-}();
+// testTrueVertex: 5 test vertices x 3 floats each
+std::array<VertexPosition, nTestVertices> testVertexSeeds{{
+    VertexPosition{{{0.0f, 0.0f, 0.0f}}}  // V0
+}};
 
 // testTrueVertex: 5 test vertices x 3 floats each
 std::array<std::array<float, 3>, nTestVertices> testTrueVertices{{
@@ -220,15 +219,14 @@ std::array<std::array<float, 3>, nTestVertices> testTrueVertices{{
 }};
 
 // printer function for fitted vertices
-void printFitResult(std::array<vertexFit::VertexFitResult, nTestVertices> results, size_t i) {
+void printFitResult(std::array<vertexfit::VertexFitResult, nTestVertices> results, size_t i) {
   auto const& r = results[i];
   auto const& t = testTrueVertices[i];
 
   std::cout << "Vertex " << i << ":\n";
   std::cout << std::fixed << std::setprecision(6);
 
-  std::cout << "  true position (x, y, z) = (" << t[0] << ", " << t[1] << ", " << t[2]
-            << ")\n";
+  std::cout << "  true position (x, y, z) = (" << t[0] << ", " << t[1] << ", " << t[2] << ")\n";
 
   std::cout << "  position (x, y, z) = (" << r.position.x() << ", " << r.position.y() << ", " << r.position.z()
             << ")\n";
@@ -288,30 +286,38 @@ int main() {
     auto queue = Queue(device);
     // const auto warpSize = alpaka::getPreferredWarpSize(device);
 
+    // copy Track parameters to device
     auto trackParams_d = make_device_buffer<TrackParameters[]>(queue, nTestVertices);
     auto trackParams_h = make_host_view(testTrackParameters.data(), nTestVertices);
     alpaka::memcpy(queue, trackParams_d, trackParams_h);
 
+    // copy Track covariances to device
     auto trackCovs_d = make_device_buffer<TrackCovariances[]>(queue, nTestVertices);
     auto trackCovs_h = make_host_view(testTrackCovariances.data(), nTestVertices);
     alpaka::memcpy(queue, trackCovs_d, trackCovs_h);
+
+    // copy Vertex seeds to device
+    auto vertexSeed_d = make_device_buffer<VertexPosition[]>(queue, nTestVertices);
+    auto vertexSeed_h = make_host_view(testVertexSeeds.data(), nTestVertices);
+    alpaka::memcpy(queue, vertexSeed_d, vertexSeed_h);
 
     auto blockSize = 64;
     auto numberOfBlocks = 1;  //cms::alpakatools::divide_up_by(nTestVertices, blockSize);
     auto workDiv1D = cms::alpakatools::make_workdiv<Acc1D>(numberOfBlocks, blockSize);
 
-    auto results_d = make_device_buffer<vertexFit::VertexFitResult[]>(queue, nTestVertices);
+    auto results_d = make_device_buffer<vertexfit::VertexFitResult[]>(queue, nTestVertices);
 
     alpaka::exec<Acc1D>(queue,
                         workDiv1D,
-                        vertexfit::VertexFit<maxTracksPerVertex>{},
+                        VertexFitter<maxTracksPerVertex>{},
                         trackParams_d.data(),
                         trackCovs_d.data(),
+                        vertexSeed_d.data(),
                         bField,
                         nTestVertices,
                         results_d.data());
 
-    std::array<vertexFit::VertexFitResult, nTestVertices> results_h{};
+    std::array<vertexfit::VertexFitResult, nTestVertices> results_h{};
     alpaka::memcpy(queue, results_h, results_d);
     // alpaka::wait(queue);
 
