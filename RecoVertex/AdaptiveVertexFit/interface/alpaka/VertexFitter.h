@@ -26,6 +26,16 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     position(2) = trks.dz[it] + trks.cotTheta[it] * l;
   }
 
+  // initialize arc length of closest approach based on xy-circle alone
+  template <alpaka::concepts::Acc TAcc, typename TrackGeomParameters, typename VertexPosition>
+  ALPAKA_FN_ACC ALPAKA_FN_INLINE float initialArcLength(const TAcc& acc,
+                                                        const TrackGeomParameters& geos,
+                                                        const uint8_t it,
+                                                        const VertexPosition& position) {
+    const float angleL = alpaka::math::atan2(acc, position(1) - geos.cy[it], position(0) - geos.cx[it]);
+    return deltaPhi(acc, geos.refAngle[it], angleL) * geos.q[it] * geos.r[it];
+  }
+
   // N: number of tracks to consider for the fit
   template <int N>
   class VertexFitter {
@@ -67,7 +77,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         // result[iv].position(1) = 0.0f;
         // result[iv].position(2) = 10.0f;
 
-        result[iv].covariances(0, 0) = 1.0f;
+        result[iv].covariances(0, 0) = initialArcLength(acc, geos, 0u, seedPos[iv]);
         result[iv].covariances(0, 1) = 2.0f;
         result[iv].covariances(0, 2) = 3.0f;
         result[iv].covariances(1, 0) = 4.0f;
