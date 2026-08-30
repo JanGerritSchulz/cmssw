@@ -12,6 +12,20 @@
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
   using namespace cms::alpakatools;
 
+  // position at arc length
+  template <alpaka::concepts::Acc TAcc, typename TrackParameters, typename TrackGeomParameters, typename VertexPosition>
+  ALPAKA_FN_ACC ALPAKA_FN_INLINE void positionAtArcLength(const TAcc& acc,
+                                                          const TrackParameters& trks,
+                                                          const TrackGeomParameters& geos,
+                                                          const uint8_t it,
+                                                          const float l,
+                                                          VertexPosition& position) {
+    const float angleL = geos.refAngle[it] - geos.q[it] * l / geos.r[it];
+    position(0) = geos.cx[it] + geos.r[it] * alpaka::math::cos(acc, angleL);
+    position(1) = geos.cy[it] + geos.r[it] * alpaka::math::sin(acc, angleL);
+    position(2) = trks.dz[it] + trks.cotTheta[it] * l;
+  }
+
   // N: number of tracks to consider for the fit
   template <int N>
   class VertexFitter {
@@ -35,20 +49,23 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       for (auto iv : cms::alpakatools::uniform_elements(acc, nVertices)) {
         const auto trks = tracks[iv];
         // const auto covs = trackCovs[iv];
-        TrackGeomParameters geom;
+        TrackGeomParameters geos;
         // get derrived geometric track parameters like radius R and center C=(cx,cy) in the x-y plane
         for (uint8_t it{0}; it < nTracks[iv]; it++) {
-          geom.q[it] = trks.qOverPt[it] > 0.f ? 1.0f : -1.0f;
-          geom.r[it] = 1 / (alpaka::math::abs(acc, trks.qOverPt[it]) * SPEED_OF_LIGHT_FACTOR * bField);
+          geos.q[it] = trks.qOverPt[it] > 0.f ? 1.0f : -1.0f;
+          geos.r[it] = 1 / (alpaka::math::abs(acc, trks.qOverPt[it]) * SPEED_OF_LIGHT_FACTOR * bField);
           const float sinPhi = alpaka::math::sin(acc, trks.phi[it]);
           const float cosPhi = alpaka::math::cos(acc, trks.phi[it]);
-          geom.cx[it] = (trks.dxy[it] + geom.q[it] * geom.r[it]) * sinPhi;
-          geom.cy[it] = (trks.dxy[it] - geom.q[it] * geom.r[it]) * cosPhi;
-          geom.refAngle[it] = reducePhiRange(acc, trks.phi[it] + geom.q[it] * std::numbers::pi_v<float> / 2.0f);
+          geos.cx[it] = (trks.dxy[it] + geos.q[it] * geos.r[it]) * sinPhi;
+          geos.cy[it] = (trks.dxy[it] - geos.q[it] * geos.r[it]) * cosPhi;
+          geos.refAngle[it] = reducePhiRange(acc, trks.phi[it] + geos.q[it] * std::numbers::pi_v<float> / 2.0f);
         }
-        result[iv].position(0) = 0.0f;
-        result[iv].position(1) = 0.0f;
-        result[iv].position(2) = 10.0f;
+
+        //
+        positionAtArcLength(acc, trks, geos, 0u, 2.0f, result[iv].position);
+        // result[iv].position(0) = 0.0f;
+        // result[iv].position(1) = 0.0f;
+        // result[iv].position(2) = 10.0f;
 
         result[iv].covariances(0, 0) = 1.0f;
         result[iv].covariances(0, 1) = 2.0f;
