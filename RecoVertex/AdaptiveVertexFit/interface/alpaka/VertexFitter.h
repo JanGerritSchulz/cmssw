@@ -36,6 +36,28 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     return deltaPhi(acc, geos.refAngle[it], angleL) * geos.q[it] * geos.r[it];
   }
 
+  // optimize arc length of closest approach (seeded)
+  template <alpaka::concepts::Acc TAcc, typename TrackParameters, typename TrackGeomParameters, typename VertexPosition>
+  ALPAKA_FN_ACC ALPAKA_FN_INLINE float optimizeArcLength(const TAcc& acc,
+                                                         const TrackParameters& trks,
+                                                         const TrackGeomParameters& geos,
+                                                         const uint8_t it,
+                                                         const VertexPosition& position,
+                                                         const float initArcLen) {
+    return 0.f;
+  }
+
+  // optimize arc length of closest approach (seed-less)
+  template <alpaka::concepts::Acc TAcc, typename TrackParameters, typename TrackGeomParameters, typename VertexPosition>
+  ALPAKA_FN_ACC ALPAKA_FN_INLINE float optimizeArcLength(const TAcc& acc,
+                                                         const TrackParameters& trks,
+                                                         const TrackGeomParameters& geos,
+                                                         const uint8_t it,
+                                                         const VertexPosition& position) {
+    const float initArcLen = initialArcLength(acc, geos, it, position);
+    return optimizeArcLength(acc, trks, geos, it, position, initArcLen);
+  }
+
   // N: number of tracks to consider for the fit
   template <int N>
   class VertexFitter {
