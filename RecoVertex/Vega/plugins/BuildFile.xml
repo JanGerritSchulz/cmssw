@@ -1,0 +1,17 @@
+<use name="FWCore/Framework"/>
+<use name="FWCore/MessageLogger"/>
+<use name="FWCore/ParameterSet"/>
+<use name="FWCore/Utilities"/>
+
+<library file="alpaka/*.cc" name="RecoPixelVertexingPixelVertexFindingPluginsPortable">
+  <use name="alpaka"/>
+  <use name="DataFormats/Portable"/>
+  <use name="DataFormats/TrackSoA"/>
+  <use name="DataFormats/VertexSoA"/>
+  <use name="HeterogeneousCore/AlpakaCore"/>
+  <use name="HeterogeneousCore/AlpakaInterface"/>
+  <!-- work around for cms-sw/cmssw#45179 -->
+  <!--<use name="no-array-bounds-flag" for="alpaka/serial"/>-->
+  <flags ALPAKA_BACKENDS="1"/>
+  <flags EDM_PLUGIN="1"/>
+</library>
