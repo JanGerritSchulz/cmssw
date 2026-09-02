@@ -1,4 +1,4 @@
-echo '#### Test Writing and Reading TrackSoA'
+echo '#### Test Writing and Reading VertexSoA'
 
 scriptdir=$CMSSW_BASE/src/DataFormats/VertexSoA/test/
 

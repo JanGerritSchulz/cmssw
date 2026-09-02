@@ -52,7 +52,7 @@ int main() {
     {
       // Instantiate vertices on device. PortableCollection allocates
       // SoA on device automatically.
-      ZVertexSoACollection zvertex_d(queue, maxTracks, maxVertices);
+      ZVertexSoACollection zvertex_d(queue, maxVertices, maxTracks);
       testZVertexSoAT::runKernels(zvertex_d.view(), queue);
 
       // If the device is actually the host, use the collection as-is.
