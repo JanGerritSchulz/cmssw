@@ -1,4 +1,5 @@
 <lcgdict>
+<!-- ZVertexSoA -->
   <class name="reco::ZVertexHost" rntupleStreamerMode="true"/>
   <!-- reco::ZVertexHost::Layout must be listed before the aliased-to type see #48824 -->
   <class name="reco::ZVertexHost::Layout"/>
@@ -9,4 +10,17 @@
   <class name="reco::ZVertexTracksLayout<128, false>"/>
 
   <class name="edm::Wrapper<reco::ZVertexHost>" splitLevel="0"/>
+
+  
+<!-- VertexSoA -->
+  <class name="reco::VertexHost" rntupleStreamerMode="true"/>
+  <!-- reco::VertexHost::Layout must be listed before the aliased-to type see #48824 -->
+  <class name="reco::VertexHost::Layout"/>
+  <class name="reco::VertexSoABlocks"/>
+  <class name="reco::VertexSoABlocks::View"/>
+
+  <class name="reco::VertexSoALayout<128, false>"/>
+  <class name="reco::VertexTracksSoALayout<128, false>"/>
+
+  <class name="edm::Wrapper<reco::VertexHost>" splitLevel="0"/>
 </lcgdict>
