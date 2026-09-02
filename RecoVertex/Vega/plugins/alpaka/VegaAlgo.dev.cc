@@ -1,12 +1,12 @@
 #include <alpaka/alpaka.hpp>
 
-#include "VertexExplorer.h"
+#include "VegaAlgo.h"
 
 #undef PIXVERTEX_DEBUG_PRODUCE
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
   namespace vega {
 
-    reco::VertexSoACollection VertexExplorer::makeAsync(Queue& queue,
+    reco::VertexSoACollection VegaAlgo::makeAsync(Queue& queue,
                                                         TrkSoAConstView const& tracksView,
                                                         int maxVertices) const {
       const auto maxTracks = tracksView.metadata().size();
