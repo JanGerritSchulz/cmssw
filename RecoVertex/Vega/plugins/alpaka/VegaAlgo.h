@@ -1,5 +1,5 @@
-#ifndef RecoVertex_Vega_plugins_alpaka_VertexExplorer
-#define RecoVertex_Vega_plugins_alpaka_VertexExplorer
+#ifndef RecoVertex_Vega_plugins_alpaka_VegaAlgo_h
+#define RecoVertex_Vega_plugins_alpaka_VegaAlgo_h
 
 #include <cstdint>
 
@@ -10,22 +10,25 @@
 #include "DataFormats/VertexSoA/interface/alpaka/VertexSoACollection.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/config.h"
 
+#include "VegaParams.h"
+
 namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
   using namespace cms::alpakatools;
   using VtxSoAView = ::reco::VertexSoAView;
   using VtxTrkSoAView = ::reco::VertexTracksSoAView;
   using TrkSoAConstView = ::reco::TrackSoAConstView;
+  using VegaParams = ::vega::VegaParams;
 
-  class VertexExplorer {
+  class VegaAlgo {
   public:
-    VertexExplorer() : test(false) {}
+    VegaAlgo(const VegaParams& params) : params_(params) {}
 
-    ~VertexExplorer() = default;
+    ~VegaAlgo() = default;
 
     reco::VertexSoACollection makeAsync(Queue &queue, TrkSoAConstView const &tracksView, int maxVertices) const;
 
   private:
-    bool test;
+    const VegaParams params_;
   };
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE::vega
 
