@@ -8,7 +8,7 @@
 #include "FWCore/Utilities/interface/EDPutToken.h"
 #include "FWCore/Utilities/interface/StreamID.h"
 
-#include "DataFormats/VertexSoA/interface/VertexHost.h"
+#include "DataFormats/VertexSoA/interface/ZVertexHost.h"
 
 #include <memory>
 #include <utility>
@@ -16,35 +16,35 @@
 
 namespace edmtest {
 
-  class TestWriteHostVertexSoA : public edm::global::EDProducer<> {
+  class TestWriteHostZVertexSoA : public edm::global::EDProducer<> {
   public:
-    TestWriteHostVertexSoA(edm::ParameterSet const&);
+    TestWriteHostZVertexSoA(edm::ParameterSet const&);
     void produce(edm::StreamID, edm::Event&, edm::EventSetup const&) const override;
     static void fillDescriptions(edm::ConfigurationDescriptions&);
 
   private:
     unsigned int vertexSize_;
-    edm::EDPutTokenT<reco::VertexHost> putToken_;
+    edm::EDPutTokenT<reco::ZVertexHost> putToken_;
   };
 
-  TestWriteHostVertexSoA::TestWriteHostVertexSoA(edm::ParameterSet const& iPSet)
+  TestWriteHostZVertexSoA::TestWriteHostZVertexSoA(edm::ParameterSet const& iPSet)
       : vertexSize_(iPSet.getParameter<unsigned int>("vertexSize")), putToken_(produces()) {}
 
-  void TestWriteHostVertexSoA::produce(edm::StreamID, edm::Event& iEvent, edm::EventSetup const&) const {
-    reco::VertexHost Vertexs(cms::alpakatools::host(), int(vertexSize_), int(4 * vertexSize_));
-    auto VertexsView = Vertexs.view();
+  void TestWriteHostZVertexSoA::produce(edm::StreamID, edm::Event& iEvent, edm::EventSetup const&) const {
+    reco::ZVertexHost ZVertexs(cms::alpakatools::host(), int(vertexSize_), int(4 * vertexSize_));
+    auto ZVertexsView = ZVertexs.view();
     for (unsigned int i = 0; i < vertexSize_; ++i) {
-      VertexsView.vertex()[i].chi2() = float(i);
+      ZVertexsView.zvertex()[i].chi2() = float(i);
     }
-    iEvent.emplace(putToken_, std::move(Vertexs));
+    iEvent.emplace(putToken_, std::move(ZVertexs));
   }
 
-  void TestWriteHostVertexSoA::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
+  void TestWriteHostZVertexSoA::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
     edm::ParameterSetDescription desc;
     desc.add<unsigned int>("vertexSize", 1000);
     descriptions.addDefault(desc);
   }
 }  // namespace edmtest
 
-using edmtest::TestWriteHostVertexSoA;
-DEFINE_FWK_MODULE(TestWriteHostVertexSoA);
+using edmtest::TestWriteHostZVertexSoA;
+DEFINE_FWK_MODULE(TestWriteHostZVertexSoA);

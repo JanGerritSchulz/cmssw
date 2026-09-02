@@ -11,7 +11,7 @@
 #include "FWCore/Utilities/interface/InputTag.h"
 #include "FWCore/Utilities/interface/StreamID.h"
 
-#include "DataFormats/VertexSoA/interface/ZVertexHost.h"
+#include "DataFormats/VertexSoA/interface/VertexHost.h"
 
 namespace edmtest {
 
@@ -22,20 +22,20 @@ namespace edmtest {
     static void fillDescriptions(edm::ConfigurationDescriptions&);
 
   private:
-    edm::EDGetTokenT<reco::ZVertexHost> getToken_;
+    edm::EDGetTokenT<reco::VertexHost> getToken_;
   };
 
   TestReadHostVertexSoA::TestReadHostVertexSoA(edm::ParameterSet const& iPSet)
       : getToken_(consumes(iPSet.getParameter<edm::InputTag>("input"))) {}
 
   void TestReadHostVertexSoA::analyze(edm::StreamID, edm::Event const& iEvent, edm::EventSetup const&) const {
-    auto const& ZVertexs = iEvent.get(getToken_);
-    auto ZVertexsView = ZVertexs.view();
+    auto const& Vertexs = iEvent.get(getToken_);
+    auto VertexsView = Vertexs.view();
 
-    std::cout << "ZVertexsView.zvertex().metadata().size() " << ZVertexsView.zvertex().metadata().size() << std::endl;
-    std::cout << "ZVertexsView.zvertex()[10].chi2() " << ZVertexsView.zvertex()[10].chi2() << std::endl;
-    for (int i = 0; i < ZVertexsView.zvertex().metadata().size(); ++i) {
-      if (ZVertexsView.zvertex()[i].chi2() != float(i)) {
+    std::cout << "VertexsView.vertex().metadata().size() " << VertexsView.vertex().metadata().size() << std::endl;
+    std::cout << "VertexsView.vertex()[10].chi2() " << VertexsView.vertex()[10].chi2() << std::endl;
+    for (int i = 0; i < VertexsView.vertex().metadata().size(); ++i) {
+      if (VertexsView.vertex()[i].chi2() != float(i)) {
         throw cms::Exception("TestReadHostVertexSoA Failure") << "TestReadHostVertexSoA::analyze, entry. i = " << i;
       }
     }

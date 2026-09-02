@@ -1,5 +1,5 @@
 /**
-   Simple test for the reco::ZVertexSoA data structure
+   Simple test for the reco::VertexSoA data structure
    which inherits from Portable{Host}Collection.
 
    Creates an instance of the class (automatically allocates
@@ -18,15 +18,15 @@
 
 #include <alpaka/alpaka.hpp>
 
-#include "DataFormats/VertexSoA/interface/ZVertexHost.h"
-#include "DataFormats/VertexSoA/interface/alpaka/ZVertexSoACollection.h"
+#include "DataFormats/VertexSoA/interface/VertexHost.h"
+#include "DataFormats/VertexSoA/interface/alpaka/VertexSoACollection.h"
 #include "FWCore/Utilities/interface/stringize.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/config.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/devices.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/memory.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/workdivision.h"
 
-#include "ZVertexSoA_test.h"
+#include "VertexSoA_test.h"
 
 using namespace ALPAKA_ACCELERATOR_NAMESPACE;
 using namespace ALPAKA_ACCELERATOR_NAMESPACE::reco;
@@ -52,36 +52,38 @@ int main() {
     {
       // Instantiate vertices on device. PortableCollection allocates
       // SoA on device automatically.
-      ZVertexSoACollection zvertex_d(queue, maxVertices, maxTracks);
-      testZVertexSoAT::runKernels(zvertex_d.view(), queue);
+      VertexSoACollection vertex_d(queue, maxVertices, maxTracks);
+      testVertexSoAT::runKernels(vertex_d.view(), queue);
 
       // If the device is actually the host, use the collection as-is.
       // Otherwise, copy the data from the device to the host.
 #ifdef ALPAKA_ACC_CPU_B_SEQ_T_SEQ_ENABLED
-      ZVertexHost zvertex_h = std::move(zvertex_d);
+      VertexHost vertex_h = std::move(vertex_d);
 #else
-      ZVertexHost zvertex_h = cms::alpakatools::CopyToHost<ZVertexSoACollection>::copyAsync(queue, zvertex_d);
+      VertexHost vertex_h = cms::alpakatools::CopyToHost<VertexSoACollection>::copyAsync(queue, vertex_d);
 #endif
       alpaka::wait(queue);
-      std::cout << zvertex_h.view().zvertex().metadata().size() << std::endl;
+      std::cout << vertex_h.view().vertex().metadata().size() << std::endl;
 
       // Print results
-      std::cout << "idv\t"
-                << "zv\t"
-                << "wv\t"
+      std::cout << "id\t"
+                << "x\t"
+                << "y\t"
+                << "z\t"
+                << "t\t"
                 << "chi2\t"
-                << "ptv2\t"
                 << "ndof\t"
-                << "sortInd\t"
-                << "nvFinal\n";
+                << "nTracks\t"
+                << "trackOffsets\t";
 
-      auto vtx_v = zvertex_h.view().zvertex();
-      auto trk_v = zvertex_h.view().zvertexTracks();
+      auto vtx_v = vertex_h.view().vertex();
+      auto trk_v = vertex_h.view().tracks();
       for (int i = 0; i < 10; ++i) {
         auto vi = vtx_v[i];
         auto ti = trk_v[i];
-        std::cout << (int)ti.idv() << "\t" << vi.zv() << "\t" << vi.wv() << "\t" << vi.chi2() << "\t" << vi.ptv2()
-                  << "\t" << (int)ti.ndof() << "\t" << vi.sortInd() << "\t" << (int)vtx_v.nvFinal() << std::endl;
+        std::cout << (int)ti.id() << "\t" << vi.x() << "\t" << vi.y() << "\t" << vi.z() << "\t" << vi.t() << "\t"
+                  << vi.chi2() << "\t" << (int)vi.ndof() << "\t" << vi.nTracks() << "\t" << vi.trackOffsets()
+                  << std::endl;
       }
     }
   }
