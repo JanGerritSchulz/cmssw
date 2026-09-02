@@ -2,9 +2,11 @@ import FWCore.ParameterSet.Config as cms
 from HeterogeneousCore.AlpakaCore.functions import makeSerialClone
 
 from ..modules.hltPhase2PixelVertices_cfi import *
+from ..modules.hltVegaVerticesSoA_cfi import *
 
 HLTPhase2PixelVertexingSequence = cms.Sequence(
     hltPhase2PixelVertices
+    +hltVegaVerticesSoA
 )
 
 # Empty sequence as a placeholder to be filled when alpakaValidationHLT is active
