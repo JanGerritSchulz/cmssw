@@ -6,7 +6,8 @@
 
 #include "VegaAlgo.h"
 
-#undef PIXVERTEX_DEBUG_PRODUCE
+#define VEGA_DEBUG
+
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
   namespace vega {
 
@@ -22,7 +23,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
           const float phi = ::reco::phi(trks, it);
           const float dxy = ::reco::tip(trks, it);
           const float q = ::reco::charge(trks, it);
-          const float r = 1 / (alpaka::math::abs(acc, q) * SPEED_OF_LIGHT_FACTOR * bField);
+          const float r = trks[it].pt() / (SPEED_OF_LIGHT_FACTOR * bField);
           trksExtra[it].q() = q;
           trksExtra[it].r() = r;
           const float sinPhi = alpaka::math::sin(acc, phi);
@@ -30,13 +31,23 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
           trksExtra[it].cx() = (dxy + q * r) * sinPhi;
           trksExtra[it].cy() = (dxy - q * r) * cosPhi;
           trksExtra[it].refAngle() = reducePhiRange(acc, phi + q * std::numbers::pi_v<float> / 2.0f);
+
+#ifdef VEGA_DEBUG
+          printf("Track %d: phi=%f, dxy=%f, q=%f, r=%f, cx=%f, cy=%f, refAngle=%f\n",
+                 it,
+                 phi,
+                 dxy,
+                 trksExtra[it].q(),
+                 trksExtra[it].r(),
+                 trksExtra[it].cx(),
+                 trksExtra[it].cy(),
+                 trksExtra[it].refAngle());
+#endif
         }
       }
     };
 
-    reco::VertexSoACollection VegaAlgo::makeAsync(Queue& queue,
-                                                  TrkSoAConstView const& trks,
-                                                  int maxVertices) const {
+    reco::VertexSoACollection VegaAlgo::makeAsync(Queue& queue, TrkSoAConstView const& trks, int maxVertices) const {
       const auto maxTracks = trks.metadata().size();
       const float bField = 3.8f;  // FIXME: get from EventSetup
 
@@ -44,11 +55,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
       // Compute and fill TracksExtras
       const uint32_t blockSize = 128;
-      const uint32_t numberOfBlocks =
-          cms::alpakatools::divide_up_by(trks.metadata().size() + blockSize - 1, blockSize);
+      const uint32_t numberOfBlocks = cms::alpakatools::divide_up_by(trks.metadata().size() + blockSize - 1, blockSize);
       const auto buildTrackExtraWorkDiv = cms::alpakatools::make_workdiv<Acc1D>(numberOfBlocks, blockSize);
-      alpaka::exec<Acc1D>(
-          queue, buildTrackExtraWorkDiv, Kernel_buildTrackExtra{}, trks, trksExtra.view(), bField);
+      alpaka::exec<Acc1D>(queue, buildTrackExtraWorkDiv, Kernel_buildTrackExtra{}, trks, trksExtra.view(), bField);
 
       reco::VertexSoACollection vertexCollection(queue, maxVertices, maxTracks);
       vertexCollection.zeroInitialise(queue);
