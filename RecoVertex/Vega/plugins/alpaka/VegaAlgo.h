@@ -5,32 +5,30 @@
 
 #include <alpaka/alpaka.hpp>
 
-#include "DataFormats/TrackSoA/interface/TracksSoA.h"
-#include "DataFormats/VertexSoA/interface/VertexSoA.h"
 #include "DataFormats/VertexSoA/interface/alpaka/VertexSoACollection.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/config.h"
-#include "RecoVertex/Vega/interface/TrackExtraSoA.h"
 
-#include "VegaParams.h"
+#include "VegaStructures.h"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
   using namespace cms::alpakatools;
-  using VtxSoAView = ::reco::VertexSoAView;
-  using VtxTrkSoAView = ::reco::VertexTracksSoAView;
-  using TrkSoAConstView = ::reco::TrackSoAConstView;
-  using TrkExtraSoAView = ::vega::TrackExtraSoAView;
-  using VegaParams = ::vega::VegaParams;
+  using namespace ::vega::structs;
 
   class VegaAlgo {
   public:
-    VegaAlgo(const VegaParams& params) : params_(params) {}
+    VegaAlgo(const Params &params) : params_(params) {}
 
     ~VegaAlgo() = default;
 
-    reco::VertexSoACollection makeAsync(Queue &queue, TrkSoAConstView const &tracksView, int maxVertices) const;
+    reco::VertexSoACollection makeVerticesAsync(Queue &queue,
+                                                TrkSoAConstView const &tracksView,
+                                                int const maxVertices,
+                                                int const nTracksRaw) const;
 
   private:
-    const VegaParams params_;
+    const Params params_;
+
+    // VegaPairs (two vertex-compatible tracks)
   };
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE::vega
 

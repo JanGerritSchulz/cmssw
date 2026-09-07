@@ -3,23 +3,26 @@
 
 #include "HeterogeneousCore/AlpakaMath/interface/deltaPhi.h"
 #include "RecoVertex/Vega/interface/alpaka/TrackExtraSoACollection.h"
+#include "RecoVertex/Vega/plugins/VegaConstants.h"
 
 #include "VegaAlgo.h"
+#include "VegaPairFinder.h"
 
-#define VEGA_DEBUG
+#define VEGA_ALGO_DEBUG
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
   namespace vega {
 
-    class Kernel_buildTrackExtra {
+    class KernelBuildTrackExtra {
     public:
       static constexpr float SPEED_OF_LIGHT_FACTOR = 0.003f;
 
       ALPAKA_FN_ACC void operator()(Acc1D const& acc,
                                     TrkSoAConstView trks,
                                     TrkExtraSoAView trksExtra,
+                                    const int nTracks,
                                     const float bField) const {
-        for (auto it : cms::alpakatools::uniform_elements(acc, trks.nTracks())) {
+        for (auto it : cms::alpakatools::uniform_elements(acc, nTracks)) {
           const float phi = ::reco::phi(trks, it);
           const float dxy = ::reco::tip(trks, it);
           const float q = ::reco::charge(trks, it);
@@ -32,7 +35,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
           trksExtra[it].cy() = (dxy - q * r) * cosPhi;
           trksExtra[it].refAngle() = reducePhiRange(acc, phi + q * std::numbers::pi_v<float> / 2.0f);
 
-#ifdef VEGA_DEBUG
+#ifdef VEGA_ALGO_DEBUG
           printf("Track %d: phi=%f, dxy=%f, q=%f, r=%f, cx=%f, cy=%f, refAngle=%f\n",
                  it,
                  phi,
@@ -47,22 +50,48 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       }
     };
 
-    reco::VertexSoACollection VegaAlgo::makeAsync(Queue& queue, TrkSoAConstView const& trks, int maxVertices) const {
-      const auto maxTracks = trks.metadata().size();
+    reco::VertexSoACollection VegaAlgo::makeVerticesAsync(Queue& queue,
+                                                          TrkSoAConstView const& trks,
+                                                          int const maxVertices,
+                                                          int const nTracksRaw) const {
+#ifdef VEGA_ALGO_DEBUG
+      printf("VegaAlgo::makeVerticesAsync: starting vertex creation\n");
+#endif
+
+      int nTracks = std::min(nTracksRaw, ::vega::maxTracksForVertexing);
+
+#ifdef VEGA_ALGO_DEBUG
+      printf("VegaAlgo::makeVerticesAsync: set nTracks to %d\n", nTracks);
+#endif
       const float bField = 3.8f;  // FIXME: get from EventSetup
 
-      auto trksExtra = TrackExtraSoACollection(queue, maxTracks);
+      auto trksExtra = TrackExtraSoACollection(queue, nTracks);
 
       // Compute and fill TracksExtras
       const uint32_t blockSize = 128;
-      const uint32_t numberOfBlocks = cms::alpakatools::divide_up_by(trks.metadata().size() + blockSize - 1, blockSize);
-      const auto buildTrackExtraWorkDiv = cms::alpakatools::make_workdiv<Acc1D>(numberOfBlocks, blockSize);
-      alpaka::exec<Acc1D>(queue, buildTrackExtraWorkDiv, Kernel_buildTrackExtra{}, trks, trksExtra.view(), bField);
+      const uint32_t numberOfBlocks = cms::alpakatools::divide_up_by(nTracks + blockSize - 1, blockSize);
+      const auto workDivBuildTrackExtra = cms::alpakatools::make_workdiv<Acc1D>(numberOfBlocks, blockSize);
+      alpaka::exec<Acc1D>(
+          queue, workDivBuildTrackExtra, KernelBuildTrackExtra{}, trks, trksExtra.view(), nTracks, bField);
+#ifdef VEGA_ALGO_DEBUG
+      printf("VegaAlgo::makeVerticesAsync: built TrackExtraSoA with %d tracks\n", nTracks);
+#endif
 
-      reco::VertexSoACollection vertexCollection(queue, maxVertices, maxTracks);
+      // Find pairs of tracks compatible with vertexing
+      PairFinder pairFinder(params_, nTracks, queue);
+      pairFinder.find(trks);
+#ifdef VEGA_ALGO_DEBUG
+      printf("VegaAlgo::makeVerticesAsync: found pairs of tracks compatible for vertexing\n");
+#endif
+
+      reco::VertexSoACollection vertexCollection(queue, maxVertices, nTracks);
       vertexCollection.zeroInitialise(queue);
-      auto vertices = vertexCollection.view().vertex();
-      auto vtxTracks = vertexCollection.view().tracks();
+      // auto vertices = vertexCollection.view().vertex();
+      // auto vtxTracks = vertexCollection.view().tracks();
+
+#ifdef VEGA_ALGO_DEBUG
+      printf("VegaAlgo::makeVerticesAsync: created vertex collection with %d vertices\n", maxVertices);
+#endif
 
       return vertexCollection;
     }
