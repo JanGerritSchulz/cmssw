@@ -14,18 +14,19 @@
 #include "HeterogeneousCore/AlpakaInterface/interface/config.h"
 #include "HeterogeneousCore/AlpakaCore/interface/alpaka/Event.h"
 #include "HeterogeneousCore/AlpakaCore/interface/alpaka/EventSetup.h"
-#include "HeterogeneousCore/AlpakaCore/interface/alpaka/global/EDProducer.h"
+#include "HeterogeneousCore/AlpakaCore/interface/alpaka/stream/SynchronizingEDProducer.h"
 #include "HeterogeneousCore/AlpakaCore/interface/alpaka/MakerMacros.h"
+#include "RecoVertex/Vega/plugins/VegaParams.h"
 
 #include "VegaAlgo.h"
-#include "VegaParams.h"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
   using namespace cms::alpakatools;
   using namespace ::vega;
 
-  class VegaVertexSoAProducer : public global::EDProducer<> {
+  class VegaVertexSoAProducer : public stream::SynchronizingEDProducer<> {
     using TrkSoADevice = reco::TracksSoACollection;
+    using VtxSoADevice = reco::VertexSoACollection;
     using Algo = vega::VegaAlgo;
 
   public:
@@ -34,24 +35,28 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
     static void fillDescriptions(edm::ConfigurationDescriptions& descriptions);
 
+    void acquire(const device::Event& iEvent, const device::EventSetup& iSetup) override;
+    void produce(device::Event& iEvent, const device::EventSetup& iSetup) override;
+
   private:
-    void produce(edm::StreamID streamID, device::Event& iEvent, const device::EventSetup& iSetup) const override;
     VegaParams getVegaParams(const edm::ParameterSet& iConfig) const;
 
     const Algo algo_;
 
     const int maxVertices_;
+    cms::alpakatools::host_buffer<int> nTracks_;
 
-    device::EDGetToken<TrkSoADevice> tracks_deviceToken_;
-    device::EDPutToken<reco::VertexSoACollection> vertex_deviceToken_;
+    device::EDGetToken<TrkSoADevice> tracksDeviceToken_;
+    device::EDPutToken<VtxSoADevice> verticesDeviceToken_;
   };
 
   VegaVertexSoAProducer::VegaVertexSoAProducer(const edm::ParameterSet& iConfig)
-      : EDProducer(iConfig),
+      : SynchronizingEDProducer(iConfig),
         algo_(getVegaParams(iConfig)),
         maxVertices_(iConfig.getParameter<int>("maxVertices")),
-        tracks_deviceToken_(consumes(iConfig.getParameter<edm::InputTag>("trackSrc"))),
-        vertex_deviceToken_(produces()) {}
+        nTracks_{cms::alpakatools::make_host_buffer<int, Platform>()},
+        tracksDeviceToken_(consumes(iConfig.getParameter<edm::InputTag>("trackSrc"))),
+        verticesDeviceToken_(produces()) {}
 
   VegaParams VegaVertexSoAProducer::getVegaParams(const edm::ParameterSet& iConfig) const {
     // configuration for track pair finding
@@ -102,12 +107,21 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     descriptions.addWithDefaultLabel(desc);
   }
 
-  void VegaVertexSoAProducer::produce(edm::StreamID streamID,
-                                      device::Event& iEvent,
-                                      const device::EventSetup& iSetup) const {
-    auto const& hTracks = iEvent.get(tracks_deviceToken_);
+  void VegaVertexSoAProducer::acquire(const device::Event& iEvent, const device::EventSetup& iSetup) {
+    auto& tracksOnDevice = iEvent.get(tracksDeviceToken_);
+    auto nTracksDevice =
+        cms::alpakatools::make_device_view<int const>(iEvent.queue(), tracksOnDevice.view().tracks().nTracks());
+    alpaka::memcpy(iEvent.queue(), nTracks_, nTracksDevice);
+  }
 
-    iEvent.emplace(vertex_deviceToken_, algo_.makeAsync(iEvent.queue(), hTracks.view().tracks(), maxVertices_));
+  void VegaVertexSoAProducer::produce(device::Event& iEvent, const device::EventSetup& iSetup) {
+    std::cout << "VegaVertexSoAProducer::produce: aquired nTracks = " << *nTracks_.data() << std::endl;
+
+    auto const& tracksOnDevice = iEvent.get(tracksDeviceToken_);
+
+    iEvent.emplace(
+        verticesDeviceToken_,
+        algo_.makeVerticesAsync(iEvent.queue(), tracksOnDevice.view().tracks(), maxVertices_, *nTracks_.data()));
 
     std::cout << "VegaVertexSoAProducer::produce: produced vertex collection with maxVertices = " << maxVertices_
               << std::endl;

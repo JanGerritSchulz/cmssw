@@ -1,5 +1,5 @@
-#ifndef RecoVertex_Vega_interface_VegaParams_h
-#define RecoVertex_Vega_interface_VegaParams_h
+#ifndef RecoVertex_Vega_plugins_VegaParams_h
+#define RecoVertex_Vega_plugins_VegaParams_h
 
 #include <type_traits>
 
