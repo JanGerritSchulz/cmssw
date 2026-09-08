@@ -13,10 +13,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
 
   class KernelSortTracksByDz {
   public:
-    ALPAKA_FN_ACC void operator()(Acc1D const& acc,
-                                  TrkSoAConstView trks,
-                                  uint16_t* sortInd,
-                                  int const nTracks) const {
+    ALPAKA_FN_ACC void operator()(Acc1D const& acc, TrkSoAConstView trks, uint16_t* sortInd, int const nTracks) const {
       for (auto it : cms::alpakatools::uniform_elements(acc, nTracks)) {
         sortInd[it] = it;
       }
@@ -26,8 +23,27 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
       float const* dz = trkStateRow0.data() + 4 * trkStateRow0.stride();
 
       auto& sortWorkSpace = alpaka::declareSharedVar<uint16_t[::vega::maxTracksForVertexing], __COUNTER__>(acc);
-      // sort using only 16 bits
-      cms::alpakatools::radixSort<Acc1D, float, 2>(acc, dz, sortInd, sortWorkSpace, nTracks);
+      // sort using only 24 bits
+      cms::alpakatools::radixSort<Acc1D, float, 3>(acc, dz, sortInd, sortWorkSpace, nTracks);
+    }
+  };
+
+  class KernelPrintSortedTracks {
+  public:
+    ALPAKA_FN_ACC void operator()(Acc1D const& acc, TrkSoAConstView trks, uint16_t* sortInd, int const nTracks) const {
+      float dzPrev = -9999.f;
+      int counterWrongOrder = 0;
+      for (int i{0}; i < nTracks; ++i) {
+        int it = sortInd[i];
+        float dz = ::reco::zip(trks, it);
+        bool wrongOrder = (dz < dzPrev);
+        if (wrongOrder) {
+          ++counterWrongOrder;
+        }
+        printf("KernelPrintSortedTracks: (< than prev)=%d, i=%d, it=%d, dz=%f\n", wrongOrder, i, it, dz);
+        dzPrev = dz;
+      }
+      printf("KernelPrintSortedTracks: Total wrong orders found: %d out of %d\n", counterWrongOrder, nTracks);
     }
   };
 
@@ -44,6 +60,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
 
 #ifdef VEGA_PAIRS_DEBUG
     printf("PairFinder::find: sorted tracks by dz\n");
+    const auto workDivPrintSortedTracks = cms::alpakatools::make_workdiv<Acc1D>(1u, 1u);
+    alpaka::exec<Acc1D>(
+        queue, workDivPrintSortedTracks, KernelPrintSortedTracks{}, trks, sortedTrackIndices.data(), nTracks);
 #endif
 
     // Find pairs of tracks compatible with vertexing
