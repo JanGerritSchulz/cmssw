@@ -13,8 +13,17 @@
 
 namespace vega::structs {
 
+  // enum for setting the kernel type/mode:
+  // Count: only count the number of pairs/triplets/etc, do not fill them
+  //        (used for allocating the exact memory needed)
+  // Form: fill the pairs/triplets/etc into the allocated memory
+  enum class KernelMode { Count, Form };
+
+  // empty tag type for counting mode kernel
+  struct NoInput {};
+
   // Indices for tracks and pairs
-  using TrkIndex = uint16_t;
+  using TrkIdx = uint16_t;
   using PairIndex = uint16_t;
 
   using VtxSoAView = ::reco::VertexSoAView;
@@ -27,14 +36,14 @@ namespace vega::structs {
 
   // generic one-to-many association map with random access/filling
   using OneToMany = cms::alpakatools::
-      OneToManyAssocRandomAccess<TrkIndex, cms::alpakatools::kDynamicSize, cms::alpakatools::kDynamicSize>;
+      OneToManyAssocRandomAccess<TrkIdx, cms::alpakatools::kDynamicSize, cms::alpakatools::kDynamicSize>;
   using OneToManyStorage = typename OneToMany::value_type;
   using OneToManyOffsets = typename OneToMany::Counter;
   using OneToManyView = typename OneToMany::View;
 
   // generic one-to-many association map with sequential access/filling
   using OneToManySeq = cms::alpakatools::
-      OneToManyAssocSequential<TrkIndex, cms::alpakatools::kDynamicSize, cms::alpakatools::kDynamicSize>;
+      OneToManyAssocSequential<TrkIdx, cms::alpakatools::kDynamicSize, cms::alpakatools::kDynamicSize>;
   using OneToManySeqStorage = typename OneToManySeq::value_type;
   using OneToManySeqOffsets = typename OneToManySeq::Counter;
   using OneToManySeqView = typename OneToManySeq::View;

@@ -15,7 +15,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
 
   class PairFinder {
   public:
-    PairFinder(Params const& params, int const nTracks, Queue& queue)
+    PairFinder(Params const& params, TrkIdx const nTracks, Queue& queue)
         : params_d(params.pair), nTracks(nTracks), queue(queue) {}
 
     ~PairFinder() = default;
@@ -25,7 +25,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
   private:
     // parameters
     PairParams const& params_d;
-    int const nTracks;
+    TrkIdx const nTracks;
 
     // alpaka queue
     Queue& queue;

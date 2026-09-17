@@ -56,12 +56,14 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                                           int const nTracksRaw) const {
 #ifdef VEGA_ALGO_DEBUG
       printf("VegaAlgo::makeVerticesAsync: starting vertex creation\n");
+    alpaka::wait(queue);
 #endif
 
-      int nTracks = std::min(nTracksRaw, ::vega::maxTracksForVertexing);
+      TrkIdx nTracks = static_cast<TrkIdx>(std::min(nTracksRaw, ::vega::maxTracksForVertexing));
 
 #ifdef VEGA_ALGO_DEBUG
       printf("VegaAlgo::makeVerticesAsync: set nTracks to %d\n", nTracks);
+      alpaka::wait(queue);
 #endif
       const float bField = 3.8f;  // FIXME: get from EventSetup
 
@@ -75,6 +77,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
           queue, workDivBuildTrackExtra, KernelBuildTrackExtra{}, trks, trksExtra.view(), nTracks, bField);
 #ifdef VEGA_ALGO_DEBUG
       printf("VegaAlgo::makeVerticesAsync: built TrackExtraSoA with %d tracks\n", nTracks);
+      alpaka::wait(queue);
 #endif
 
       // Find pairs of tracks compatible with vertexing
@@ -82,6 +85,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       pairFinder.find(trks);
 #ifdef VEGA_ALGO_DEBUG
       printf("VegaAlgo::makeVerticesAsync: found pairs of tracks compatible for vertexing\n");
+      alpaka::wait(queue);
 #endif
 
       reco::VertexSoACollection vertexCollection(queue, maxVertices, nTracks);
@@ -91,6 +95,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
 #ifdef VEGA_ALGO_DEBUG
       printf("VegaAlgo::makeVerticesAsync: created vertex collection with %d vertices\n", maxVertices);
+      alpaka::wait(queue);
 #endif
 
       return vertexCollection;
