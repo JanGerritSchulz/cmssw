@@ -16,19 +16,23 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
   class PairFinder {
   public:
     PairFinder(Params const& params, TrkIdx const nTracks, Queue& queue)
-        : params_d(params.pair), nTracks(nTracks), queue(queue) {}
+        : params_(params.pair), nTracks_(nTracks), queue_(queue) {}
 
     ~PairFinder() = default;
+
+    // Non-copyable due to Queue& member
+    PairFinder(const PairFinder&) = delete;
+    PairFinder& operator=(const PairFinder&) = delete;
 
     void find(TrkSoAConstView trks) const;
 
   private:
-    // parameters
-    PairParams const& params_d;
-    TrkIdx const nTracks;
+    // parameters (stored by value to avoid dangling reference)
+    PairParams const params_;
+    TrkIdx const nTracks_;
 
     // alpaka queue
-    Queue& queue;
+    Queue& queue_;
   };
 
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE::vega
