@@ -77,148 +77,155 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
       //   *nPairs = 0;
       // }
       // Explore the 2D grid of nTracks x nTracks in tiles of size (tileSize x tileSize)
-      auto blockIdx = alpaka::getIdx<alpaka::Grid, alpaka::Blocks>(acc);     // Vec2D: (bi, bj)
-      auto threadIdx = alpaka::getIdx<alpaka::Block, alpaka::Threads>(acc);  // Vec2D: (ti, tj)
+      // auto blockIdx = alpaka::getIdx<alpaka::Grid, alpaka::Blocks>(acc);  // Vec2D: (bi, bj)
 
-      // get block indices
-      TrkIdx bi = blockIdx[0u];  // row tile
-      TrkIdx bj = blockIdx[1u];  // col tile
+      // // get block indices
+      // TrkIdx bi = blockIdx[0u];  // row tile
+      // TrkIdx bj = blockIdx[1u];  // col tile
 
       // return early if the block is in the lower triangle of the 2D grid
       // (we only need to explore one half of the grid and choose the upper triangle)
-      if (bi > bj)
-        return;
+      // if (bi > bj)
+      //   return;
 
-      TrkIdx iMin = bi * T;
-      TrkIdx iMax = alpaka::math::min(acc, static_cast<TrkIdx>(iMin + T), nTracks) - 1u;
-      TrkIdx jMin = bj * T;
+      // const TrkIdx iMin = bi * T;
+      // const TrkIdx jMin = bj * T;
 
-      // return early if the tile does not contain any tracks
-      if (iMin >= nTracks || jMin >= nTracks)
-        return;
+      // // return early if the tile does not contain any tracks
+      // if (iMin >= nTracks || jMin >= nTracks)
+      //   return;
 
-      float iMaxTileDZ = ::reco::zip(trks, sortInd[iMax]);
-      float jMinTileDZ = ::reco::zip(trks, sortInd[jMin]);
+      // const TrkIdx iMax = alpaka::math::min(acc, static_cast<TrkIdx>(iMin + T), nTracks) - 1u;
 
-      // tiles are sorted by z, so tile boundaries directly bound the tile's range -- no reduction needed
-      if (jMinTileDZ - iMaxTileDZ > params.maxDZ)
-        return;
+      // const float iMaxTileDZ = ::reco::zip(trks, sortInd[iMax]);
+      // const float jMinTileDZ = ::reco::zip(trks, sortInd[jMin]);
 
-      // get thread indices
-      TrkIdx ti = threadIdx[0u];  // row thread
-      TrkIdx tj = threadIdx[1u];  // col thread
+      // // tiles are sorted by z, so tile boundaries directly bound the tile's range -- no reduction needed
+      // if (jMinTileDZ - iMaxTileDZ > params.maxDZ)
+      //   return;
 
-      // get the index of the tracks of the thread
-      TrkIdx i = iMin + ti;
-      TrkIdx j = jMin + tj;
+      // // define shared memory for the tile's track parameters
+      // auto& idz = alpaka::declareSharedVar<float[T], __COUNTER__>(acc);
+      // auto& jdz = alpaka::declareSharedVar<float[T], __COUNTER__>(acc);
+      // auto& iphi = alpaka::declareSharedVar<float[T], __COUNTER__>(acc);
+      // auto& jphi = alpaka::declareSharedVar<float[T], __COUNTER__>(acc);
+      // auto& ieta = alpaka::declareSharedVar<float[T], __COUNTER__>(acc);
+      // auto& jeta = alpaka::declareSharedVar<float[T], __COUNTER__>(acc);
 
-      // define shared memory for the tile's track parameters
-      auto& idz = alpaka::declareSharedVar<float[T], __COUNTER__>(acc);
-      auto& jdz = alpaka::declareSharedVar<float[T], __COUNTER__>(acc);
-      auto& iphi = alpaka::declareSharedVar<float[T], __COUNTER__>(acc);
-      auto& jphi = alpaka::declareSharedVar<float[T], __COUNTER__>(acc);
-      auto& ieta = alpaka::declareSharedVar<float[T], __COUNTER__>(acc);
-      auto& jeta = alpaka::declareSharedVar<float[T], __COUNTER__>(acc);
+      // --- cooperative tile load: flat loop over T elements, portable ---
+      // for (uint32_t t : cms::alpakatools::uniform_elements_x(acc, T)) {
+      //   const TrkIdx i = iMin + t;
+      //   const TrkIdx j = jMin + t;
 
-      // fill shared memory
-      if (i < nTracks && tj == 0u) {  // load row tile once per row
-        TrkIdx srcIdx = sortInd[i];
-        idz[ti] = ::reco::zip(trks, srcIdx);
-        iphi[ti] = ::reco::phi(trks, srcIdx);
-        ieta[ti] = trks[srcIdx].eta();
-      }
-      if (j < nTracks && ti == 0u) {  // load col tile once per column
-        TrkIdx srcIdx = sortInd[j];
-        jdz[tj] = ::reco::zip(trks, srcIdx);
-        jphi[tj] = ::reco::phi(trks, srcIdx);
-        jeta[tj] = trks[srcIdx].eta();
-      }
-      alpaka::syncBlockThreads(acc);
+      //   // fill shared memory
+      //   if (i < nTracks) {
+      //     TrkIdx s = sortInd[i];
+      //     idz[t] = ::reco::zip(trks, s);
+      //     iphi[t] = ::reco::phi(trks, s);
+      //     ieta[t] = trks[s].eta();
+      //   }
+      //   if (j < nTracks) {
+      //     TrkIdx s = sortInd[j];
+      //     jdz[t] = ::reco::zip(trks, s);
+      //     jphi[t] = ::reco::phi(trks, s);
+      //     jeta[t] = trks[s].eta();
+      //   }
+      // }
+      // alpaka::syncBlockThreads(acc);
 
-      // find pairs by applying compatibility cuts
-      // both tracks valid
-      if (i >= nTracks || j >= nTracks)
-        return;
+      for (TrkIdx i : cms::alpakatools::uniform_elements_y(acc, nTracks)) {
+        for (TrkIdx j : cms::alpakatools::uniform_elements_x(acc, nTracks)) {
+          // find pairs by applying compatibility cuts
+          const TrkIdx si = sortInd[i], sj = sortInd[j];
+          const float idz = ::reco::zip(trks, si);
+          const float iphi = ::reco::phi(trks, si);
+          const float ieta = trks[si].eta();
 
-      // only upper triangle
-      if (bi == bj && i >= j)
-        return;
+          const float jdz = ::reco::zip(trks, sj);
+          const float jphi = ::reco::phi(trks, sj);
+          const float jeta = trks[sj].eta();
 
-      // dz cut
-      if (alpaka::math::abs(acc, idz[ti] - jdz[tj]) > params.maxDZ)
-        return;
+          // only upper triangle
+          if (i >= j)
+            continue;
 
-      // phi cut
-      if (alpaka::math::abs(acc, iphi[ti] - jphi[tj]) > params.maxDPhi)
-        return;
+          // dz cut
+          if (alpaka::math::abs(acc, idz - jdz) > params.maxDZ)
+            continue;
 
-      // eta cut
-      if (alpaka::math::abs(acc, ieta[ti] - jeta[tj]) > params.maxDEta)
-        return;
+          // phi cut
+          if (alpaka::math::abs(acc, iphi - jphi) > params.maxDPhi)
+            continue;
 
-      // count or fill the pair
-      if constexpr (Mode == KernelMode::Count) {
-        alpaka::atomicAdd(acc, nPairs, 1, alpaka::hierarchy::Blocks{});
-      } else if constexpr (Mode == KernelMode::Form) {
-        // fill the pair
-        auto ind = alpaka::atomicAdd(acc, nPairs, 1, alpaka::hierarchy::Blocks{});
-        if (ind >= pairs.metadata().size()) {
+          // eta cut
+          if (alpaka::math::abs(acc, ieta - jeta) > params.maxDEta)
+            continue;
+
+          // count or fill the pair
+          if constexpr (Mode == KernelMode::Count) {
+            alpaka::atomicAdd(acc, nPairs, 1, alpaka::hierarchy::Blocks{});
+          } else {
+            // fill the pair
+            auto idx = alpaka::atomicAdd(acc, nPairs, 1, alpaka::hierarchy::Blocks{});
+            if (idx >= pairs.metadata().size()) {
 #if VEGA_PAIRS_WARNINGS
-          printf("Warning!!!! Too many pairs (maxNumOfPairs = %d)!\n", pairs.metadata().size());
+              printf("Warning!!!! Too many pairs (maxNumOfPairs = %d)!\n", pairs.metadata().size());
 #endif
-          alpaka::atomicSub(acc, nPairs, 1, alpaka::hierarchy::Blocks{});
-          return;
-        }
+              alpaka::atomicSub(acc, nPairs, 1, alpaka::hierarchy::Blocks{});
+              continue;
+            }
 
-        TrkIdx srcIdxI = sortInd[i];
-        TrkIdx srcIdxJ = sortInd[j];
-        TrkIdx idx1 = alpaka::math::min(acc, srcIdxI, srcIdxJ);
-        TrkIdx idx2 = alpaka::math::max(acc, srcIdxI, srcIdxJ);
-        pairs[ind].idx1() = idx1;
-        pairs[ind].idx2() = idx2;
+            pairs[idx].idx1() = alpaka::math::min(acc, si, sj);
+            pairs[idx].idx2() = alpaka::math::max(acc, si, sj);
 
 #if VEGA_PAIRS_DEBUG
-        printf("vega::KernelFindPairsLoose: new track pair (%d, %d)\n", idx1, idx2);
+            printf("vega::KernelFindPairsLoose: new track pair %d: (%d, %d)\n",
+                   idx,
+                   alpaka::math::min(acc, si, sj),
+                   alpaka::math::max(acc, si, sj));
 #endif
+          }
+        }
       }
     }
   };
 
   void PairFinder::find(TrkSoAConstView trks) const {
     // Get sorted track indices by dz (z of closest approach)
-    auto sortedTrackIndices = cms::alpakatools::make_device_buffer<TrkIdx[]>(queue, nTracks);
+    auto sortedTrackIndices = cms::alpakatools::make_device_buffer<TrkIdx[]>(queue_, nTracks_);
 
 #if VEGA_PAIRS_DEBUG
     printf("PairFinder::find: created sorted track indices\n");
-    alpaka::wait(queue);
+    alpaka::wait(queue_);
 #endif
 
     const auto workDivSortTracksByDz = cms::alpakatools::make_workdiv<Acc1D>(1u, 256u);
-    alpaka::exec<Acc1D>(queue, workDivSortTracksByDz, KernelSortTracksByDz{}, trks, sortedTrackIndices.data(), nTracks);
+    alpaka::exec<Acc1D>(
+        queue_, workDivSortTracksByDz, KernelSortTracksByDz{}, trks, sortedTrackIndices.data(), nTracks_);
 
 #if VEGA_PAIRS_DEBUG
     printf("PairFinder::find: sorted tracks by dz\n");
     const auto workDivPrintSortedTracks = cms::alpakatools::make_workdiv<Acc1D>(1u, 1u);
     alpaka::exec<Acc1D>(
-        queue, workDivPrintSortedTracks, KernelPrintSortedTracks{}, trks, sortedTrackIndices.data(), nTracks);
+        queue_, workDivPrintSortedTracks, KernelPrintSortedTracks{}, trks, sortedTrackIndices.data(), nTracks_);
 #endif
 
 #if VEGA_PAIRS_DEBUG
     printf("PairFinder::find: done sorting and printing\n");
-    alpaka::wait(queue);
+    alpaka::wait(queue_);
 #endif
 
     // Find pairs of tracks compatible with vertexing
-    auto nLoosePairs = cms::alpakatools::make_device_buffer<int>(queue);
-    alpaka::memset(queue, nLoosePairs, 0);
+    auto nLoosePairs = cms::alpakatools::make_device_buffer<int>(queue_);
+    alpaka::memset(queue_, nLoosePairs, 0);
 
     constexpr TrkIdx T = KernelFindPairsLoose<KernelMode::Count>::T;  // tile size
 
-    const uint32_t nTiles = cms::alpakatools::divide_up_by(nTracks + T - 1u, T);
+    const uint32_t nTiles = cms::alpakatools::divide_up_by(nTracks_ + T - 1u, T);
 
 #if VEGA_PAIRS_DEBUG
     printf("PairFinder::find: making work division\n");
-    alpaka::wait(queue);
+    alpaka::wait(queue_);
 #endif
 
     using Vec2D = alpaka::Vec<alpaka::DimInt<2u>, uint32_t>;
@@ -227,50 +234,50 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
 
 #if VEGA_PAIRS_DEBUG
     printf("PairFinder::find: still making work division\n");
-    alpaka::wait(queue);
+    alpaka::wait(queue_);
 #endif
 
     const auto workDivFindPairsLoose = cms::alpakatools::make_workdiv<Acc2D>(blocksPerGrid, threadsPerBlock);
 
 #if VEGA_PAIRS_DEBUG
     printf("PairFinder::find: made work division\n");
-    alpaka::wait(queue);
+    alpaka::wait(queue_);
 #endif
 
     // const auto workDivFindPairsLoose = cms::alpakatools::make_workdiv<Acc2D>(1u, 256u);
-    alpaka::exec<Acc2D>(queue,
+    alpaka::exec<Acc2D>(queue_,
                         workDivFindPairsLoose,
                         KernelFindPairsLoose<KernelMode::Count>{},
-                        params_d,
+                        params_,
                         trks,
                         sortedTrackIndices.data(),
-                        nTracks,
+                        nTracks_,
                         nLoosePairs.data(),
                         NoInput{});  // Count mode, no pairs are filled
 #if VEGA_PAIRS_DEBUG
     printf("PairFinder::find: ran counting kernel\n");
-    alpaka::wait(queue);
+    alpaka::wait(queue_);
 #endif
 
     // FIXME: decide on better to allocate the exact size after counting or just use a preset size
-    auto loosePairs = reco::IndexPairSoACollection(queue, nTracks * 10u);
+    auto loosePairs = reco::IndexPairSoACollection(queue_, nTracks_ * 10u);
 
     // reset nLoosePairs counter for the filling
-    alpaka::memset(queue, nLoosePairs, 0);
+    alpaka::memset(queue_, nLoosePairs, 0);
 
-    alpaka::exec<Acc2D>(queue,
+    alpaka::exec<Acc2D>(queue_,
                         workDivFindPairsLoose,
                         KernelFindPairsLoose<KernelMode::Form>{},
-                        params_d,
+                        params_,
                         trks,
                         sortedTrackIndices.data(),
-                        nTracks,
+                        nTracks_,
                         nLoosePairs.data(),  // nPairs is not used in Form mode
                         loosePairs.view());
 
 #if VEGA_PAIRS_DEBUG
     printf("PairFinder::find: done\n");
-    alpaka::wait(queue);
+    alpaka::wait(queue_);
 #endif
   }
 
