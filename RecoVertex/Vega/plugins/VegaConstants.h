@@ -27,6 +27,17 @@ namespace vega {
   // FIXME: check which option is to be preferred (timing, memory footprint, ...)
   constexpr bool useExactNTracksOnHost = true;
 
+  // If true, PairFinder copies the device-computed pair count back to host after
+  // the Count kernel and allocates the pair SoA with that exact size. This forces
+  // a device-to-host synchronization mid-pipeline (on top of the one implied by
+  // useExactNTracksOnHost), but avoids over-allocating the pair collection with
+  // the nTracks * 10 heuristic.
+  // If false, the pair SoA is sized with the heuristic and the pipeline stays
+  // fully asynchronous; the Form kernel's overflow guard then becomes load-bearing.
+  //
+  // FIXME: check which option is to be preferred (timing, memory footprint, ...)
+  constexpr bool useExactNPairsOnHost = true;
+
 }  // namespace vega
 
 #endif
