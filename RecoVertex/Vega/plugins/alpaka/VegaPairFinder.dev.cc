@@ -19,9 +19,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
 
   class KernelSortTracksByDz {
   public:
-    ALPAKA_FN_ACC void operator()(Acc1D const& acc, TrkSoAConstView trks, TrkIdx* sortInd, TrkIdx const nTracks) const {
+    ALPAKA_FN_ACC void operator()(Acc1D const& acc, TrkSoAConstView trks, TrkIdx* sortIdx, TrkIdx const nTracks) const {
       for (auto it : cms::alpakatools::uniform_elements(acc, nTracks)) {
-        sortInd[it] = it;
+        sortIdx[it] = it;
       }
 
       auto trkStateRow0 = trks[0].state();
@@ -31,17 +31,17 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
       auto& sortWorkSpace = alpaka::declareSharedVar<TrkIdx[::vega::maxTracksForVertexing], __COUNTER__>(acc);
       // sort using only 24 bits (meaning it might happen that very close tracks in dz are ordered incorrectly,
       // but this is not a problem for the pair finding, also rare-ish: ~10 in 1k tracks)
-      cms::alpakatools::radixSort<Acc1D, float, 3>(acc, dz, sortInd, sortWorkSpace, nTracks);
+      cms::alpakatools::radixSort<Acc1D, float, 3>(acc, dz, sortIdx, sortWorkSpace, nTracks);
     }
   };
 
   class KernelPrintSortedTracks {
   public:
-    ALPAKA_FN_ACC void operator()(Acc1D const& acc, TrkSoAConstView trks, TrkIdx* sortInd, TrkIdx const nTracks) const {
+    ALPAKA_FN_ACC void operator()(Acc1D const& acc, TrkSoAConstView trks, TrkIdx* sortIdx, TrkIdx const nTracks) const {
       float dzPrev = -9999.f;
       int counterWrongOrder = 0;
       for (int i{0}; i < nTracks; ++i) {
-        TrkIdx it = sortInd[i];
+        TrkIdx it = sortIdx[i];
         float dz = ::reco::zip(trks, it);
         bool wrongOrder = (dz < dzPrev);
         if (wrongOrder) {
@@ -68,7 +68,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
     ALPAKA_FN_ACC void operator()(Acc2D const& acc,
                                   PairParams const& params,
                                   TrkSoAConstView trks,
-                                  TrkIdx const* sortInd,
+                                  TrkIdx const* sortIdx,
                                   TrkIdx const nTracks,
                                   int* nPairs,    // Count writes this, Form reads this
                                   PairsArg pairs  // Form writes this
@@ -97,8 +97,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
 
       // const TrkIdx iMax = alpaka::math::min(acc, static_cast<TrkIdx>(iMin + T), nTracks) - 1u;
 
-      // const float iMaxTileDZ = ::reco::zip(trks, sortInd[iMax]);
-      // const float jMinTileDZ = ::reco::zip(trks, sortInd[jMin]);
+      // const float iMaxTileDZ = ::reco::zip(trks, sortIdx[iMax]);
+      // const float jMinTileDZ = ::reco::zip(trks, sortIdx[jMin]);
 
       // // tiles are sorted by z, so tile boundaries directly bound the tile's range -- no reduction needed
       // if (jMinTileDZ - iMaxTileDZ > params.maxDZ)
@@ -119,13 +119,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
 
       //   // fill shared memory
       //   if (i < nTracks) {
-      //     TrkIdx s = sortInd[i];
+      //     TrkIdx s = sortIdx[i];
       //     idz[t] = ::reco::zip(trks, s);
       //     iphi[t] = ::reco::phi(trks, s);
       //     ieta[t] = trks[s].eta();
       //   }
       //   if (j < nTracks) {
-      //     TrkIdx s = sortInd[j];
+      //     TrkIdx s = sortIdx[j];
       //     jdz[t] = ::reco::zip(trks, s);
       //     jphi[t] = ::reco::phi(trks, s);
       //     jeta[t] = trks[s].eta();
@@ -134,31 +134,58 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
       // alpaka::syncBlockThreads(acc);
 
       for (TrkIdx i : cms::alpakatools::uniform_elements_y(acc, nTracks)) {
+        const TrkIdx si = sortIdx[i];
+        const float idxy = ::reco::tip(trks, si);
+        const float iz = ::reco::zip(trks, si);
+        const float iphi = ::reco::phi(trks, si);
+        const float ieta = trks[si].eta();
+        const float icottheta = trks[si].state()(3);
+        const float icosphi = alpaka::math::cos(acc, iphi);
+        const float isinphi = alpaka::math::sin(acc, iphi);
+        const float ix = -idxy * isinphi;
+        const float iy = idxy * icosphi;
+
         for (TrkIdx j : cms::alpakatools::uniform_elements_x(acc, nTracks)) {
-          // find pairs by applying compatibility cuts
-          const TrkIdx si = sortInd[i], sj = sortInd[j];
-          const float idz = ::reco::zip(trks, si);
-          const float iphi = ::reco::phi(trks, si);
-          const float ieta = trks[si].eta();
-
-          const float jdz = ::reco::zip(trks, sj);
-          const float jphi = ::reco::phi(trks, sj);
-          const float jeta = trks[sj].eta();
-
           // only upper triangle
           if (i >= j)
             continue;
 
+          // find pairs by applying compatibility cuts
+          const TrkIdx sj = sortIdx[j];
+
           // dz cut
-          if (alpaka::math::abs(acc, idz - jdz) > params.maxDZ)
+          const float jz = ::reco::zip(trks, sj);
+          if (alpaka::math::abs(acc, iz - jz) > params.maxDZ)
             continue;
 
           // phi cut
+          const float jphi = ::reco::phi(trks, sj);
           if (alpaka::math::abs(acc, iphi - jphi) > params.maxDPhi)
             continue;
 
           // eta cut
+          const float jeta = trks[sj].eta();
           if (alpaka::math::abs(acc, ieta - jeta) > params.maxDEta)
+            continue;
+
+          // linear distance cut
+          const float jdxy = ::reco::tip(trks, sj);
+          const float jcottheta = trks[sj].state()(3);
+          const float jcosphi = alpaka::math::cos(acc, jphi);
+          const float jsinphi = alpaka::math::sin(acc, jphi);
+          const float jx = -jdxy * jsinphi;
+          const float jy = jdxy * jcosphi;
+
+          const float nx = isinphi * jcottheta - jsinphi * icottheta;
+          const float ny = icottheta * jcosphi - jcottheta * icosphi;
+          const float nz = icosphi * jsinphi - jcosphi * isinphi;
+          const float dx = ix - jx;
+          const float dy = iy - jy;
+          const float dz = iz - jz;
+
+          const float maxLinDistance2 = (params.maxLinDistance * params.maxLinDistance) * (nx * nx + ny * ny + nz * nz);
+          const float linearApproxDistance = dx * nx + dy * ny + dz * nz;
+          if (linearApproxDistance * linearApproxDistance > maxLinDistance2)
             continue;
 
           // count or fill the pair
@@ -244,23 +271,33 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
     alpaka::wait(queue_);
 #endif
 
-    // const auto workDivFindPairsLoose = cms::alpakatools::make_workdiv<Acc2D>(1u, 256u);
-    alpaka::exec<Acc2D>(queue_,
-                        workDivFindPairsLoose,
-                        KernelFindPairsLoose<KernelMode::Count>{},
-                        params_,
-                        trks,
-                        sortedTrackIndices.data(),
-                        nTracks_,
-                        nLoosePairs.data(),
-                        NoInput{});  // Count mode, no pairs are filled
-#if VEGA_PAIRS_DEBUG
-    printf("PairFinder::find: ran counting kernel\n");
-    alpaka::wait(queue_);
-#endif
+    // Size the pair collection: exact count from the Count kernel (requires a
+    // device-to-host copy + sync), or the heuristic upper bound.
+    uint32_t pairCapacity = nTracks_ * 10u;
+    if constexpr (::vega::useExactNPairsOnHost) {
+      // const auto workDivFindPairsLoose = cms::alpakatools::make_workdiv<Acc2D>(1u, 256u);
+      alpaka::exec<Acc2D>(queue_,
+                          workDivFindPairsLoose,
+                          KernelFindPairsLoose<KernelMode::Count>{},
+                          params_,
+                          trks,
+                          sortedTrackIndices.data(),
+                          nTracks_,
+                          nLoosePairs.data(),
+                          NoInput{});  // Count mode, no pairs are filled
 
-    // FIXME: decide on better to allocate the exact size after counting or just use a preset size
-    auto loosePairs = reco::IndexPairSoACollection(queue_, nTracks_ * 10u);
+      auto nLoosePairsHost = cms::alpakatools::make_host_buffer<int, Platform>();
+      alpaka::memcpy(queue_, nLoosePairsHost, nLoosePairs);
+      alpaka::wait(queue_);  // host sync: pair count is now valid
+      pairCapacity = static_cast<uint32_t>(*nLoosePairsHost.data());
+
+#if VEGA_PAIRS_DEBUG
+      printf("PairFinder::find: counted %d loose pairs\n", *nLoosePairsHost.data());
+      alpaka::wait(queue_);
+#endif
+    }
+
+    auto loosePairs = reco::IndexPairSoACollection(queue_, pairCapacity);
 
     // reset nLoosePairs counter for the filling
     alpaka::memset(queue_, nLoosePairs, 0);
