@@ -165,6 +165,10 @@ void SecondaryVertexAnalyzerBase<VertexCollection>::analyze(const edm::Event &iE
 
   edm::Handle<TrackingVertexCollection> simVertices;
   iEvent.getByToken(simVertexToken_, simVertices);
+  if (!simVertices.isValid()) {
+    algo_.logMissing("Sim vertex collection not available - cannot run SV validation.");
+    return;
+  }
 
   edm::Handle<reco::SimToRecoCollection> trackSimToRecoHandle;
   iEvent.getByToken(trackSimToRecoToken_, trackSimToRecoHandle);
