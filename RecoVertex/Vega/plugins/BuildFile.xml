@@ -3,7 +3,7 @@
 <use name="FWCore/ParameterSet"/>
 <use name="FWCore/Utilities"/>
 
-<library file="alpaka/*.cc" name="RecoPixelVertexingPixelVertexFindingPluginsPortable">
+<library file="alpaka/*.cc" name="RecoVertexVegaPluginsPortable">
   <use name="alpaka"/>
   <use name="DataFormats/Portable"/>
   <use name="DataFormats/TrackSoA"/>
