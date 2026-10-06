@@ -1,0 +1,5 @@
+<bin name="testAlpakaVegaGeometry" file="alpaka/VegaGeometry_test.cc alpaka/VegaGeometry_test.dev.cc">
+  <use name="alpaka"/>
+  <use name="catch2"/>
+  <flags ALPAKA_BACKENDS="1"/>
+</bin>
