@@ -70,7 +70,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
                                   TrkSoAConstView trks,
                                   TrkIdx const* sortIdx,
                                   TrkIdx const nTracks,
-                                  int* nPairs,    // Count writes this, Form reads this
+                                  int* nPairs,    // Count writes this, Form writes this as well
                                   PairsArg pairs  // Form writes this
     ) const {
       // if (cms::alpakatools::once_per_grid(acc)) {
@@ -309,7 +309,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
                         trks,
                         sortedTrackIndices.data(),
                         nTracks_,
-                        nLoosePairs.data(),  // nPairs is not used in Form mode
+                        nLoosePairs.data(),
                         loosePairs.view());
 
 #if VEGA_PAIRS_DEBUG
