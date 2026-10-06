@@ -73,66 +73,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
                                   int* nPairs,    // Count writes this, Form writes this as well
                                   PairsArg pairs  // Form writes this
     ) const {
-      // if (cms::alpakatools::once_per_grid(acc)) {
-      //   *nPairs = 0;
-      // }
-      // Explore the 2D grid of nTracks x nTracks in tiles of size (tileSize x tileSize)
-      // auto blockIdx = alpaka::getIdx<alpaka::Grid, alpaka::Blocks>(acc);  // Vec2D: (bi, bj)
-
-      // // get block indices
-      // TrkIdx bi = blockIdx[0u];  // row tile
-      // TrkIdx bj = blockIdx[1u];  // col tile
-
-      // return early if the block is in the lower triangle of the 2D grid
-      // (we only need to explore one half of the grid and choose the upper triangle)
-      // if (bi > bj)
-      //   return;
-
-      // const TrkIdx iMin = bi * T;
-      // const TrkIdx jMin = bj * T;
-
-      // // return early if the tile does not contain any tracks
-      // if (iMin >= nTracks || jMin >= nTracks)
-      //   return;
-
-      // const TrkIdx iMax = alpaka::math::min(acc, static_cast<TrkIdx>(iMin + T), nTracks) - 1u;
-
-      // const float iMaxTileDZ = ::reco::zip(trks, sortIdx[iMax]);
-      // const float jMinTileDZ = ::reco::zip(trks, sortIdx[jMin]);
-
-      // // tiles are sorted by z, so tile boundaries directly bound the tile's range -- no reduction needed
-      // if (jMinTileDZ - iMaxTileDZ > params.maxDZ)
-      //   return;
-
-      // // define shared memory for the tile's track parameters
-      // auto& idz = alpaka::declareSharedVar<float[T], __COUNTER__>(acc);
-      // auto& jdz = alpaka::declareSharedVar<float[T], __COUNTER__>(acc);
-      // auto& iphi = alpaka::declareSharedVar<float[T], __COUNTER__>(acc);
-      // auto& jphi = alpaka::declareSharedVar<float[T], __COUNTER__>(acc);
-      // auto& ieta = alpaka::declareSharedVar<float[T], __COUNTER__>(acc);
-      // auto& jeta = alpaka::declareSharedVar<float[T], __COUNTER__>(acc);
-
-      // --- cooperative tile load: flat loop over T elements, portable ---
-      // for (uint32_t t : cms::alpakatools::uniform_elements_x(acc, T)) {
-      //   const TrkIdx i = iMin + t;
-      //   const TrkIdx j = jMin + t;
-
-      //   // fill shared memory
-      //   if (i < nTracks) {
-      //     TrkIdx s = sortIdx[i];
-      //     idz[t] = ::reco::zip(trks, s);
-      //     iphi[t] = ::reco::phi(trks, s);
-      //     ieta[t] = trks[s].eta();
-      //   }
-      //   if (j < nTracks) {
-      //     TrkIdx s = sortIdx[j];
-      //     jdz[t] = ::reco::zip(trks, s);
-      //     jphi[t] = ::reco::phi(trks, s);
-      //     jeta[t] = trks[s].eta();
-      //   }
-      // }
-      // alpaka::syncBlockThreads(acc);
-
       for (TrkIdx i : cms::alpakatools::uniform_elements_y(acc, nTracks)) {
         const TrkIdx si = sortIdx[i];
         const float idxy = ::reco::tip(trks, si);
