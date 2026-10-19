@@ -41,6 +41,41 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega::geometry {
     float cotTheta;  // dz per unit signed transverse arc length
   };
 
+  // Result of the circle-circle closest-approach search in x-y.
+  struct CircleCirclePoints {
+    bool intersecting;  // true:  (ax, ay)/(bx, by) are the two crossings
+                        // false: (x1, y1)/(x2, y2) are the per-track nearest points
+    float ax, ay;
+    float bx, by;
+    float x1, y1;
+    float x2, y2;
+  };
+
+  // Each track's own (x, y, z) near-point for the circle-circle
+  // closest-approach estimate - port of geometry._nearestPoints. In the
+  // intersecting regime the two candidate crossings are disambiguated by
+  // z-consistency: propagate both tracks to both candidates and keep the
+  // one with smaller |z1 - z2|.
+  struct TrackNearPoints {
+    float x1, y1, z1;
+    float x2, y2, z2;
+  };
+
+  // Geometric (non-iterative) common-vertex estimate for a track pair -
+  // port of geometry.estimatedVertex: xy-midpoint and z-average of the two
+  // tracks' near-points, plus their full 3D separation (the quantity a
+  // max3DDistance-style cut applies to).
+  struct VertexEstimate {
+    float x, y, z;
+    float distance3D;
+  };
+
+  // Minimal 3-vector for the refinement math. Host+device (unlike the
+  // acc-templated functions), so tests can use it anywhere.
+  struct Point3D {
+    float x, y, z;
+  };
+
   // Signed transverse arc length from trk's reference point to (targetX,
   // targetY), both assumed to lie on trk's own circle:
   //   l = -sign(q) * r * dTheta
@@ -48,10 +83,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega::geometry {
   // angular position on the circle. Inverse of the position map
   // theta(l) = refAngle - sign(q) * l / r.
   template <typename TAcc>
-  ALPAKA_FN_ACC ALPAKA_FN_INLINE float arcLengthTo(TAcc const& acc,
-                                                   HelixGeom const& trk,
-                                                   float targetX,
-                                                   float targetY) {
+  ALPAKA_FN_ACC ALPAKA_FN_INLINE float arcLengthTo(TAcc const& acc, HelixGeom const& trk, float targetX, float targetY) {
     const float targetAngle = alpaka::math::atan2(acc, targetY - trk.cy, targetX - trk.cx);
     const float dTheta = cms::alpakatools::reducePhiRange(acc, targetAngle - trk.refAngle);
     return -trk.q * trk.r * dTheta;
@@ -63,19 +95,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega::geometry {
     return trk.refZ + arcLengthTo(acc, trk, targetX, targetY) * trk.cotTheta;
   }
 
-  // Result of the circle-circle closest-approach search in x-y.
-  struct CircleCirclePoints {
-    bool intersecting;  // true:  (ax, ay)/(bx, by) are the two crossings
-                        // false: (x1, y1)/(x2, y2) are the per-track nearest points
-    float ax, ay;
-    float bx, by;
-    float x1, y1;
-    float x2, y2;
-  };
-
   // The two circles' closest-approach points in x-y, handling all three
   // geometric regimes (intersecting / externally separate / one contains the
-  // other). In the intersecting case BOTH crossings are returned unresolved; 
+  // other). In the intersecting case BOTH crossings are returned unresolved;
   // disambiguation needs z-propagation and happens in nearestPoints.
   template <typename TAcc>
   ALPAKA_FN_ACC ALPAKA_FN_INLINE CircleCirclePoints closestPointsOnCircles(TAcc const& acc,
@@ -117,18 +139,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega::geometry {
     return out;
   }
 
-  // Each track's own (x, y, z) near-point for the circle-circle
-  // closest-approach estimate - port of geometry._nearestPoints. In the
-  // intersecting regime the two candidate crossings are disambiguated by
-  // z-consistency: propagate both tracks to both candidates and keep the
-  // one with smaller |z1 - z2|.
-  struct TrackNearPoints {
-    float x1, y1, z1;
-    float x2, y2, z2;
-  };
-
   template <typename TAcc>
-  ALPAKA_FN_ACC ALPAKA_FN_INLINE TrackNearPoints nearestPoints(TAcc const& acc, HelixGeom const& t1, HelixGeom const& t2) {
+  ALPAKA_FN_ACC ALPAKA_FN_INLINE TrackNearPoints nearestPoints(TAcc const& acc,
+                                                               HelixGeom const& t1,
+                                                               HelixGeom const& t2) {
     const auto cc = closestPointsOnCircles(acc, t1, t2);
 
     TrackNearPoints np;
@@ -155,17 +169,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega::geometry {
     return np;
   }
 
-  // Geometric (non-iterative) common-vertex estimate for a track pair -
-  // port of geometry.estimatedVertex: xy-midpoint and z-average of the two
-  // tracks' near-points, plus their full 3D separation (the quantity a
-  // max3DDistance-style cut applies to).
-  struct VertexEstimate {
-    float x, y, z;
-    float distance3D;
-  };
-
   template <typename TAcc>
-  ALPAKA_FN_ACC ALPAKA_FN_INLINE VertexEstimate estimatedVertex(TAcc const& acc, HelixGeom const& t1, HelixGeom const& t2) {
+  ALPAKA_FN_ACC ALPAKA_FN_INLINE VertexEstimate estimatedVertex(TAcc const& acc,
+                                                                HelixGeom const& t1,
+                                                                HelixGeom const& t2) {
     const auto np = nearestPoints(acc, t1, t2);
 
     VertexEstimate vtx;
@@ -176,6 +183,140 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega::geometry {
     const float dy = np.y1 - np.y2;
     const float dz = np.z1 - np.z2;
     vtx.distance3D = alpaka::math::sqrt(acc, dx * dx + dy * dy + dz * dz);
+    return vtx;
+  }
+
+  // -----------------------------------------------------------------------
+  // Helix-helix closest-approach refinement (Gauss-Newton + Levenberg-
+  // Marquardt)
+  //
+  // The LM loop itself (iteration budget, convergence tolerance, step
+  // accept/reject, damping adaptation, dual starting point) is deliberately
+  // NOT here: that is control-flow/policy and belongs to the calling kernel.
+  // What lives here are the pure math primitives the loop is built from,
+  // each individually testable against the Python reference:
+  //
+  //   helixPositionAndDerivative  position map x(l) and derivative dx/dl
+  //   pairNormalEquationsSolve    one damped 2x2 normal-equations solve
+  //   clampArcLength              the maxArcLength bound on |l|
+  //   smartStartArcLengths        seed (l1, l2) from the geometric estimate
+  //   refinedVertex               epilogue: converged (l1, l2) -> VertexEstimate
+  //
+  // Per-iteration math (mirrors refineVertex): with residual r = p1 - p2 and
+  // j_i = dr/dl_i, solve the LM-damped normal equations
+  //
+  //   [ a(1+lam)      b     ] [dl1]   [ j1 . r ]
+  //   [    b       c(1+lam) ] [dl2] = [ j2 . r ]
+  //
+  // with a = |j1|^2, c = |j2|^2, b = j1.j2, and step l_i -> l_i - dl_i (note
+  // the sign convention: the solve returns the gradient-direction step,
+  // which the caller subtracts from l).
+  // -----------------------------------------------------------------------
+
+  // LM policy defaults, taken from the Python reference (maxIter=4 validated
+  // against 30 on real data with indistinguishable results). The kernel owns
+  // the loop and may override these; they live here only to keep the magic
+  // numbers in one place.
+  inline constexpr int defaultMaxRefineIter = 4;
+  inline constexpr float defaultLmDamping = 1e-3f;
+  inline constexpr float defaultLmGrow = 5.f;
+  inline constexpr float defaultLmShrink = 3.f;
+
+  // Bound on |l| (default: the CMS tracker's outer radius scale). No real
+  // track's vertex displacement can exceed it, but the unconstrained
+  // least-squares problem has genuine far-away minima for near-tangent
+  // high-R circle pairs - see refineVertex's docstring in the Python
+  // reference for the confirmed failure mode this guards against.
+  inline constexpr float defaultMaxArcLength = 100.f;
+
+  ALPAKA_FN_HOST_ACC ALPAKA_FN_INLINE Point3D operator-(Point3D a, Point3D b) {
+    return {a.x - b.x, a.y - b.y, a.z - b.z};
+  }
+
+  ALPAKA_FN_HOST_ACC ALPAKA_FN_INLINE float dot(Point3D a, Point3D b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
+
+  ALPAKA_FN_HOST_ACC ALPAKA_FN_INLINE float norm2(Point3D v) { return dot(v, v); }
+
+  // Position on trk's helix at signed transverse arc length l, and the
+  // derivative d(position)/dl there - one trig evaluation shared between the
+  // two. Position map: theta(l) = refAngle - q * l / r (inverse of
+  // arcLengthTo), x = cx + r cos(theta), y = cy + r sin(theta),
+  // z = refZ + l * cotTheta.
+  template <typename TAcc>
+  ALPAKA_FN_ACC ALPAKA_FN_INLINE void helixPositionAndDerivative(
+      TAcc const& acc, HelixGeom const& trk, float l, Point3D& pos, Point3D& dpos) {
+    const float theta = trk.refAngle - trk.q * l / trk.r;
+    const float sinTheta = alpaka::math::sin(acc, theta);
+    const float cosTheta = alpaka::math::cos(acc, theta);
+    pos = {trk.cx + trk.r * cosTheta, trk.cy + trk.r * sinTheta, trk.refZ + l * trk.cotTheta};
+    dpos = {trk.q * sinTheta, -trk.q * cosTheta, trk.cotTheta};
+  }
+
+  // Position only (epilogue use, when the derivative is not needed).
+  template <typename TAcc>
+  ALPAKA_FN_ACC ALPAKA_FN_INLINE Point3D helixPosition(TAcc const& acc, HelixGeom const& trk, float l) {
+    Point3D pos, dpos;
+    helixPositionAndDerivative(acc, trk, l, pos, dpos);
+    return pos;
+  }
+
+  // One LM-damped 2x2 normal-equations solve for the pair refinement. Takes
+  // the two tracks' position derivatives and the residual r = pos1 - pos2,
+  // returns the step (dl1, dl2) to SUBTRACT from (l1, l2). j2 = -dpos2 is
+  // handled internally (residual convention r = pos1 - pos2).
+  template <typename TAcc>
+  ALPAKA_FN_ACC ALPAKA_FN_INLINE void pairNormalEquationsSolve(
+      TAcc const& acc, Point3D dpos1, Point3D dpos2, Point3D residual, float lam, float& dl1, float& dl2) {
+    const float a = norm2(dpos1) * (1.f + lam);
+    const float c = norm2(dpos2) * (1.f + lam);
+    const float b = -dot(dpos1, dpos2);
+    const float rhs0 = dot(dpos1, residual);
+    const float rhs1 = -dot(dpos2, residual);
+    // Cauchy-Schwarz guarantees a*c - b*b >= 0; it vanishes only for exactly
+    // parallel local directions (genuinely degenerate pairs), where the
+    // guard plus lam > 0 keep the step finite instead of overshooting.
+    const float det = alpaka::math::max(acc, a * c - b * b, 1e-12f);
+    dl1 = (c * rhs0 - b * rhs1) / det;
+    dl2 = (a * rhs1 - b * rhs0) / det;
+  }
+
+  // Clip an arc length to [-maxArcLength, maxArcLength] - applied to every
+  // starting and trial point before it is evaluated or accepted.
+  template <typename TAcc>
+  ALPAKA_FN_ACC ALPAKA_FN_INLINE float clampArcLength(TAcc const& acc,
+                                                      float l,
+                                                      float maxArcLength = defaultMaxArcLength) {
+    return alpaka::math::min(acc, alpaka::math::max(acc, l, -maxArcLength), maxArcLength);
+  }
+
+  // Seed (l1, l2) from the geometric circle-circle estimate - refineVertex's
+  // "smart" start. (The "dumb" start is simply l1 = l2 = 0 and needs no
+  // helper.)
+  template <typename TAcc>
+  ALPAKA_FN_ACC ALPAKA_FN_INLINE void smartStartArcLengths(TAcc const& acc,
+                                                           HelixGeom const& t1,
+                                                           HelixGeom const& t2,
+                                                           float& l1,
+                                                           float& l2,
+                                                           float maxArcLength = defaultMaxArcLength) {
+    const auto np = nearestPoints(acc, t1, t2);
+    l1 = clampArcLength(acc, arcLengthTo(acc, t1, np.x1, np.y1), maxArcLength);
+    l2 = clampArcLength(acc, arcLengthTo(acc, t2, np.x2, np.y2), maxArcLength);
+  }
+
+  // Epilogue of the refinement: converged arc lengths -> VertexEstimate
+  // (midpoint + true 3D separation). Unlike estimatedVertex's circle
+  // crossings, the two tracks' refined points need not coincide in xy.
+  template <typename TAcc>
+  ALPAKA_FN_ACC ALPAKA_FN_INLINE VertexEstimate
+  refinedVertex(TAcc const& acc, HelixGeom const& t1, HelixGeom const& t2, float l1, float l2) {
+    const Point3D p1 = helixPosition(acc, t1, l1);
+    const Point3D p2 = helixPosition(acc, t2, l2);
+    VertexEstimate vtx;
+    vtx.x = 0.5f * (p1.x + p2.x);
+    vtx.y = 0.5f * (p1.y + p2.y);
+    vtx.z = 0.5f * (p1.z + p2.z);
+    vtx.distance3D = alpaka::math::sqrt(acc, norm2(p1 - p2));
     return vtx;
   }
 

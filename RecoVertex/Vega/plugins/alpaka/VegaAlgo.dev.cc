@@ -82,7 +82,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
       // Find pairs of tracks compatible with vertexing
       PairFinder pairFinder(params_, nTracks, queue);
-      pairFinder.find(trks);
+      pairFinder.find(trks, trksExtra.view());
 #ifdef VEGA_ALGO_DEBUG
       printf("VegaAlgo::makeVerticesAsync: found pairs of tracks compatible for vertexing\n");
       alpaka::wait(queue);

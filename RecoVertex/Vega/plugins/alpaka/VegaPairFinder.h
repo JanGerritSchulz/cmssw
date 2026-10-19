@@ -24,7 +24,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
     PairFinder(const PairFinder&) = delete;
     PairFinder& operator=(const PairFinder&) = delete;
 
-    void find(TrkSoAConstView trks) const;
+    void find(TrkSoAConstView trks, TrkExtraSoAConstView trksExtra) const;
 
   private:
     // parameters (stored by value to avoid dangling reference)

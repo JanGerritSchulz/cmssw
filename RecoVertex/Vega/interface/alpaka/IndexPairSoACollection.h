@@ -12,16 +12,16 @@
 #include "HeterogeneousCore/AlpakaInterface/interface/CopyToHost.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/config.h"
 
-namespace ALPAKA_ACCELERATOR_NAMESPACE::reco {
+namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
 
-  using ::reco::IndexPairDevice;
-  using ::reco::IndexPairHost;
+  using ::vega::IndexPairDevice;
+  using ::vega::IndexPairHost;
   using IndexPairSoACollection =
       std::conditional_t<std::is_same_v<Device, alpaka::DevCpu>, IndexPairHost, IndexPairDevice<Device>>;
 
-}  // namespace ALPAKA_ACCELERATOR_NAMESPACE::reco
+}  // namespace ALPAKA_ACCELERATOR_NAMESPACE::vega
 
-ASSERT_DEVICE_MATCHES_HOST_COLLECTION(reco::IndexPairSoACollection,
-                                      ::reco::IndexPairHost);
+ASSERT_DEVICE_MATCHES_HOST_COLLECTION(vega::IndexPairSoACollection,
+                                      ::vega::IndexPairHost);
 
 #endif  // RecoVertex_Vega_interface_alpaka_IndexPairSoACollection_h

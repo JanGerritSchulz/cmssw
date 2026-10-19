@@ -9,7 +9,7 @@
 #include "HeterogeneousCore/AlpakaInterface/interface/config.h"
 #include "IndexPairSoA.h"
 
-namespace reco {
+namespace vega {
   using IndexPairHost = PortableHostCollection<IndexPairSoA>;
 }
 #endif  // RecoVertex_Vega_interface_IndexPairHost_h

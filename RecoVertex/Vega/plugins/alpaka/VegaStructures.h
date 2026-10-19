@@ -30,6 +30,7 @@ namespace vega::structs {
   using VtxTrkSoAView = ::reco::VertexTracksSoAView;
   using TrkSoAConstView = ::reco::TrackSoAConstView;
   using TrkExtraSoAView = ::vega::TrackExtraSoAView;
+  using TrkExtraSoAConstView = ::vega::TrackExtraSoAConstView;
   using Params = ::vega::VegaParams;
   using PairParams = ::vega::PairParams;
   using TripletParams = ::vega::TripletParams;

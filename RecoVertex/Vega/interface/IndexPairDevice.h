@@ -9,7 +9,7 @@
 #include "HeterogeneousCore/AlpakaInterface/interface/config.h"
 #include "IndexPairSoA.h"
 
-namespace reco {
+namespace vega {
   template <typename TDev>
   using IndexPairDevice = PortableDeviceCollection<TDev, IndexPairSoA>;
 }
