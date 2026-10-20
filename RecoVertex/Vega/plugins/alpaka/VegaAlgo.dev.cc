@@ -7,6 +7,7 @@
 
 #include "VegaAlgo.h"
 #include "VegaPairFinder.h"
+#include "VegaVertexClusterizer.h"
 
 #define VEGA_ALGO_DEBUG 1
 #define VEGA_ALGO_PRINTALL 0
@@ -92,17 +93,16 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       alpaka::wait(queue);
 #endif
 
-      reco::VertexSoACollection vertexCollection(queue, maxVertices, nTracks);
-      vertexCollection.zeroInitialise(queue);
-      // auto vertices = vertexCollection.view().vertex();
-      // auto vtxTracks = vertexCollection.view().tracks();
+      // Cluster the pairs and triplets into vertices
+      VertexClusterizer vertexClusterizer(params_, nTracks, maxVertices, queue);
+      auto vertices = vertexClusterizer.cluster(trks, trksExtra.view(), pairs.view());
 
 #if VEGA_ALGO_DEBUG
       printf("VegaAlgo::makeVerticesAsync: created vertex collection with %d vertices\n", maxVertices);
       alpaka::wait(queue);
 #endif
 
-      return vertexCollection;
+      return vertices;
     }
   }  // namespace vega
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE

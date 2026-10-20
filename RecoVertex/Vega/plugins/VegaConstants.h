@@ -11,6 +11,9 @@ namespace vega {
   // an earlier, unrelated reconstruction stage.
   constexpr int32_t maxTracksForVertexing = 4096;
 
+  // Upper bound on tracks considered per vertex.
+  constexpr int32_t maxTracksPerVertex = 32;
+
   // If true, PairFinder copies the device-computed track count (TrackSoA's
   // nTracks) back to host and uses that exact value to size buffers and work
   // division for the vertexing stage. This forces a device-to-host

@@ -26,7 +26,7 @@ namespace vega::structs {
 
   // Indices for tracks and pairs
   using TrkIdx = uint16_t;
-  using PairIndex = uint16_t;
+  using PairIdx = uint16_t;
 
   using VtxSoAView = ::reco::VertexSoAView;
   using VtxTrkSoAView = ::reco::VertexTracksSoAView;
@@ -38,29 +38,26 @@ namespace vega::structs {
   using PairCandSoAView = ::vega::IndexPairSoAView;
   using PairCandSoAConstView = ::vega::IndexPairSoAConstView;
   using VegaPairSoAView = ::vega::VegaPairSoAView;
+  using VegaPairSoAConstView = ::vega::VegaPairSoAConstView;
 
   // Vega parameters
   using Params = ::vega::VegaParams;
   using PairParams = ::vega::PairParams;
   using TripletParams = ::vega::TripletParams;
+  using VertexParams = ::vega::VertexParams;
 
   // generic one-to-many association map with random access/filling
   using OneToMany = cms::alpakatools::
       OneToManyAssocRandomAccess<TrkIdx, cms::alpakatools::kDynamicSize, cms::alpakatools::kDynamicSize>;
-  using OneToManyStorage = typename OneToMany::value_type;
-  using OneToManyOffsets = typename OneToMany::Counter;
-  using OneToManyView = typename OneToMany::View;
 
   // generic one-to-many association map with sequential access/filling
   using OneToManySeq =
       cms::alpakatools::OneToManyAssocSequential<TrkIdx, cms::alpakatools::kDynamicSize, cms::alpakatools::kDynamicSize>;
-  using OneToManySeqStorage = typename OneToManySeq::value_type;
-  using OneToManySeqOffsets = typename OneToManySeq::Counter;
-  using OneToManySeqView = typename OneToManySeq::View;
 
   // specific association maps for vega
-  using PairToPair = vega::structs::OneToMany;
-  using TrackToPair = vega::structs::OneToMany;
+  using PairToPair = OneToMany;
+  using TrackToPair = OneToMany;
+  using VtxToTrack = OneToManySeq;
 
 }  // namespace vega::structs
 

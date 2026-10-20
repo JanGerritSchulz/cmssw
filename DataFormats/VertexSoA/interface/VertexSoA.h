@@ -23,11 +23,11 @@ namespace reco {
                       SOA_EIGEN_COLUMN(CovarianceMatrix, covariance),
 
                       SOA_COLUMN(uint8_t, nTracks),
-                      SOA_COLUMN(uint32_t, trackOffsets),
+                      SOA_COLUMN(uint32_t, tracksOffset),
 
                       SOA_SCALAR(uint32_t, nVertices))
 
-  GENERATE_SOA_LAYOUT(VertexTracksSoALayout, SOA_COLUMN(uint32_t, id))
+  GENERATE_SOA_LAYOUT(VertexTracksSoALayout, SOA_COLUMN(uint32_t, id), SOA_COLUMN(float, weight))
 
   GENERATE_SOA_BLOCKS(VertexSoABlocksLayout,
                       SOA_BLOCK(vertex, VertexSoALayout),
