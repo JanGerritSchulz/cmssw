@@ -55,7 +55,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         algo_(getVegaParams(iConfig)),
         maxVertices_(iConfig.getParameter<int>("maxVertices")),
         nTracks_{cms::alpakatools::make_host_buffer<int, Platform>()},
-        tracksDeviceToken_(consumes(iConfig.getParameter<edm::InputTag>("trackSrc"))),
+        tracksDeviceToken_(consumes(iConfig.getParameter<edm::InputTag>("trackSoACollection"))),
         verticesDeviceToken_(produces()) {}
 
   VegaParams VegaVertexSoAProducer::getVegaParams(const edm::ParameterSet& iConfig) const {
@@ -82,7 +82,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   void VegaVertexSoAProducer::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
     edm::ParameterSetDescription desc;
 
-    desc.add<edm::InputTag>("trackSrc", edm::InputTag("pixelTracksAlpaka"));
+    desc.add<edm::InputTag>("trackSoACollection", edm::InputTag("pixelTracksAlpaka"));
     desc.add<int>("maxVertices", 100);
 
     // ----------------------------------------------
