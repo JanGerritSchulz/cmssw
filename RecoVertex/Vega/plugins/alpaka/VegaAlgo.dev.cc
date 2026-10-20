@@ -8,7 +8,8 @@
 #include "VegaAlgo.h"
 #include "VegaPairFinder.h"
 
-#define VEGA_ALGO_DEBUG
+#define VEGA_ALGO_DEBUG 1
+#define VEGA_ALGO_PRINTALL 0
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
   namespace vega {
@@ -35,7 +36,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
           trksExtra[it].cy() = (dxy - q * r) * cosPhi;
           trksExtra[it].refAngle() = reducePhiRange(acc, phi + q * std::numbers::pi_v<float> / 2.0f);
 
-#ifdef VEGA_ALGO_DEBUG
+#if VEGA_ALGO_PRINTALL
           printf("Track %d: phi=%f, dxy=%f, q=%f, r=%f, cx=%f, cy=%f, refAngle=%f\n",
                  it,
                  phi,
@@ -54,17 +55,18 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                                           TrkSoAConstView const& trks,
                                                           int const maxVertices,
                                                           int const nTracksRaw) const {
-#ifdef VEGA_ALGO_DEBUG
+#if VEGA_ALGO_DEBUG
       printf("VegaAlgo::makeVerticesAsync: starting vertex creation\n");
-    alpaka::wait(queue);
+      alpaka::wait(queue);
 #endif
 
       TrkIdx nTracks = static_cast<TrkIdx>(std::min(nTracksRaw, ::vega::maxTracksForVertexing));
 
-#ifdef VEGA_ALGO_DEBUG
+#if VEGA_ALGO_DEBUG
       printf("VegaAlgo::makeVerticesAsync: set nTracks to %d\n", nTracks);
       alpaka::wait(queue);
 #endif
+
       const float bField = 3.8f;  // FIXME: get from EventSetup
 
       auto trksExtra = TrackExtraSoACollection(queue, nTracks);
@@ -75,15 +77,17 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       const auto workDivBuildTrackExtra = cms::alpakatools::make_workdiv<Acc1D>(numberOfBlocks, blockSize);
       alpaka::exec<Acc1D>(
           queue, workDivBuildTrackExtra, KernelBuildTrackExtra{}, trks, trksExtra.view(), nTracks, bField);
-#ifdef VEGA_ALGO_DEBUG
+
+#if VEGA_ALGO_DEBUG
       printf("VegaAlgo::makeVerticesAsync: built TrackExtraSoA with %d tracks\n", nTracks);
       alpaka::wait(queue);
 #endif
 
       // Find pairs of tracks compatible with vertexing
       PairFinder pairFinder(params_, nTracks, queue);
-      pairFinder.find(trks, trksExtra.view());
-#ifdef VEGA_ALGO_DEBUG
+      auto pairs = pairFinder.find(trks, trksExtra.view());
+
+#if VEGA_ALGO_DEBUG
       printf("VegaAlgo::makeVerticesAsync: found pairs of tracks compatible for vertexing\n");
       alpaka::wait(queue);
 #endif
@@ -93,7 +97,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       // auto vertices = vertexCollection.view().vertex();
       // auto vtxTracks = vertexCollection.view().tracks();
 
-#ifdef VEGA_ALGO_DEBUG
+#if VEGA_ALGO_DEBUG
       printf("VegaAlgo::makeVerticesAsync: created vertex collection with %d vertices\n", maxVertices);
       alpaka::wait(queue);
 #endif
