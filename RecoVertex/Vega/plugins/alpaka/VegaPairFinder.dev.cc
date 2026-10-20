@@ -253,9 +253,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
 
     // Find pairs of tracks compatible with vertexing
     auto nPairCands = cms::alpakatools::make_device_buffer<uint32_t>(queue_);
-    alpaka::memset(queue_, nPairCands, 0);
+    alpaka::memset(queue_, nPairCands, 0u);
     auto nPairs = cms::alpakatools::make_device_buffer<uint32_t>(queue_);
-    alpaka::memset(queue_, nPairs, 0);
+    alpaka::memset(queue_, nPairs, 0u);
 
     constexpr TrkIdx T = KernelFindPairCandidates<KernelMode::Count>::T;  // tile size
     const uint32_t nTiles = cms::alpakatools::divide_up_by(nTracks_ + T - 1u, T);
@@ -299,7 +299,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
     auto pairCands = IndexPairSoACollection(queue_, pairCandCapacity);
 
     // reset nPairCands counter for the filling
-    alpaka::memset(queue_, nPairCands, 0);
+    alpaka::memset(queue_, nPairCands, 0u);
 
     alpaka::exec<Acc2D>(queue_,
                         workDivFindPairCands,
@@ -316,8 +316,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
     alpaka::wait(queue_);
 #endif
 
-    const uint32_t blockSize = 128;
-    const uint32_t numberOfBlocks = cms::alpakatools::divide_up_by(pairCandCapacity + blockSize - 1, blockSize);
+    const uint32_t blockSize = 128u;
+    const uint32_t numberOfBlocks = cms::alpakatools::divide_up_by(pairCandCapacity + blockSize - 1u, blockSize);
     const auto workDivFindPairs = cms::alpakatools::make_workdiv<Acc1D>(numberOfBlocks, blockSize);
 
     // Size the pair collection: exact count from the Count kernel (requires a
@@ -350,7 +350,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
     auto pairs = VegaPairSoACollection(queue_, pairCapacity);
 
     // reset nPairs counter for the filling
-    alpaka::memset(queue_, nPairs, 0);
+    alpaka::memset(queue_, nPairs, 0u);
 
     alpaka::exec<Acc1D>(queue_,
                         workDivFindPairs,

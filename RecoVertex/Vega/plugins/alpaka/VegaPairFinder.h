@@ -1,5 +1,5 @@
-#ifndef RecoVertex_Vega_plugins_alpaka_PairFinder_h
-#define RecoVertex_Vega_plugins_alpaka_PairFinder_h
+#ifndef RecoVertex_Vega_plugins_alpaka_VegaPairFinder_h
+#define RecoVertex_Vega_plugins_alpaka_VegaPairFinder_h
 
 #include <type_traits>
 
@@ -38,4 +38,4 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
 
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE::vega
 
-#endif  // RecoVertex_Vega_plugins_alpaka_PairFinder_h
+#endif  // RecoVertex_Vega_plugins_alpaka_VegaPairFinder_h
