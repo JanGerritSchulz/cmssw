@@ -2,7 +2,7 @@ import FWCore.ParameterSet.Config as cms
 
 hltVegaVerticesSoA = cms.EDProducer('VegaVertexSoAProducer@alpaka',
     trackSrc = cms.InputTag('hltPhase2PixelTrackTorchHighPuritySelector'),
-    maxVertices = cms.int32(100),
+    maxVertices = cms.int32(4000),
     pairParams = cms.PSet(
       minPt = cms.float(0.9),
       maxDPhi = cms.float(0.4),
@@ -13,6 +13,9 @@ hltVegaVerticesSoA = cms.EDProducer('VegaVertexSoAProducer@alpaka',
     ),
     tripletParams = cms.PSet(
       max3DDistance = cms.float(0.02)
+    ),
+    vertexParams = cms.PSet(
+      maxChi2 = cms.float(5.0)
     ),
     alpaka = cms.untracked.PSet(
       backend = cms.untracked.string('')

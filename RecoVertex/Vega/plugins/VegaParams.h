@@ -18,9 +18,14 @@ namespace vega {
     float max3DDistance;
   };
 
+  struct VertexParams {
+    float maxChi2;
+  };
+
   struct VegaParams {
     PairParams pair;
     TripletParams triplet;
+    VertexParams vertex;
   };
 
   static_assert(std::is_trivially_copyable_v<VegaParams>);

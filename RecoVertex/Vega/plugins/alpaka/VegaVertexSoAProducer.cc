@@ -72,7 +72,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     auto tripletConfig = iConfig.getParameter<edm::ParameterSet>("tripletParams");
     ::vega::TripletParams tripletParams = {.max3DDistance = tripletConfig.getParameter<float>("max3DDistance")};
 
-    return VegaParams{.pair = pairParams, .triplet = tripletParams};
+    // configuration for vertex clustering
+    auto vertexConfig = iConfig.getParameter<edm::ParameterSet>("vertexParams");
+    ::vega::VertexParams vertexParams = {.maxChi2 = vertexConfig.getParameter<float>("maxChi2")};
+
+    return VegaParams{.pair = pairParams, .triplet = tripletParams, .vertex = vertexParams};
   }
 
   void VegaVertexSoAProducer::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
@@ -103,6 +107,14 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     tripletParams.add<float>("max3DDistance", 0.02)
         ->setComment("Maximum 3D distance for the track <-> best vertex-estimate of this triplet (using helices)");
     desc.add<edm::ParameterSetDescription>("tripletParams", tripletParams);
+    
+    // ----------------------------------------------
+    // Vertex clustering configuration
+    // ----------------------------------------------
+    edm::ParameterSetDescription vertexParams;
+    vertexParams.add<float>("maxChi2", 5.0)
+        ->setComment("Maximum chi-squared for the vertex fit");
+    desc.add<edm::ParameterSetDescription>("vertexParams", vertexParams);
 
     descriptions.addWithDefaultLabel(desc);
   }
