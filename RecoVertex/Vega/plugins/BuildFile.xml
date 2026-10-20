@@ -15,3 +15,14 @@
   <flags ALPAKA_BACKENDS="1"/>
   <flags EDM_PLUGIN="1"/>
 </library>
+
+<library name="RecoVertexVegaPlugins" file="*.cc">
+  <use name="DataFormats/Common"/>
+  <use name="DataFormats/VertexReco"/>
+  <use name="DataFormats/VertexSoA"/>
+  <use name="DataFormats/BeamSpot"/>
+  <use name="RecoVertex/ConfigurableVertexReco"/>
+  <use name="TrackingTools/Records"/>
+  <use name="TrackingTools/TransientTrack"/>
+  <flags EDM_PLUGIN="1"/>
+</library>
