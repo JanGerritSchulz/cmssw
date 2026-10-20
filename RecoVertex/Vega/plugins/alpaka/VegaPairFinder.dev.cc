@@ -4,7 +4,6 @@
 #include "HeterogeneousCore/AlpakaInterface/interface/memory.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/radixSort.h"
 #include "RecoVertex/Vega/interface/alpaka/IndexPairSoACollection.h"
-#include "RecoVertex/Vega/interface/alpaka/VegaPairSoACollection.h"
 #include "RecoVertex/Vega/plugins//alpaka/VegaGeometry.h"
 #include "RecoVertex/Vega/plugins/VegaConstants.h"
 
@@ -12,6 +11,7 @@
 
 #define VEGA_PAIRS_DEBUG 1
 #define VEGA_PAIRS_WARNINGS 1
+#define VEGA_PAIRS_PRINTALL 0
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
 
@@ -41,8 +41,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
   public:
     ALPAKA_FN_ACC void operator()(Acc1D const& acc, TrkSoAConstView trks, TrkIdx* sortIdx, TrkIdx const nTracks) const {
       float dzPrev = -9999.f;
-      int counterWrongOrder = 0;
-      for (int i{0}; i < nTracks; ++i) {
+      TrkIdx counterWrongOrder = 0;
+      for (TrkIdx i{0}; i < nTracks; ++i) {
         TrkIdx it = sortIdx[i];
         float dz = ::reco::zip(trks, it);
         bool wrongOrder = (dz < dzPrev);
@@ -63,8 +63,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
   template <KernelMode Mode>
   class KernelFindPairCandidates {
   public:
-    using CountArg = std::conditional_t<Mode == KernelMode::Form, int const*, int*>;
-    using PairsArg = std::conditional_t<Mode == KernelMode::Form, ::vega::IndexPairSoAView, NoInput>;
+    using CountArg = std::conditional_t<Mode == KernelMode::Form, uint32_t const*, uint32_t*>;
+    using PairsArg = std::conditional_t<Mode == KernelMode::Form, PairCandSoAView, NoInput>;
     static constexpr TrkIdx T = 32u;  // tile size
 
     ALPAKA_FN_ACC void operator()(Acc2D const& acc,
@@ -72,8 +72,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
                                   TrkSoAConstView trks,
                                   TrkIdx const* sortIdx,
                                   TrkIdx const nTracks,
-                                  int* nPairs,    // Count writes this, Form writes this as well
-                                  PairsArg pairs  // Form writes this
+                                  uint32_t* nPairs,  // Count writes this, Form writes this as well
+                                  PairsArg pairs     // Form writes this
     ) const {
       for (TrkIdx i : cms::alpakatools::uniform_elements_y(acc, nTracks)) {
         const TrkIdx si = sortIdx[i];
@@ -132,22 +132,22 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
 
           // count or fill the pair
           if constexpr (Mode == KernelMode::Count) {
-            alpaka::atomicAdd(acc, nPairs, 1, alpaka::hierarchy::Blocks{});
+            alpaka::atomicAdd(acc, nPairs, 1u, alpaka::hierarchy::Blocks{});
           } else {
             // fill the pair
-            auto idx = alpaka::atomicAdd(acc, nPairs, 1, alpaka::hierarchy::Blocks{});
-            if (idx >= pairs.metadata().size()) {
+            auto idx = alpaka::atomicAdd(acc, nPairs, 1u, alpaka::hierarchy::Blocks{});
+            if (idx >= static_cast<uint32_t>(pairs.metadata().size())) {
 #if VEGA_PAIRS_WARNINGS
               printf("Warning!!!! Too many pairs (maxNumOfPairs = %d)!\n", pairs.metadata().size());
 #endif
-              alpaka::atomicSub(acc, nPairs, 1, alpaka::hierarchy::Blocks{});
+              alpaka::atomicSub(acc, nPairs, 1u, alpaka::hierarchy::Blocks{});
               continue;
             }
 
             pairs[idx].idx1() = alpaka::math::min(acc, si, sj);
             pairs[idx].idx2() = alpaka::math::max(acc, si, sj);
 
-#if VEGA_PAIRS_DEBUG
+#if VEGA_PAIRS_PRINTALL
             printf("vega::KernelFindPairCandidates: new track pair %d: (%d, %d)\n",
                    idx,
                    alpaka::math::min(acc, si, sj),
@@ -162,37 +162,37 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
   template <KernelMode Mode>
   class KernelFindPairs {
   public:
-    using CountArg = std::conditional_t<Mode == KernelMode::Form, int const*, int*>;
+    using CountArg = std::conditional_t<Mode == KernelMode::Form, uint32_t const*, uint32_t*>;
     using PairsArg = std::conditional_t<Mode == KernelMode::Form, ::vega::VegaPairSoAView, NoInput>;
 
     ALPAKA_FN_ACC void operator()(Acc1D const& acc,
                                   PairParams const& params,
                                   TrkSoAConstView trks,
                                   TrkExtraSoAConstView trksExtra,
-                                  int const* nPairCands,
-                                  ::vega::IndexPairSoAView const pairCands,
-                                  int* nPairs,    // Count writes this, Form writes this as well
-                                  PairsArg pairs  // Form writes this
+                                  uint32_t const* nPairCands,
+                                  PairCandSoAView const pairCands,
+                                  uint32_t* nPairs,  // Count writes this, Form writes this as well
+                                  PairsArg pairs     // Form writes this
     ) const {
       for (auto c : cms::alpakatools::uniform_elements(acc, *nPairCands)) {
         auto cand = pairCands[c];
         const TrkIdx i1 = cand.idx1();
         const TrkIdx i2 = cand.idx2();
 
-        const geometry::HelixGeom t1 = geometry::HelixGeom{.cx=trksExtra[i1].cx(),
-                                                           .cy=trksExtra[i1].cy(),
-                                                           .r=trksExtra[i1].r(),
-                                                           .q=trksExtra[i1].q(),
-                                                           .refAngle=trksExtra[i1].refAngle(),
-                                                           .refZ=::reco::zip(trks, i1),
-                                                           .cotTheta=trks[i1].state()(3)};
-        const geometry::HelixGeom t2 = geometry::HelixGeom{.cx=trksExtra[i2].cx(),
-                                                           .cy=trksExtra[i2].cy(),
-                                                           .r=trksExtra[i2].r(),
-                                                           .q=trksExtra[i2].q(),
-                                                           .refAngle=trksExtra[i2].refAngle(),
-                                                           .refZ=::reco::zip(trks, i2),
-                                                           .cotTheta=trks[i2].state()(3)};
+        const geometry::HelixGeom t1 = geometry::HelixGeom{.cx = trksExtra[i1].cx(),
+                                                           .cy = trksExtra[i1].cy(),
+                                                           .r = trksExtra[i1].r(),
+                                                           .q = trksExtra[i1].q(),
+                                                           .refAngle = trksExtra[i1].refAngle(),
+                                                           .refZ = ::reco::zip(trks, i1),
+                                                           .cotTheta = trks[i1].state()(3)};
+        const geometry::HelixGeom t2 = geometry::HelixGeom{.cx = trksExtra[i2].cx(),
+                                                           .cy = trksExtra[i2].cy(),
+                                                           .r = trksExtra[i2].r(),
+                                                           .q = trksExtra[i2].q(),
+                                                           .refAngle = trksExtra[i2].refAngle(),
+                                                           .refZ = ::reco::zip(trks, i2),
+                                                           .cotTheta = trks[i2].state()(3)};
 
         float l1, l2;
         geometry::smartStartArcLengths(acc, t1, t2, l1, l2);
@@ -200,15 +200,15 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
 
         // count or fill the pair
         if constexpr (Mode == KernelMode::Count) {
-          alpaka::atomicAdd(acc, nPairs, 1, alpaka::hierarchy::Blocks{});
+          alpaka::atomicAdd(acc, nPairs, 1u, alpaka::hierarchy::Blocks{});
         } else {
           // fill the pair
-          auto idx = alpaka::atomicAdd(acc, nPairs, 1, alpaka::hierarchy::Blocks{});
-          if (idx >= pairs.metadata().size()) {
+          auto idx = alpaka::atomicAdd(acc, nPairs, 1u, alpaka::hierarchy::Blocks{});
+          if (idx >= static_cast<uint32_t>(pairs.metadata().size())) {
 #if VEGA_PAIRS_WARNINGS
             printf("Warning!!!! Too many pairs (maxNumOfPairs = %d)!\n", pairs.metadata().size());
 #endif
-            alpaka::atomicSub(acc, nPairs, 1, alpaka::hierarchy::Blocks{});
+            alpaka::atomicSub(acc, nPairs, 1u, alpaka::hierarchy::Blocks{});
             continue;
           }
           pairs[idx].idx1() = i1;
@@ -224,7 +224,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
   // MAIN FUNCTION
   // -------------------------------------------------------------
 
-  void PairFinder::find(TrkSoAConstView trks, TrkExtraSoAConstView trksExtra) const {
+  VegaPairSoACollection PairFinder::find(TrkSoAConstView trks, TrkExtraSoAConstView trksExtra) const {
     // Get sorted track indices by dz (z of closest approach)
     auto sortedTrackIndices = cms::alpakatools::make_device_buffer<TrkIdx[]>(queue_, nTracks_);
 
@@ -239,6 +239,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
 
 #if VEGA_PAIRS_DEBUG
     printf("PairFinder::find: sorted tracks by dz\n");
+    alpaka::wait(queue_);
+#endif
+
+#if VEGA_PAIRS_PRINTALL
     const auto workDivPrintSortedTracks = cms::alpakatools::make_workdiv<Acc1D>(1u, 1u);
     alpaka::exec<Acc1D>(
         queue_, workDivPrintSortedTracks, KernelPrintSortedTracks{}, trks, sortedTrackIndices.data(), nTracks_);
@@ -248,9 +252,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
 #endif
 
     // Find pairs of tracks compatible with vertexing
-    auto nPairCands = cms::alpakatools::make_device_buffer<int>(queue_);
+    auto nPairCands = cms::alpakatools::make_device_buffer<uint32_t>(queue_);
     alpaka::memset(queue_, nPairCands, 0);
-    auto nPairs = cms::alpakatools::make_device_buffer<int>(queue_);
+    auto nPairs = cms::alpakatools::make_device_buffer<uint32_t>(queue_);
     alpaka::memset(queue_, nPairs, 0);
 
     constexpr TrkIdx T = KernelFindPairCandidates<KernelMode::Count>::T;  // tile size
@@ -281,10 +285,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
                           nPairCands.data(),
                           NoInput{});  // Count mode, no pairs are filled
 
-      auto nPairCandsHost = cms::alpakatools::make_host_buffer<int, Platform>();
+      auto nPairCandsHost = cms::alpakatools::make_host_buffer<uint32_t, Platform>();
       alpaka::memcpy(queue_, nPairCandsHost, nPairCands);
       alpaka::wait(queue_);  // host sync: pair count is now valid
-      pairCandCapacity = static_cast<uint32_t>(*nPairCandsHost.data());
+      pairCandCapacity = *nPairCandsHost.data();
 
 #if VEGA_PAIRS_DEBUG
       printf("PairFinder::find: counted %d pair candidates\n", *nPairCandsHost.data());
@@ -292,7 +296,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
 #endif
     }
 
-    auto pairCands = vega::IndexPairSoACollection(queue_, pairCandCapacity);
+    auto pairCands = IndexPairSoACollection(queue_, pairCandCapacity);
 
     // reset nPairCands counter for the filling
     alpaka::memset(queue_, nPairCands, 0);
@@ -332,10 +336,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
                           nPairs.data(),
                           NoInput{});  // Count mode, no pairs are filled
 
-      auto nPairHost = cms::alpakatools::make_host_buffer<int, Platform>();
+      auto nPairHost = cms::alpakatools::make_host_buffer<uint32_t, Platform>();
       alpaka::memcpy(queue_, nPairHost, nPairs);
       alpaka::wait(queue_);  // host sync: pair count is now valid
-      pairCapacity = static_cast<uint32_t>(*nPairHost.data());
+      pairCapacity = *nPairHost.data();
 
 #if VEGA_PAIRS_DEBUG
       printf("PairFinder::find: counted %d pairs\n", *nPairHost.data());
@@ -343,9 +347,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
 #endif
     }
 
-    auto pairs = vega::VegaPairSoACollection(queue_, pairCapacity);
+    auto pairs = VegaPairSoACollection(queue_, pairCapacity);
 
-    // reset nPairCands counter for the filling
+    // reset nPairs counter for the filling
     alpaka::memset(queue_, nPairs, 0);
 
     alpaka::exec<Acc1D>(queue_,
@@ -364,10 +368,16 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
     alpaka::wait(queue_);
 #endif
 
+    // publish the actual pair count into the SoA (device-to-device copy)
+    auto nPairsView = cms::alpakatools::make_device_view(alpaka::getDev(queue_), pairs.view().nPairs());
+    alpaka::memcpy(queue_, nPairsView, nPairs);
+
 #if VEGA_PAIRS_DEBUG
     printf("PairFinder::find: done\n");
     alpaka::wait(queue_);
 #endif
+
+    return pairs;
   }
 
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE::vega

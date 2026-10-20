@@ -8,7 +8,9 @@
 #include "DataFormats/VertexSoA/interface/alpaka/VertexSoACollection.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/OneToManyAssoc.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/SimpleVector.h"
+#include "RecoVertex/Vega/interface/IndexPairSoA.h"
 #include "RecoVertex/Vega/interface/TrackExtraSoA.h"
+#include "RecoVertex/Vega/interface/VegaPairSoA.h"
 #include "RecoVertex/Vega/plugins/VegaParams.h"
 
 namespace vega::structs {
@@ -31,6 +33,13 @@ namespace vega::structs {
   using TrkSoAConstView = ::reco::TrackSoAConstView;
   using TrkExtraSoAView = ::vega::TrackExtraSoAView;
   using TrkExtraSoAConstView = ::vega::TrackExtraSoAConstView;
+
+  // track pairs
+  using PairCandSoAView = ::vega::IndexPairSoAView;
+  using PairCandSoAConstView = ::vega::IndexPairSoAConstView;
+  using VegaPairSoAView = ::vega::VegaPairSoAView;
+
+  // Vega parameters
   using Params = ::vega::VegaParams;
   using PairParams = ::vega::PairParams;
   using TripletParams = ::vega::TripletParams;
@@ -43,8 +52,8 @@ namespace vega::structs {
   using OneToManyView = typename OneToMany::View;
 
   // generic one-to-many association map with sequential access/filling
-  using OneToManySeq = cms::alpakatools::
-      OneToManyAssocSequential<TrkIdx, cms::alpakatools::kDynamicSize, cms::alpakatools::kDynamicSize>;
+  using OneToManySeq =
+      cms::alpakatools::OneToManyAssocSequential<TrkIdx, cms::alpakatools::kDynamicSize, cms::alpakatools::kDynamicSize>;
   using OneToManySeqStorage = typename OneToManySeq::value_type;
   using OneToManySeqOffsets = typename OneToManySeq::Counter;
   using OneToManySeqView = typename OneToManySeq::View;

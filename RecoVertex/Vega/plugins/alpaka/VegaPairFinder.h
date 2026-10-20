@@ -7,6 +7,7 @@
 
 #include "HeterogeneousCore/AlpakaInterface/interface/config.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/workdivision.h"
+#include "RecoVertex/Vega/interface/alpaka/VegaPairSoACollection.h"
 
 #include "VegaStructures.h"
 
@@ -24,7 +25,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
     PairFinder(const PairFinder&) = delete;
     PairFinder& operator=(const PairFinder&) = delete;
 
-    void find(TrkSoAConstView trks, TrkExtraSoAConstView trksExtra) const;
+    VegaPairSoACollection find(TrkSoAConstView trks, TrkExtraSoAConstView trksExtra) const;
 
   private:
     // parameters (stored by value to avoid dangling reference)
