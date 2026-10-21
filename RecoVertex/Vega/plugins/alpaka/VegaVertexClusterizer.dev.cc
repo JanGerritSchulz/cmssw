@@ -30,14 +30,20 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
                                   cms::alpakatools::AtomicPairCounter* apc) const {
       for (auto ip : cms::alpakatools::uniform_elements(acc, pairs.nPairs())) {
         TrkIdx trkTuplet[::vega::maxTracksPerVertex];
-        trkTuplet[0] = pairs[ip].idx1();
-        trkTuplet[1] = pairs[ip].idx2();
+        auto pair = pairs[ip];
+        trkTuplet[0] = pair.idx1();
+        trkTuplet[1] = pair.idx2();
         uint32_t nTracksInTuplet = 2;
 
         // put vertex candidate into the container
         auto iv = trkTuplets->bulkFill(acc, *apc, trkTuplet, nTracksInTuplet);
 
         if (iv != cms::alpakatools::kOverflow) {
+          auto vtx = vertices[iv];
+          vtx.x() = 0.0f;
+          vtx.y() = 0.0f;
+          vtx.z() = 0.0f;
+          vtx.t() = 0.0f;
           // add trkToVertex association
         } else {
 #if VEGA_VERTEX_WARNINGS
@@ -68,14 +74,16 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
 
       const auto maxTrkOffset = uint32_t(vtxTracks.metadata().size());
       for (auto iv : cms::alpakatools::uniform_elements(acc, nVertices)) {
-        vertices[iv].nTracks() = static_cast<uint8_t>(trkTuplets->size(iv));
-        vertices[iv].tracksOffset() = alpaka::math::min(acc, trkTuplets->off[iv + 1], maxTrkOffset);
+        auto vtx = vertices[iv];
+        vtx.nTracks() = static_cast<uint8_t>(trkTuplets->size(iv));
+        vtx.tracksOffset() = alpaka::math::min(acc, trkTuplets->off[iv + 1], maxTrkOffset);
       }
 
       const auto maxTracks = alpaka::math::min(acc, maxTrkOffset, trkTuplets->size());
       for (auto it : cms::alpakatools::uniform_elements(acc, maxTracks)) {
-        vtxTracks[it].id() = trkTuplets->content[it];
-        vtxTracks[it].weight() = 1.0f;
+        auto vtxTrks = vtxTracks[it];
+        vtxTrks.id() = trkTuplets->content[it];
+        vtxTrks.weight() = 1.0f;
       }
     }
   };
