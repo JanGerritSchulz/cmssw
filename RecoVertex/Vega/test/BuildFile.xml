@@ -3,3 +3,9 @@
   <use name="catch2"/>
   <flags ALPAKA_BACKENDS="1"/>
 </bin>
+
+<bin name="testAlpakaVegaVertexFit" file="alpaka/VegaVertexFit_test.cc alpaka/VegaVertexFit_test.dev.cc">
+  <use name="alpaka"/>
+  <use name="catch2"/>
+  <flags ALPAKA_BACKENDS="1"/>
+</bin>
