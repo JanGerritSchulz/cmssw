@@ -4,6 +4,7 @@ hltVegaVerticesSoA = cms.EDProducer('VegaVertexSoAProducer@alpaka',
     trackSoACollection = cms.InputTag('hltPhase2PixelTrackTorchHighPuritySelector'),
     maxVertices = cms.int32(4000),
     pairParams = cms.PSet(
+      minTrackQuality = cms.string("tight"),
       minPt = cms.float(0.9),
       maxDPhi = cms.float(0.4),
       maxDEta = cms.float(0.4),

@@ -77,11 +77,16 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
     ) const {
       for (TrkIdx i : cms::alpakatools::uniform_elements_y(acc, nTracks)) {
         const TrkIdx si = sortIdx[i];
+        auto itrk = trks[si];
+
+        if (itrk.quality() < params.minTrkQuality)
+          continue;
+
         const float idxy = ::reco::tip(trks, si);
         const float iz = ::reco::zip(trks, si);
         const float iphi = ::reco::phi(trks, si);
-        const float ieta = trks[si].eta();
-        const float icottheta = trks[si].state()(3);
+        const float ieta = itrk.eta();
+        const float icottheta = itrk.state()(3);  // FIXME hardcoded index!
         const float icosphi = alpaka::math::cos(acc, iphi);
         const float isinphi = alpaka::math::sin(acc, iphi);
         const float ix = -idxy * isinphi;
@@ -94,6 +99,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
 
           // find pairs by applying compatibility cuts
           const TrkIdx sj = sortIdx[j];
+          auto jtrk = trks[sj];
+
+          if (jtrk.quality() < params.minTrkQuality)
+            continue;
 
           // dz cut
           const float jz = ::reco::zip(trks, sj);
@@ -106,13 +115,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
             continue;
 
           // eta cut
-          const float jeta = trks[sj].eta();
+          const float jeta = jtrk.eta();
           if (alpaka::math::abs(acc, ieta - jeta) > params.maxDEta)
             continue;
 
           // linear distance cut
           const float jdxy = ::reco::tip(trks, sj);
-          const float jcottheta = trks[sj].state()(3);
+          const float jcottheta = jtrk.state()(3);
           const float jcosphi = alpaka::math::cos(acc, jphi);
           const float jsinphi = alpaka::math::sin(acc, jphi);
           const float jx = -jdxy * jsinphi;

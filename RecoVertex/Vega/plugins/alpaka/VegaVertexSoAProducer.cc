@@ -1,6 +1,7 @@
 #include <alpaka/alpaka.hpp>
 
 #include "DataFormats/TrackSoA/interface/alpaka/TracksSoACollection.h"
+#include "DataFormats/TrackSoA/interface/TrackDefinitions.h"
 #include "DataFormats/TrackSoA/interface/TracksDevice.h"
 #include "DataFormats/VertexSoA/interface/VertexSoA.h"
 #include "FWCore/Framework/interface/Frameworkfwd.h"
@@ -61,7 +62,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   VegaParams VegaVertexSoAProducer::getVegaParams(const edm::ParameterSet& iConfig) const {
     // configuration for track pair finding
     auto pairConfig = iConfig.getParameter<edm::ParameterSet>("pairParams");
-    ::vega::PairParams pairParams = {.minPt = pairConfig.getParameter<float>("minPt"),
+    ::vega::PairParams pairParams = {.minTrkQuality = pixelTrack::qualityByName(pairConfig.getParameter<std::string>("minTrackQuality")),
+                                     .minPt = pairConfig.getParameter<float>("minPt"),
                                      .maxDPhi = pairConfig.getParameter<float>("maxDPhi"),
                                      .maxDEta = pairConfig.getParameter<float>("maxDEta"),
                                      .maxDZ = pairConfig.getParameter<float>("maxDZ"),
@@ -89,6 +91,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     // Pair finding configuration
     // ----------------------------------------------
     edm::ParameterSetDescription pairParams;
+    pairParams.add<std::string>("minTrackQuality", "tight")->setComment("Minimum track quality for both tracks in the track pair");
     pairParams.add<float>("minPt", 0.9)->setComment("Minimum track pT for the leading track in the track pair");
     pairParams.add<float>("maxDPhi", 0.4)->setComment("Maximum difference in phi for the track pair");
     pairParams.add<float>("maxDEta", 0.4)->setComment("Maximum difference in eta for the track pair");
@@ -107,13 +110,12 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     tripletParams.add<float>("max3DDistance", 0.02)
         ->setComment("Maximum 3D distance for the track <-> best vertex-estimate of this triplet (using helices)");
     desc.add<edm::ParameterSetDescription>("tripletParams", tripletParams);
-    
+
     // ----------------------------------------------
     // Vertex clustering configuration
     // ----------------------------------------------
     edm::ParameterSetDescription vertexParams;
-    vertexParams.add<float>("maxChi2", 5.0)
-        ->setComment("Maximum chi-squared for the vertex fit");
+    vertexParams.add<float>("maxChi2", 5.0)->setComment("Maximum chi-squared for the vertex fit");
     desc.add<edm::ParameterSetDescription>("vertexParams", vertexParams);
 
     descriptions.addWithDefaultLabel(desc);

@@ -2,10 +2,12 @@
 #define RecoVertex_Vega_plugins_VegaParams_h
 
 #include <type_traits>
+#include "DataFormats/TrackSoA/interface/TrackDefinitions.h"
 
 namespace vega {
 
   struct PairParams {
+    const pixelTrack::Quality minTrkQuality;
     float minPt;
     float maxDPhi;
     float maxDEta;
