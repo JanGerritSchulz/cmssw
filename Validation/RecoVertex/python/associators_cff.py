@@ -10,7 +10,8 @@ from Validation.RecoTrack.associators_cff import (
 
 # Vertex associators
 from SimTracker.VertexAssociation.vertexAssociatorByPositionAndTracksProducer_cfi import vertexAssociatorByPositionAndTracksProducer as _VertexAssociatorByPositionAndTracks
-from SimTracker.VertexAssociation.secondaryVertexAssociatorByPositionAndTracks_cfi import secondaryVertexAssociatorByPositionAndTracksCPC as _SecondaryVertexAssociatorByPositionAndTracks
+from SimTracker.VertexAssociation.secondaryVertexAssociatorByPositionAndTracks_cfi import secondaryVertexAssociatorByPositionAndTracksCPC as _SecondaryVertexAssociatorByPositionAndTracksCPC
+from SimTracker.VertexAssociation.secondaryVertexAssociatorByPositionAndTracks_cfi import secondaryVertexAssociatorByPositionAndTracks as _SecondaryVertexAssociatorByPositionAndTracks
 
 # Vertex association producers
 from SimTracker.VertexAssociation.vertexCompositePtrCandidateAssociatorEDProducer_cfi import vertexCompositePtrCandidateAssociatorEDProducer as _VertexAssociationCPC
@@ -50,14 +51,30 @@ hltPVAssociatorByPositionAndTracks4pfMuonMergingTracks = _VertexAssociatorByPosi
 )
 
 # -------------- SVs from hltGeneralTracks ---------------------------------------------------------------------------
-hltSVAssociatorByPositionAndTracks4GeneralTracks = _SecondaryVertexAssociatorByPositionAndTracks.clone(
+hltSVAssociatorByPositionAndTracks4GeneralTracks = _SecondaryVertexAssociatorByPositionAndTracksCPC.clone(
     trackAssociations = ["tpToHLTGeneralTrackAssociation"],
     ignoreMissingAssociations = True
 )
-hltSVAssociation = _VertexAssociationCPC.clone(
+hltSVAssociationCPC = _VertexAssociationCPC.clone(
     recoVertices = cms.InputTag("hltDeepInclusiveMergedVerticesPF"),
     simVertices = cms.InputTag("mix", "MergedTrackTruth"),
     associator = cms.InputTag("hltSVAssociatorByPositionAndTracks4GeneralTracks"),
+)
+
+# -------------- SVs from hltPhase2PixelTracks ----------------------------------------------------------------------
+hltSVAssociatorByPositionAndTracks4PixelTracks = _SecondaryVertexAssociatorByPositionAndTracks.clone(
+    trackAssociations = ["tpToHLTpixelTrackAssociation"],
+    ignoreMissingAssociations = True
+)
+hltSVAssociation = _VertexAssociationCPC.clone(
+    recoVertices = cms.InputTag("hltDeepInclusiveMergedVertices"),
+    simVertices = cms.InputTag("mix", "MergedTrackTruth"),
+    associator = cms.InputTag("hltSVAssociatorByPositionAndTracks4PixelTracks"),
+)
+hltVegaAssociation = _VertexAssociationCPC.clone(
+    recoVertices = cms.InputTag("hltVegaVertices"),
+    simVertices = cms.InputTag("mix", "MergedTrackTruth"),
+    associator = cms.InputTag("hltSVAssociatorByPositionAndTracks4PixelTracks"),
 )
 
 
@@ -81,6 +98,10 @@ hltPVAssociationsTask = cms.Task(
 # SV validation association task
 hltSVAssociationsTask = cms.Task(
     tpToHLTGeneralTrackAssociation,
+    tpToHLTpixelTrackAssociation,
     hltSVAssociatorByPositionAndTracks4GeneralTracks,
+    hltSVAssociatorByPositionAndTracks4PixelTracks,
     hltSVAssociation,
+    hltSVAssociationCPC,
+    hltVegaAssociation
 )
