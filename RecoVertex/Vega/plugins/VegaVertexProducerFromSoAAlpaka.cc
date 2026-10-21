@@ -25,6 +25,7 @@
 #include "TrackingTools/TransientTrack/interface/TransientTrackBuilder.h"
 #include "TrackingTools/Records/interface/TransientTrackRecord.h"
 
+#define VEGA_CONVERTER_DEBUG 0
 #define VEGA_CONVERTER_WARNINGS 1
 
 class VegaVertexProducerFromSoAAlpaka : public edm::global::EDProducer<> {
@@ -74,8 +75,8 @@ VegaVertexProducerFromSoAAlpaka::FitParamsAVF VegaVertexProducerFromSoAAlpaka::g
   auto fitConfig = iConfig.getParameter<edm::ParameterSet>("paramsAVF");
 
   return FitParamsAVF{.sigmacut = fitConfig.getParameter<double>("sigmacut"),
-          .tini = fitConfig.getParameter<double>("tini"),
-          .ratio = fitConfig.getParameter<double>("ratio")};
+                      .tini = fitConfig.getParameter<double>("tini"),
+                      .ratio = fitConfig.getParameter<double>("ratio")};
 }
 
 void VegaVertexProducerFromSoAAlpaka::fillDescriptions(edm::ConfigurationDescriptions &descriptions) {
@@ -127,9 +128,19 @@ void VegaVertexProducerFromSoAAlpaka::produce(edm::StreamID iStreamID,
     }
   }
 
+#if VEGA_CONVERTER_DEBUG
+  printf("VegaVertexProducerFromSoAAlpaka: Everything is setup - start looping over vertices from SoA\n");
+#endif
+
   for (auto iv = 0u; iv < nVertices; iv++) {
+    vtxTrackIds.clear();
+
     assert(iv < nVertices);
     assert(vtxTrackIds.empty());
+
+#if VEGA_CONVERTER_DEBUG
+    printf("VegaVertexProducerFromSoAAlpaka: Start with Vertex %d\n", iv);
+#endif
 
     auto vtx = vertexSoA.view().vertex()[iv];
 
@@ -137,9 +148,23 @@ void VegaVertexProducerFromSoAAlpaka::produce(edm::StreamID iStreamID,
       if (vtxTracksSoA[it].weight() >= minTrackWeight_) {
         auto trackIdSoA = vtxTracksSoA[it].id();
         auto trackIdEdm = indToEdm[trackIdSoA];
-        vtxTrackIds.push_back(trackIdEdm);
+        if (trackIdEdm != pixelTrack::skippedTrack)
+          vtxTrackIds.push_back(trackIdEdm);
+
+#if VEGA_CONVERTER_WARNINGS
+        else
+          printf(
+              "VegaVertexProducerFromSoAAlpaka: Vertex %d has track %d (in SoA) which is not present in EDM - skip the "
+              "track\n",
+              iv,
+              trackIdSoA);
+#endif
       }
     }
+
+#if VEGA_CONVERTER_DEBUG
+    printf("VegaVertexProducerFromSoAAlpaka: Vertex %d - done with collecting tracks\n", iv);
+#endif
 
     auto nt = vtxTrackIds.size();
     if (nt < 2) {
@@ -152,6 +177,10 @@ void VegaVertexProducerFromSoAAlpaka::produce(edm::StreamID iStreamID,
     GlobalPoint position(vtx.x(), vtx.y(), vtx.z());
 
     TransientVertex vtxEdm;
+
+#if VEGA_CONVERTER_DEBUG
+    printf("VegaVertexProducerFromSoAAlpaka: Vertex %d - done with position\n", iv);
+#endif
 
     if (refitVertices_) {
       // created TransientTrack vector of the vertex
@@ -171,11 +200,22 @@ void VegaVertexProducerFromSoAAlpaka::produce(edm::StreamID iStreamID,
       }
     }
 
+#if VEGA_CONVERTER_DEBUG
+    printf("VegaVertexProducerFromSoAAlpaka: Vertex %d - done with refitting\n", iv);
+#endif
+
     vertices->push_back(reco::Vertex(vtxEdm));
-    vtxTrackIds.clear();
+
+#if VEGA_CONVERTER_DEBUG
+    printf("VegaVertexProducerFromSoAAlpaka: Vertex %d - done with pushing it to the EDM collection\n", iv);
+#endif
   }
 
   iEvent.put(std::move(vertices));
+
+#if VEGA_CONVERTER_DEBUG
+  printf("VegaVertexProducerFromSoAAlpaka: done\n");
+#endif
 }
 
 DEFINE_FWK_MODULE(VegaVertexProducerFromSoAAlpaka);

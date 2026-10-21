@@ -29,7 +29,9 @@ namespace vega::structs {
   using PairIdx = uint16_t;
 
   using VtxSoAView = ::reco::VertexSoAView;
+  using VtxSoAConstView = ::reco::VertexSoAConstView;
   using VtxTrkSoAView = ::reco::VertexTracksSoAView;
+  using VtxTrkSoAConstView = ::reco::VertexTracksSoAConstView;
   using TrkSoAConstView = ::reco::TrackSoAConstView;
   using TrkExtraSoAView = ::vega::TrackExtraSoAView;
   using TrkExtraSoAConstView = ::vega::TrackExtraSoAConstView;

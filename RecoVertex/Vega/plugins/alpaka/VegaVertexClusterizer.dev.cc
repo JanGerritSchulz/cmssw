@@ -8,7 +8,7 @@
 
 #include "VegaVertexClusterizer.h"
 
-#define VEGA_VERTEX_DEBUG 1
+#define VEGA_VERTEX_DEBUG 0
 #define VEGA_VERTEX_WARNINGS 1
 #define VEGA_VERTEX_PRINTALL 0
 
@@ -88,6 +88,27 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
     }
   };
 
+  class KernelPrintVertices {
+  public:
+    ALPAKA_FN_ACC void operator()(Acc1D const& acc, VtxSoAConstView vertices, VtxTrkSoAConstView vtxTracks) const {
+      for (auto iv{0u}; iv < vertices.nVertices(); ++iv) {
+        auto vtx = vertices[iv];
+        auto beginTrk = (iv == 0u) ? 0u : vertices[iv - 1u].tracksOffset();
+        auto endTrk = vtx.tracksOffset();
+        printf("KernelPrintVertices: Vertex %d with nTrks=%d, x=%f, y=%f, z=%f, t=%f\n     Tracks (weights): ",
+               iv,
+               vtx.nTracks(),
+               vtx.x(),
+               vtx.y(),
+               vtx.z(),
+               vtx.t());
+        for (auto it = beginTrk; it < endTrk; it++)
+          printf("%d (%f), ", vtxTracks[it].id(), vtxTracks[it].weight());
+        printf("\n");
+      }
+    }
+  };
+
   // -------------------------------------------------------------
   // MAIN FUNCTION
   // -------------------------------------------------------------
@@ -95,12 +116,19 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
   reco::VertexSoACollection VertexClusterizer::cluster(TrkSoAConstView trks,
                                                        TrkExtraSoAConstView trksExtra,
                                                        VegaPairSoAConstView pairs) const {
-    reco::VertexSoACollection vertexCollection(queue_, maxVertices_, nTracks_);
+    reco::VertexSoACollection vertexCollection(queue_, maxVertices_, 4 * nTracks_);  // FIXME: arbitrary number
     vertexCollection.zeroInitialise(queue_);
     auto vertices = vertexCollection.view().vertex();
     auto vtxTracks = vertexCollection.view().tracks();
 
-    auto trkTuplets = PortableOneToManyAssoc<VtxToTrack>(queue_, maxVertices_, nTracks_ * ::vega::maxTracksPerVertex);
+#if VEGA_VERTEX_DEBUG
+    printf("Create PortableOneToManyAssoc with maxVertices=%d and nVertices*maxTracksPerVertex=%d\n",
+           maxVertices_,
+           (maxVertices_ * ::vega::maxTracksPerVertex));
+#endif
+
+    auto trkTuplets =
+        PortableOneToManyAssoc<VtxToTrack>(queue_, maxVertices_, maxVertices_ * ::vega::maxTracksPerVertex);
     auto trkTupletsAPC = cms::alpakatools::make_device_buffer<cms::alpakatools::AtomicPairCounter>(queue_);
     alpaka::memset(queue_, trkTupletsAPC, 0);
 
@@ -128,6 +156,17 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
 
     alpaka::exec<Acc1D>(queue_,
                         workDivFillTracksIntoVertex,
+                        typename VtxToTrack::finalizeBulk{},
+                        trkTupletsAPC.data(),
+                        trkTuplets.data());
+
+#if VEGA_VERTEX_DEBUG
+    printf("VertexClusterizer::cluster: VtxToTrack::finalizeBulk done\n");
+    alpaka::wait(queue_);
+#endif
+
+    alpaka::exec<Acc1D>(queue_,
+                        workDivFillTracksIntoVertex,
                         KernelFillTracksIntoVertex{},
                         trkTuplets.data(),
                         trkTupletsAPC.data(),
@@ -136,6 +175,14 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
 
 #if VEGA_VERTEX_DEBUG
     printf("VertexClusterizer::cluster: KernelFillTracksIntoVertex done\n");
+    alpaka::wait(queue_);
+#endif
+
+#if VEGA_VERTEX_PRINTALL
+    const auto workDivPrintVertices = cms::alpakatools::make_workdiv<Acc1D>(1u, 1u);
+    alpaka::exec<Acc1D>(queue_, workDivPrintVertices, KernelPrintVertices{}, vertices, vtxTracks);
+
+    printf("VertexClusterizer::cluster: done printing the vertices\n");
     alpaka::wait(queue_);
 #endif
 
