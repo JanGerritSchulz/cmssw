@@ -16,5 +16,5 @@ hltDeepTrackVertexArbitrator = cms.EDProducer("TrackVertexArbitrator",
     trackMinLayers = cms.int32(4),
     trackMinPixels = cms.int32(1),
     trackMinPt = cms.double(1.4),
-    tracks = cms.InputTag("hltGeneralTracks")
+    tracks = cms.InputTag("hltPhase2PixelTracks")
 )

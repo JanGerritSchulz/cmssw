@@ -20,10 +20,10 @@ hltDeepInclusiveVertexFinder = cms.EDProducer("InclusiveVertexFinder",
     maximumLongitudinalImpactParameter = cms.double(0.2),
     maximumTimeSignificance = cms.double(3),
     mightGet = cms.optional.untracked.vstring,
-    minHits = cms.uint32(8),
+    minHits = cms.uint32(4),
     minPt = cms.double(1.4),
     primaryVertices = cms.InputTag("hltOfflinePrimaryVertices"),
-    tracks = cms.InputTag("hltGeneralTracks"),
+    tracks = cms.InputTag("hltPhase2PixelTracks"),
     useDirectVertexFitter = cms.bool(True),
     useVertexReco = cms.bool(True),
     vertexMinAngleCosine = cms.double(0.95),
@@ -36,6 +36,3 @@ hltDeepInclusiveVertexFinder = cms.EDProducer("InclusiveVertexFinder",
         smoothing = cms.bool(True)
     )
 )
-
-from Configuration.ProcessModifiers.ngtScouting_cff import ngtScouting
-ngtScouting.toModify(hltDeepInclusiveVertexFinder, minHits = cms.uint32(4))
