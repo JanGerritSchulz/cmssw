@@ -71,17 +71,22 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega::vertexfit {
   // genuinely degenerate (near-parallel) track pairs, which the LM damping
   // in profileArcLength already flags; a small pivot guard keeps the
   // determinant away from exact zero.
+  // returns false for singular / non-finite input (NaN fails the comparisons)
   template <typename TAcc>
-  ALPAKA_FN_ACC ALPAKA_FN_INLINE SymMat3 inverseSym(TAcc const& acc, SymMat3 const& m) {
-    const float c_xx = m.yy * m.zz - m.yz * m.yz;
-    const float c_xy = m.xz * m.yz - m.xy * m.zz;
-    const float c_xz = m.xy * m.yz - m.xz * m.yy;
-    const float c_yy = m.xx * m.zz - m.xz * m.xz;
-    const float c_yz = m.xy * m.xz - m.xx * m.yz;
-    const float c_zz = m.xx * m.yy - m.xy * m.xy;
-    const float det = alpaka::math::max(acc, m.xx * c_xx + m.xy * c_xy + m.xz * c_xz, 1e-12f);
-    const float inv = 1.f / det;
-    return {c_xx * inv, c_xy * inv, c_xz * inv, c_yy * inv, c_yz * inv, c_zz * inv};
+  ALPAKA_FN_ACC ALPAKA_FN_INLINE bool inverseSym(TAcc const& acc, SymMat3 const& m, SymMat3& out) {
+    const float s = (m.xx + m.yy + m.zz) * (1.0 / 3.0);
+    if (!(s > 0.0))
+      return false;
+    const float is = 1.0 / s;
+    const float xx = m.xx * is, xy = m.xy * is, xz = m.xz * is, yy = m.yy * is, yz = m.yz * is, zz = m.zz * is;
+    const float cxx = yy * zz - yz * yz, cxy = xz * yz - xy * zz, cxz = xy * yz - xz * yy;
+    const float cyy = xx * zz - xz * xz, cyz = xy * xz - xx * yz, czz = xx * yy - xy * xy;
+    const float det = xx * cxx + xy * cxy + xz * cxz;
+    if (!(det > 1e-20))
+      return false;
+    const float k = is / det;
+    out = {float(cxx * k), float(cxy * k), float(cxz * k), float(cyy * k), float(cyz * k), float(czz * k)};
+    return true;
   }
 
   // -----------------------------------------------------------------------
