@@ -29,24 +29,28 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
           const float dxy = ::reco::tip(trks, it);
           const float q = ::reco::charge(trks, it);
           const float r = trks[it].pt() / (SPEED_OF_LIGHT_FACTOR * bField);
-          trksExtra[it].q() = q;
-          trksExtra[it].r() = r;
+
+          auto trkExt = trksExtra[it];
+          trkExt.q() = q;
+          trkExt.r() = r;
           const float sinPhi = alpaka::math::sin(acc, phi);
           const float cosPhi = alpaka::math::cos(acc, phi);
-          trksExtra[it].cx() = (dxy + q * r) * sinPhi;
-          trksExtra[it].cy() = (-dxy - q * r) * cosPhi;
-          trksExtra[it].refAngle() = reducePhiRange(acc, phi + q * std::numbers::pi_v<float> / 2.0f);
+          trkExt.cx() = (dxy + q * r) * sinPhi;
+          trkExt.cy() = (-dxy - q * r) * cosPhi;
+          trkExt.refAngle() = reducePhiRange(acc, phi + q * std::numbers::pi_v<float> / 2.0f);
+          trkExt.sinPhi() = sinPhi;
+          trkExt.cosPhi() = cosPhi;
 
 #if VEGA_ALGO_PRINTALL
           printf("Track %d: phi=%f, dxy=%f, q=%f, r=%f, cx=%f, cy=%f, refAngle=%f\n",
                  it,
                  phi,
                  dxy,
-                 trksExtra[it].q(),
-                 trksExtra[it].r(),
-                 trksExtra[it].cx(),
-                 trksExtra[it].cy(),
-                 trksExtra[it].refAngle());
+                 trkExt.q(),
+                 trkExt.r(),
+                 trkExt.cx(),
+                 trkExt.cy(),
+                 trkExt.refAngle());
 #endif
         }
       }

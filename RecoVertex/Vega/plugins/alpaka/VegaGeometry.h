@@ -39,6 +39,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega::geometry {
     float refAngle;  // angular position of the reference point on the circle
     float refZ;      // z of the reference point
     float cotTheta;  // dz per unit signed transverse arc length
+    float sinPhi;
+    float cosPhi;
+    float pt;
   };
 
   // Result of the circle-circle closest-approach search in x-y.

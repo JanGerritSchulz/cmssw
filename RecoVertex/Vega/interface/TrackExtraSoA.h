@@ -12,7 +12,9 @@ namespace vega {
                       SOA_COLUMN(float, cy),        // circle center in x-y plane (y-coordinate)
                       SOA_COLUMN(float, r),         // circle radius
                       SOA_COLUMN(float, q),         // charge/sign
-                      SOA_COLUMN(float, refAngle))  // reference angle as seen from circle center
+                      SOA_COLUMN(float, refAngle),  // reference angle as seen from circle center
+                      SOA_COLUMN(float, sinPhi),    // sin of the azimuthal angle of the track
+                      SOA_COLUMN(float, cosPhi))    // cos of the azimuthal angle of the track
 
   using TrackExtraSoA = TrackExtraSoALayout<>;
   using TrackExtraSoAView = TrackExtraSoA::View;

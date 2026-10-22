@@ -50,6 +50,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega::vertexfit {
   struct SymMat3 {
     float xx, xy, xz, yy, yz, zz;
   };
+  struct SymMat3d {
+    double xx, xy, xz, yy, yz, zz;
+  };
 
   ALPAKA_FN_HOST_ACC ALPAKA_FN_INLINE SymMat3 operator+(SymMat3 a, SymMat3 b) {
     return {a.xx + b.xx, a.xy + b.xy, a.xz + b.xz, a.yy + b.yy, a.yz + b.yz, a.zz + b.zz};
@@ -109,12 +112,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega::vertexfit {
 
   // Position-space covariance Sigma = J C J^T of the track's helix position
   // at arc length l, and its inverse (the weight W used in the fit).
-  //
-  // FIXME: the exact Jacobian entries depend on the SoA parametrization's
-  // sign conventions (dxy sign, qOverPt vs q/pt) and must be validated
-  // against vertexfit.py's transport on identical tracks before physics
-  // use - the structure below is the scaffold, the entries are the part to
-  // fill in carefully.
   template <typename TAcc>
   ALPAKA_FN_ACC ALPAKA_FN_INLINE SymMat3
   positionWeight(TAcc const& acc, HelixGeom const& trk, TrackCovariance const& cov, float l) {
@@ -123,9 +120,16 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega::vertexfit {
     const float cosAlpha = alpaka::math::cos(acc, alpha);
 
     // Jacobian rows (x, y, z) x cols (phi, dxy, qOverPt, cotTheta, dz).
-    // Placeholder entries - to be derived and validated (see FIXME above).
-    const float j[3][5] = {{/* x */ -trk.q * trk.r * cosAlpha, -sinAlpha, 0.f, 0.f, 0.f},
-                           {/* y */ -trk.q * trk.r * sinAlpha, cosAlpha, 0.f, 0.f, 0.f},
+    const float j[3][5] = {{/* x */ -trk.cy - trk.r * sinAlpha,
+                            trk.sinPhi,
+                            trk.pt * (-trk.r * trk.sinPhi - trk.q * trk.r * cosAlpha + l * sinAlpha),
+                            0.f,
+                            0.f},
+                           {/* y */ trk.cx + trk.r * cosAlpha,
+                            -trk.cosPhi,
+                            trk.pt * (trk.r * trk.cosPhi - trk.q * trk.r * sinAlpha - l * cosAlpha),
+                            0.f,
+                            0.f},
                            {/* z */ 0.f, 0.f, 0.f, l, 1.f}};
 
     // Sigma = J C J^T, exploiting the block-diagonal C: the {phi,dxy,qOverPt}
@@ -139,24 +143,31 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega::vertexfit {
       for (int b = 0; b < 3; ++b) {
         sigma.xx += j[0][a] * c3[a][b] * j[0][b];
         sigma.xy += j[0][a] * c3[a][b] * j[1][b];
-        sigma.xz += j[0][a] * c3[a][b] * j[2][b];
+        // sigma.xz += j[0][a] * c3[a][b] * j[2][b]; // j[2][0...2] = 0
         sigma.yy += j[1][a] * c3[a][b] * j[1][b];
-        sigma.yz += j[1][a] * c3[a][b] * j[2][b];
-        sigma.zz += j[2][a] * c3[a][b] * j[2][b];
+        // sigma.yz += j[1][a] * c3[a][b] * j[2][b]; // j[2][0...2] = 0
+        // sigma.zz += j[2][a] * c3[a][b] * j[2][b]; // j[2][0...2] = 0
       }
     // line-fit block (indices 3..4)
-    const float c2[2][2] = {{cov.varCotTheta, cov.covCotThetaDz}, {cov.covCotThetaDz, cov.varDz}};
-    for (int a = 0; a < 2; ++a)
-      for (int b = 0; b < 2; ++b) {
-        sigma.xx += j[0][a + 3] * c2[a][b] * j[0][b + 3];
-        sigma.xy += j[0][a + 3] * c2[a][b] * j[1][b + 3];
-        sigma.xz += j[0][a + 3] * c2[a][b] * j[2][b + 3];
-        sigma.yy += j[1][a + 3] * c2[a][b] * j[1][b + 3];
-        sigma.yz += j[1][a + 3] * c2[a][b] * j[2][b + 3];
-        sigma.zz += j[2][a + 3] * c2[a][b] * j[2][b + 3];
-      }
+    // Full math:
+    // const float c2[2][2] = {{cov.varCotTheta, cov.covCotThetaDz}, {cov.covCotThetaDz, cov.varDz}};
+    // for (int a = 0; a < 2; ++a)
+    //   for (int b = 0; b < 2; ++b) {
+    //     sigma.xx += j[0][a + 3] * c2[a][b] * j[0][b + 3];
+    //     sigma.xy += j[0][a + 3] * c2[a][b] * j[1][b + 3];
+    //     sigma.xz += j[0][a + 3] * c2[a][b] * j[2][b + 3];
+    //     sigma.yy += j[1][a + 3] * c2[a][b] * j[1][b + 3];
+    //     sigma.yz += j[1][a + 3] * c2[a][b] * j[2][b + 3];
+    //     sigma.zz += j[2][a + 3] * c2[a][b] * j[2][b + 3];
+    //   }
+    // However, doing the math explicitly, you will just find
+    sigma.zz = j[2][3] * j[2][3] * cov.varCotTheta + 2 * j[2][3] * cov.covCotThetaDz + cov.varDz;
 
-    return inverseSym(acc, sigma);
+    SymMat3 weights;
+    inverseSym(acc, sigma, weights);
+    // if (!inverseValid)
+    //   printf("VegaVertexFit: Warning invalid weights matrix due to failing matrix inversion!");
+    return weights;
   }
 
   // -----------------------------------------------------------------------
@@ -260,7 +271,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega::vertexfit {
     const Point3D b{w1.xx * x1.x + w1.xy * x1.y + w1.xz * x1.z + w2.xx * x2.x + w2.xy * x2.y + w2.xz * x2.z,
                     w1.xy * x1.x + w1.yy * x1.y + w1.yz * x1.z + w2.xy * x2.x + w2.yy * x2.y + w2.yz * x2.z,
                     w1.xz * x1.x + w1.yz * x1.y + w1.zz * x1.z + w2.xz * x2.x + w2.yz * x2.y + w2.zz * x2.z};
-    return mul(inverseSym(acc, a), b);
+    SymMat3 ia;
+    inverseSym(acc, a, ia);
+    return mul(ia, b);
   }
 
   // -----------------------------------------------------------------------
@@ -325,7 +338,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega::vertexfit {
     const Point3D x1 = geometry::helixPosition(acc, t1, l1);
     const Point3D x2 = geometry::helixPosition(acc, t2, l2);
     v = weightedPoint(acc, x1, w1eff, x2, w2eff);
-    const SymMat3 covariance = inverseSym(acc, w1eff + w2eff);
+    SymMat3 covariance;
+    inverseSym(acc, w1eff + w2eff, covariance);
     const Point3D r1 = x1 - v;
     const Point3D r2 = x2 - v;
     const float chi2 = dot(r1, mul(w1eff, r1)) + dot(r2, mul(w2eff, r2));

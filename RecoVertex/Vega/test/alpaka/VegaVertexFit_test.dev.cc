@@ -31,21 +31,21 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     constexpr int nTestPairs = 4;
     constexpr TrackPairArray<nTestPairs> testTrackPairs{
         {// [clean_prompt_signal] track 0
-         {HelixGeom{-140.05367f, 19.345122f, 141.38297f, 1.0f, -0.13725798f, -3.5074148f, 0.094997527f},
+         {HelixGeom{-140.05367f, 19.345122f, 141.38297f, 1.0f, -0.13725798f, -3.5074148f, 0.094997527f, -0.990595f, -0.136827f, 1.611766f},
           // [clean_prompt_signal] track 1
-          HelixGeom{-219.05944f, 8.7449535f, 219.23283f, 1.0f, -0.039899274f, -3.5081093f, -0.38020528f}},
+          HelixGeom{-219.05944f, 8.7449535f, 219.23283f, 1.0f, -0.039899274f, -3.5081093f, -0.38020528f, -0.999204f, -0.039889f, 2.499254f}},
          // [clean_displaced_signal] track 0
-         {HelixGeom{-247.74449f, -176.66185f, 304.26488f, -1.0f, 0.61945121f, -0.77098292f, -3.4255075f},
+         {HelixGeom{-247.74449f, -176.66185f, 304.26488f, -1.0f, 0.61945121f, -0.77098292f, -3.4255075f, 0.814197f, -0.580588f, 3.468620f},
           // [clean_displaced_signal] track 1
-          HelixGeom{143.41799f, 107.86092f, 179.43043f, 1.0f, -2.4967656f, -0.73834729f, -3.4372645f}},
+          HelixGeom{143.41799f, 107.86092f, 179.43043f, 1.0f, -2.4967656f, -0.73834729f, -3.4372645f, 0.799204f, -0.601060f, 2.045507f}},
          // [confidently_wrong_basin_highpt] track 0
-         {HelixGeom{-286.52465f, -1903.6037f, 1925.046f, 1.0f, 1.4214008f, -5.5792575f, 2.6386111f},
+         {HelixGeom{-286.52465f, -1903.6037f, 1925.046f, 1.0f, 1.4214008f, -5.5792575f, 2.6386111f, -0.148840f, 0.988861f, 21.945524f},
           // [confidently_wrong_basin_highpt] track 1
-          HelixGeom{229.11975f, 1328.0728f, 1347.6916f, -1.0f, -1.7416351f, -5.5785546f, 2.6385647f}},
+          HelixGeom{229.11975f, 1328.0728f, 1347.6916f, -1.0f, -1.7416351f, -5.5785546f, 2.6385647f, -0.170009f, 0.985443f, 15.363685f}},
          // [background_pair] track 0
-         {HelixGeom{-83.913287f, -146.20206f, 168.57711f, -1.0f, 1.0497483f, -3.4804566f, -2.5410525f},
+         {HelixGeom{-83.913287f, -146.20206f, 168.57711f, -1.0f, 1.0497483f, -3.4804566f, -2.5410525f, 0.497789f, -0.867298f, 1.921779f},
           // [background_pair] track 1
-          HelixGeom{65.588648f, 244.70726f, 253.34195f, 1.0f, -1.8326702f, -3.4525764f, -0.1919519f}}}};
+          HelixGeom{65.588648f, 244.70726f, 253.34195f, 1.0f, -1.8326702f, -3.4525764f, -0.1919519f, 0.258891f, -0.965907f, 2.888098f}}}};
 
     // Per-track covariances (block-diagonal: {phi,dxy,qOverPt} + {cotTheta,dz}).
     constexpr CovPairArray<nTestPairs> testCovariances{{

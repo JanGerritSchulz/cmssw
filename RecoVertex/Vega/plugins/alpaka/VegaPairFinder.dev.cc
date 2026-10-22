@@ -187,21 +187,31 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
         auto cand = pairCands[c];
         const TrkIdx i1 = cand.idx1();
         const TrkIdx i2 = cand.idx2();
+        auto tk1 = trks[i1];
+        auto tk2 = trks[i2];
+        auto te1 = trksExtra[i1];
+        auto te2 = trksExtra[i2];
 
-        const geometry::HelixGeom t1 = geometry::HelixGeom{.cx = trksExtra[i1].cx(),
-                                                           .cy = trksExtra[i1].cy(),
-                                                           .r = trksExtra[i1].r(),
-                                                           .q = trksExtra[i1].q(),
-                                                           .refAngle = trksExtra[i1].refAngle(),
+        const geometry::HelixGeom t1 = geometry::HelixGeom{.cx = te1.cx(),
+                                                           .cy = te1.cy(),
+                                                           .r = te1.r(),
+                                                           .q = te1.q(),
+                                                           .refAngle = te1.refAngle(),
                                                            .refZ = ::reco::zip(trks, i1),
-                                                           .cotTheta = trks[i1].state()(3)};
-        const geometry::HelixGeom t2 = geometry::HelixGeom{.cx = trksExtra[i2].cx(),
-                                                           .cy = trksExtra[i2].cy(),
-                                                           .r = trksExtra[i2].r(),
-                                                           .q = trksExtra[i2].q(),
-                                                           .refAngle = trksExtra[i2].refAngle(),
+                                                           .cotTheta = tk1.state()(3),
+                                                           .sinPhi = te1.sinPhi(),
+                                                           .cosPhi = te1.cosPhi(),
+                                                           .pt = tk1.pt()};
+        const geometry::HelixGeom t2 = geometry::HelixGeom{.cx = te2.cx(),
+                                                           .cy = te2.cy(),
+                                                           .r = te2.r(),
+                                                           .q = te2.q(),
+                                                           .refAngle = te2.refAngle(),
                                                            .refZ = ::reco::zip(trks, i2),
-                                                           .cotTheta = trks[i2].state()(3)};
+                                                           .cotTheta = tk2.state()(3),
+                                                           .sinPhi = te2.sinPhi(),
+                                                           .cosPhi = te2.cosPhi(),
+                                                           .pt = tk2.pt()};
 
         float l1, l2;
         geometry::smartStartArcLengths(acc, t1, t2, l1, l2);
