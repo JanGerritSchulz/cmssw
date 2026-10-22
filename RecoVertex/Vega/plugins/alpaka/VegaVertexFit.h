@@ -37,10 +37,10 @@
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE::vega::vertexfit {
 
-  using geometry::HelixGeom;
-  using geometry::Point3D;
   using geometry::dot;
+  using geometry::HelixGeom;
   using geometry::norm2;
+  using geometry::Point3D;
 
   // -----------------------------------------------------------------------
   // Small fixed-size linear algebra (symmetric 3x3, in registers)
@@ -111,20 +111,17 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega::vertexfit {
   // use - the structure below is the scaffold, the entries are the part to
   // fill in carefully.
   template <typename TAcc>
-  ALPAKA_FN_ACC ALPAKA_FN_INLINE SymMat3 positionWeight(TAcc const& acc,
-                                                        HelixGeom const& trk,
-                                                        TrackCovariance const& cov,
-                                                        float l) {
-    const float theta = trk.refAngle - trk.q * l / trk.r;
-    const float sinTheta = alpaka::math::sin(acc, theta);
-    const float cosTheta = alpaka::math::cos(acc, theta);
+  ALPAKA_FN_ACC ALPAKA_FN_INLINE SymMat3
+  positionWeight(TAcc const& acc, HelixGeom const& trk, TrackCovariance const& cov, float l) {
+    const float alpha = trk.refAngle - trk.q * l / trk.r;
+    const float sinAlpha = alpaka::math::sin(acc, alpha);
+    const float cosAlpha = alpaka::math::cos(acc, alpha);
 
     // Jacobian rows (x, y, z) x cols (phi, dxy, qOverPt, cotTheta, dz).
     // Placeholder entries - to be derived and validated (see FIXME above).
-    const float j[3][5] = {
-        {/* x */ -trk.q * trk.r * cosTheta, -sinTheta, 0.f, 0.f, 0.f},
-        {/* y */ -trk.q * trk.r * sinTheta, cosTheta, 0.f, 0.f, 0.f},
-        {/* z */ 0.f, 0.f, 0.f, l, 1.f}};
+    const float j[3][5] = {{/* x */ -trk.q * trk.r * cosAlpha, -sinAlpha, 0.f, 0.f, 0.f},
+                           {/* y */ -trk.q * trk.r * sinAlpha, cosAlpha, 0.f, 0.f, 0.f},
+                           {/* z */ 0.f, 0.f, 0.f, l, 1.f}};
 
     // Sigma = J C J^T, exploiting the block-diagonal C: the {phi,dxy,qOverPt}
     // block contributes to x,y only, the {cotTheta,dz} block to z only.
@@ -166,10 +163,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega::vertexfit {
   // z is linear in l so its second derivative vanishes.
   template <typename TAcc>
   ALPAKA_FN_ACC ALPAKA_FN_INLINE Point3D helixSecondDerivative(TAcc const& acc, HelixGeom const& trk, float l) {
-    const float theta = trk.refAngle - trk.q * l / trk.r;
-    const float sinTheta = alpaka::math::sin(acc, theta);
-    const float cosTheta = alpaka::math::cos(acc, theta);
-    return {-cosTheta / trk.r, -sinTheta / trk.r, 0.f};
+    const float alpha = trk.refAngle - trk.q * l / trk.r;
+    const float sinAlpha = alpaka::math::sin(acc, alpha);
+    const float cosAlpha = alpaka::math::cos(acc, alpha);
+    return {-cosAlpha / trk.r, -sinAlpha / trk.r, 0.f};
   }
 
   // Find the arc length minimizing track i's weighted residual against the
@@ -181,7 +178,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega::vertexfit {
   //   H(l) = d^T W d + (x(l) - V)^T W d'(l)
   //
   // Do NOT replace this with the closed-form transverse-only projection
-  // (theta = atan2(Vy-Cy, Vx-Cx)): the Python reference measured up to ~1 cm
+  // (alpha = atan2(Vy-Cy, Vx-Cx)): the Python reference measured up to ~1 cm
   // arc-length error and ~94% chi2 inflation from that shortcut on displaced
   // tracks. It is a fine seed, not a solution.
   template <typename TAcc>
@@ -227,16 +224,20 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega::vertexfit {
   // _correctWeightForProfiledArcLength for the derivation and the ~40x
   // covariance underestimate this fixes.
   template <typename TAcc>
-  ALPAKA_FN_ACC ALPAKA_FN_INLINE SymMat3 correctWeightForProfiledArcLength(
-      TAcc const& acc, HelixGeom const& trk, SymMat3 const& w, float l, float varL) {
+  ALPAKA_FN_ACC ALPAKA_FN_INLINE SymMat3
+  correctWeightForProfiledArcLength(TAcc const& acc, HelixGeom const& trk, SymMat3 const& w, float l, float varL) {
     Point3D pos, dpos;
     geometry::helixPositionAndDerivative(acc, trk, l, pos, dpos);
     const Point3D wd = mul(w, dpos);
     const float denom = alpaka::math::max(acc, dot(dpos, wd) + 1.f / alpaka::math::max(acc, varL, 1e-12f), 1e-12f);
     const SymMat3 corr = outerProduct(wd);
     const float s = 1.f / denom;
-    return {w.xx - s * corr.xx, w.xy - s * corr.xy, w.xz - s * corr.xz,
-            w.yy - s * corr.yy, w.yz - s * corr.yz, w.zz - s * corr.zz};
+    return {w.xx - s * corr.xx,
+            w.xy - s * corr.xy,
+            w.xz - s * corr.xz,
+            w.yy - s * corr.yy,
+            w.yz - s * corr.yz,
+            w.zz - s * corr.zz};
   }
 
   // -----------------------------------------------------------------------
@@ -287,10 +288,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega::vertexfit {
                                                                    TrackCovariance const& cov2,
                                                                    int maxIter = 4) {
     // seed
-    const auto seed = geometry::estimatedVertex(acc, t1, t2);
+    const auto seed = geometry::estimatedVertex(acc, t1, t2);  // FIXME: avoid conversion maybe?
     Point3D v{seed.x, seed.y, seed.z};
     float l1, l2;
-    geometry::smartStartArcLengths(acc, t1, t2, l1, l2);
+    geometry::smartStartArcLengths(acc, t1, t2, l1, l2);  // FIXME: this completely repeats the lines above!!!
 
     // alternate per-track profiling and the closed-form vertex update
     for (int iter = 0; iter < maxIter; ++iter) {
