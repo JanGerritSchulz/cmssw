@@ -34,7 +34,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
           const float sinPhi = alpaka::math::sin(acc, phi);
           const float cosPhi = alpaka::math::cos(acc, phi);
           trksExtra[it].cx() = (dxy + q * r) * sinPhi;
-          trksExtra[it].cy() = (dxy - q * r) * cosPhi;
+          trksExtra[it].cy() = (-dxy - q * r) * cosPhi;
           trksExtra[it].refAngle() = reducePhiRange(acc, phi + q * std::numbers::pi_v<float> / 2.0f);
 
 #if VEGA_ALGO_PRINTALL
