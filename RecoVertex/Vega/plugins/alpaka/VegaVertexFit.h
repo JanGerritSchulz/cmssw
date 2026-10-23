@@ -4,214 +4,211 @@
 #include <alpaka/alpaka.hpp>
 
 #include "VegaGeometry.h"
+#include "VegaMath.h"
 
-#define VEGA_VERTEXFIT_MONITOR_FIT_CONVERGENCE 1
+#ifndef VEGA_VERTEXFIT_MONITOR_FIT_CONVERGENCE
+#define VEGA_VERTEXFIT_MONITOR_FIT_CONVERGENCE 0
+#endif
 
-// Weighted, covariance-aware two-track vertex fit - structured
-// for one-thread-per-pair GPU execution (no shared memory, no sync, all
-// state in registers).
+// Weighted, covariance-aware two-track vertex fit - structured for
+// one-thread-per-pair GPU execution (no shared memory, no sync, all state in
+// registers).
 //
 // Formulation:
-// the vertex position V is an explicit free parameter; each track carries
-// its own nuisance parameter l_i (signed transverse arc length along its
-// helix). Given V the tracks decouple completely, so each iteration is:
-//   1. per track, independently: Newton+LM solve for the l_i minimizing the
+// the vertex position V is an explicit free parameter; each track carries its
+// own nuisance parameter l_i (signed transverse arc length along its helix).
+// Given V the tracks decouple, so each iteration is:
+//   1. per track, independently: 1-D Newton solve for the l_i minimizing the
 //      weighted residual against the current V (profileArcLength), with the
-//      position-space weight from covariance transport (positionWeight).
-//   2. closed-form weighted least squares for V (weightedPoint).
-// After convergence the per-track weights get the profiled-arc-length
-// (Schur-complement) correction (correctWeightForProfiledArcLength) before
-// the final vertex covariance and chi2 are computed - skipping this was the
-// dominant source of a ~40x transverse-covariance underestimate in the
-// Python reference.
+//      position-space weight W_i from covariance transport (positionWeight).
+//   2. closed-form weighted least squares for V (solveVertex), using the
+//      Schur-corrected weights W_i^eff (correctWeightForProfiledArcLength).
 //
-// Everything here is per-track or per-pair scalar math on fixed-size
-// objects (3-vectors, symmetric 3x3 matrices) - the N-track generalization
-// reuses every per-track helper unchanged and only widens the sums in
-// weightedPoint / the final covariance.
+// LESSONS BUILT IN (found by reproducing the first GPU convergence logs):
 //
-// Covariance conventions (must match the SoA track parametrization):
-// the track's 5-parameter covariance is block-diagonal: a 3x3 block for
-// {phi, dxy, qOverPt} (circle fit) and a 2x2 block for {cotTheta, dz}
-// (line fit), with NO cross-block terms (confirmed on real data in soa.py).
-// TrackCovariance stores the 8 independent entries; positionWeight
-// exploits the block structure instead of assembling a dense 5x5.
+//  (a) The position weight W_i = (J C J^T)^-1 is evaluated at FIXED l, so it
+//      contains no uncertainty along the track: 0.006 - 0.25 micron versus
+//      tens of microns transverse. Using that W in the V update pins V to
+//      each track's foot point along the tangent, so the alternation cannot
+//      travel along the tracks at all (it stalled at l ~ 1e-4 cm where the
+//      answer was l = 2.85 cm, in double precision). The V update therefore
+//      uses W^eff = W - (W d)(W d)^T / h, which has no stiffness along d.
+//      W itself is only used for the l-profiling (scale invariant there).
+//  (b) h is the full Hessian d^T W d + r^T W d'. The earlier
+//      1/varL = d^T W d form halves the denominator and removes only half of
+//      the tangential weight (chi2 inflated by 5 - 450x).
+//  (c) W^eff has rank 2; the sum of two of them is nearly singular for
+//      near-parallel tracks (0.9 mrad crossing is real). All 3x3 algebra is
+//      therefore done in double; in float the final solve returned garbage
+//      (V ~ 1e6 cm, NaN) once (b) was fixed. Every inversion reports failure
+//      and the fit then returns valid = false instead of garbage.
+//  (d) The alternation is a polish, not a search: seed it with the Gauss-
+//      Newton helix-helix refinement (pairfit::refinePairGaussNewton) and
+//      call the seeded overload (VegaPairFit.h has the pair recipe).
+//
+// Covariance conventions (must match the SoA track parametrization, which
+// stores {phi, tip, q/pT, cotTheta, zip}; tip = -dxy of reco::Track, see the
+// Jacobian note in positionWeight): the track's 5-parameter covariance is
+// block-diagonal: a 3x3 block for {phi, tip, qOverPt} (circle fit) and a 2x2
+// block for {cotTheta, zip} (line fit), with NO cross-block terms. All 9
+// independent entries are stored in HelixCovariance.
+//
+// Per-track helpers are per-track on purpose: the N-track generalization
+// reuses them unchanged and only widens the sums in solveVertex.
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE::vega::vertexfit {
 
-  using geometry::dot;
+  using geometry::HelixCovariance;
   using geometry::HelixGeom;
-  using geometry::norm2;
-  using geometry::Point3D;
+  using math::SymMat3d;
+  using math::Vec3d;
+
+  // The helix evaluation at the fit precision (the geometry stays float).
+  using HelixEvald = geometry::HelixEvalT<double>;
+
+  // Floor added to the xy position variance (cm^2): (10 nm)^2. Physically
+  // irrelevant (far below any resolution; and a variance added along the
+  // direction that l absorbs does not change W^eff anyway) but it keeps the
+  // 2x2 position block invertible when the track passes exactly through the
+  // beamspot at l = 0, where J C J^T is exactly rank 1.
+  inline constexpr double positionVarianceFloor = 1e-12;
 
   // -----------------------------------------------------------------------
-  // Small fixed-size linear algebra (symmetric 3x3, in registers)
+  // Fit configuration and result
   // -----------------------------------------------------------------------
 
-  // Symmetric 3x3 matrix, stored as the 6 independent entries.
-  struct SymMat3 {
-    float xx, xy, xz, yy, yz, zz;
+  struct VertexFitConfig {
+    int maxIter = 6;           // outer alternations; a GN-seeded fit converges in ~4
+    int maxIterProfiling = 3;  // Newton steps per track per alternation
+    double lmDamping = 1e-3;     // LM damping of the profiling Newton step
+    double maxArcLength = geometry::defaultMaxArcLength;
+    double tolPosition = 1e-6;  // cm: stop when the vertex moves less than this
   };
-  struct SymMat3d {
-    double xx, xy, xz, yy, yz, zz;
+
+  // Effective constraints: each W_eff has rank 2, so 2 tracks x 2 - 3
+  // vertex parameters = 1. (N tracks: 2N - 3.)
+  inline constexpr int twoTrackNdf = 1;
+
+  // Fit result, templated on precision: the fit itself produces the double
+  // (double) version; the public VertexFitResult (float, consistent with the
+  // float HelixGeom / HelixCovariance inputs) is produced from it by a single
+  // narrowing at the very end (toFloat). A float 3x3 covariance keeps ~1e-7
+  // relative precision, enough for an output; a consumer that must re-invert
+  // it or use it as a weight in a further fit should widen it first
+  // (math::cast<double>) or, better, refit from the tracks.
+  template <typename T>
+  struct VertexFitResultT {
+    math::Vec3<T> position;
+    math::SymMat3<T> covariance;
+    T chi2;
+    int ndf;
+    T l1, l2;        // converged arc lengths (seeds for downstream refits / debugging)
+    int iterations;  // outer alternations actually performed
+    bool valid;      // false: a matrix inversion failed; the other fields are not meaningful
   };
 
-  ALPAKA_FN_HOST_ACC ALPAKA_FN_INLINE SymMat3 operator+(SymMat3 a, SymMat3 b) {
-    return {a.xx + b.xx, a.xy + b.xy, a.xz + b.xz, a.yy + b.yy, a.yz + b.yz, a.zz + b.zz};
+  using VertexFitResult = VertexFitResultT<float>;
+
+  ALPAKA_FN_HOST_ACC ALPAKA_FN_INLINE VertexFitResult toFloat(VertexFitResultT<double> const& r) {
+    return {math::cast<float>(r.position),
+            math::cast<float>(r.covariance),
+            float(r.chi2),
+            r.ndf,
+            float(r.l1),
+            float(r.l2),
+            r.iterations,
+            r.valid};
   }
-
-  ALPAKA_FN_HOST_ACC ALPAKA_FN_INLINE Point3D mul(SymMat3 const& m, Point3D v) {
-    return {m.xx * v.x + m.xy * v.y + m.xz * v.z,
-            m.xy * v.x + m.yy * v.y + m.yz * v.z,
-            m.xz * v.x + m.yz * v.y + m.zz * v.z};
-  }
-
-  // Outer product v v^T as a symmetric matrix.
-  ALPAKA_FN_HOST_ACC ALPAKA_FN_INLINE SymMat3 outerProduct(Point3D v) {
-    return {v.x * v.x, v.x * v.y, v.x * v.z, v.y * v.y, v.y * v.z, v.z * v.z};
-  }
-
-  // Inverse of a symmetric 3x3 via cofactors. The weights handled here are
-  // sums of positive-semidefinite terms and well-conditioned except for
-  // genuinely degenerate (near-parallel) track pairs, which the LM damping
-  // in profileArcLength already flags; a small pivot guard keeps the
-  // determinant away from exact zero.
-  // returns false for singular / non-finite input (NaN fails the comparisons)
-  template <typename TAcc>
-  ALPAKA_FN_ACC ALPAKA_FN_INLINE bool inverseSym(TAcc const& acc, SymMat3 const& m, SymMat3& out) {
-    const float s = (m.xx + m.yy + m.zz) * (1.0 / 3.0);
-    if (!(s > 0.0))
-      return false;
-    const float is = 1.0 / s;
-    const float xx = m.xx * is, xy = m.xy * is, xz = m.xz * is, yy = m.yy * is, yz = m.yz * is, zz = m.zz * is;
-    const float cxx = yy * zz - yz * yz, cxy = xz * yz - xy * zz, cxz = xy * yz - xz * yy;
-    const float cyy = xx * zz - xz * xz, cyz = xy * xz - xx * yz, czz = xx * yy - xy * xy;
-    const float det = xx * cxx + xy * cxy + xz * cxz;
-    if (!(det > 1e-20))
-      return false;
-    const float k = is / det;
-    out = {float(cxx * k), float(cxy * k), float(cxz * k), float(cyy * k), float(cyz * k), float(czz * k)};
-    return true;
-  }
-
-  // -----------------------------------------------------------------------
-  // Track covariance (block-diagonal 5-parameter helix covariance)
-  // -----------------------------------------------------------------------
-
-  // Independent entries of the block-diagonal track covariance:
-  //   {phi, dxy, qOverPt}  3x3 block (circle fit)
-  //   {cotTheta, dz}       2x2 block (line fit)
-  // No cross-block terms exist (see module docstring).
-  struct TrackCovariance {
-    float varPhi, covPhiDxy, covPhiQOverPt, varDxy, covDxyQOverPt, varQOverPt;
-    float varCotTheta, covCotThetaDz, varDz;
-  };
 
   // -----------------------------------------------------------------------
   // Covariance transport: helix-parameter covariance -> position-space
   // weight at the current arc length
   // -----------------------------------------------------------------------
 
-  // Position-space covariance Sigma = J C J^T of the track's helix position
-  // at arc length l, and its inverse (the weight W used in the fit).
+  // Position-space covariance Sigma = J C J^T of the helix position at arc
+  // length l (at fixed l!) and its inverse W. Returns false if Sigma is not
+  // invertible (never for sane tracks, thanks to positionVarianceFloor).
+  //
+  // Jacobian columns (phi, tip, qOverPt, cotTheta, zip), derived from
+  //   alpha = alpha0 - q l/R, alpha0 = phi + q pi/2, R = pT/(cB),
+  //   C = (tip + q R) (sin phi, -cos phi),  x = C + R (cos alpha, sin alpha),
+  //   z = zip + cotTheta l
+  // (checked against finite differences in the unit test):
+  //   dx/dphi   = -cy - R sin(alpha)        dy/dphi   = cx + R cos(alpha)
+  //   dx/dtip   = sin(phi)                  dy/dtip   = -cos(phi)
+  //   dx/dk     = pT (-R sin(phi) - q R cos(alpha) + l sin(alpha))
+  //   dy/dk     = pT ( R cos(phi) - q R sin(alpha) - l cos(alpha))
+  //   dz/dcot   = l,  dz/dzip = 1
+  // Sigma is block-diagonal: the circle block feeds (x,y) only, the line
+  // block feeds z only, so W is block-diagonal too and is inverted as a 2x2
+  // block plus a scalar (no 3x3 cofactor cancellation).
   template <typename TAcc>
-  ALPAKA_FN_ACC ALPAKA_FN_INLINE SymMat3
-  positionWeight(TAcc const& acc, HelixGeom const& trk, TrackCovariance const& cov, float l) {
-    const float alpha = trk.refAngle - trk.q * l / trk.r;
-    const float sinAlpha = alpaka::math::sin(acc, alpha);
-    const float cosAlpha = alpaka::math::cos(acc, alpha);
+  ALPAKA_FN_ACC ALPAKA_FN_INLINE bool positionWeight(
+      TAcc const&, HelixGeom const& trk, HelixCovariance const& cov, HelixEvald const& he, double l, SymMat3d& w) {
+    const double q = trk.q, r = trk.r, pt = trk.pt;
+    const double sinPhi = trk.sinPhi, cosPhi = trk.cosPhi;
+    const double jx[3] = {-double(trk.cy) - r * he.sinA, sinPhi, pt * (-r * sinPhi - q * r * he.cosA + l * he.sinA)};
+    const double jy[3] = {double(trk.cx) + r * he.cosA, -cosPhi, pt * (r * cosPhi - q * r * he.sinA - l * he.cosA)};
 
-    // Jacobian rows (x, y, z) x cols (phi, dxy, qOverPt, cotTheta, dz).
-    const float j[3][5] = {{/* x */ -trk.cy - trk.r * sinAlpha,
-                            trk.sinPhi,
-                            trk.pt * (-trk.r * trk.sinPhi - trk.q * trk.r * cosAlpha + l * sinAlpha),
-                            0.f,
-                            0.f},
-                           {/* y */ trk.cx + trk.r * cosAlpha,
-                            -trk.cosPhi,
-                            trk.pt * (trk.r * trk.cosPhi - trk.q * trk.r * sinAlpha - l * cosAlpha),
-                            0.f,
-                            0.f},
-                           {/* z */ 0.f, 0.f, 0.f, l, 1.f}};
+    const double c3[3][3] = {{cov.varPhi, cov.covPhiDxy, cov.covPhiQOverPt},
+                           {cov.covPhiDxy, cov.varDxy, cov.covDxyQOverPt},
+                           {cov.covPhiQOverPt, cov.covDxyQOverPt, cov.varQOverPt}};
+    double cx[3], cy[3];  // C3 * jx, C3 * jy
+    for (int a = 0; a < 3; ++a) {
+      cx[a] = c3[a][0] * jx[0] + c3[a][1] * jx[1] + c3[a][2] * jx[2];
+      cy[a] = c3[a][0] * jy[0] + c3[a][1] * jy[1] + c3[a][2] * jy[2];
+    }
+    const double sxx = jx[0] * cx[0] + jx[1] * cx[1] + jx[2] * cx[2] + positionVarianceFloor;
+    const double sxy = jx[0] * cy[0] + jx[1] * cy[1] + jx[2] * cy[2];
+    const double syy = jy[0] * cy[0] + jy[1] * cy[1] + jy[2] * cy[2] + positionVarianceFloor;
+    const double szz = l * l * cov.varCotTheta + 2.0 * l * cov.covCotThetaDz + cov.varDz;
 
-    // Sigma = J C J^T, exploiting the block-diagonal C: the {phi,dxy,qOverPt}
-    // block contributes to x,y only, the {cotTheta,dz} block to z only.
-    SymMat3 sigma{};
-    // circle-fit block (indices 0..2)
-    const float c3[3][3] = {{cov.varPhi, cov.covPhiDxy, cov.covPhiQOverPt},
-                            {cov.covPhiDxy, cov.varDxy, cov.covDxyQOverPt},
-                            {cov.covPhiQOverPt, cov.covDxyQOverPt, cov.varQOverPt}};
-    for (int a = 0; a < 3; ++a)
-      for (int b = 0; b < 3; ++b) {
-        sigma.xx += j[0][a] * c3[a][b] * j[0][b];
-        sigma.xy += j[0][a] * c3[a][b] * j[1][b];
-        // sigma.xz += j[0][a] * c3[a][b] * j[2][b]; // j[2][0...2] = 0
-        sigma.yy += j[1][a] * c3[a][b] * j[1][b];
-        // sigma.yz += j[1][a] * c3[a][b] * j[2][b]; // j[2][0...2] = 0
-        // sigma.zz += j[2][a] * c3[a][b] * j[2][b]; // j[2][0...2] = 0
-      }
-    // line-fit block (indices 3..4)
-    // Full math:
-    // const float c2[2][2] = {{cov.varCotTheta, cov.covCotThetaDz}, {cov.covCotThetaDz, cov.varDz}};
-    // for (int a = 0; a < 2; ++a)
-    //   for (int b = 0; b < 2; ++b) {
-    //     sigma.xx += j[0][a + 3] * c2[a][b] * j[0][b + 3];
-    //     sigma.xy += j[0][a + 3] * c2[a][b] * j[1][b + 3];
-    //     sigma.xz += j[0][a + 3] * c2[a][b] * j[2][b + 3];
-    //     sigma.yy += j[1][a + 3] * c2[a][b] * j[1][b + 3];
-    //     sigma.yz += j[1][a + 3] * c2[a][b] * j[2][b + 3];
-    //     sigma.zz += j[2][a + 3] * c2[a][b] * j[2][b + 3];
-    //   }
-    // However, doing the math explicitly, you will just find
-    sigma.zz = j[2][3] * j[2][3] * cov.varCotTheta + 2 * j[2][3] * cov.covCotThetaDz + cov.varDz;
-
-    SymMat3 weights;
-    inverseSym(acc, sigma, weights);
-    // if (!inverseValid)
-    //   printf("VegaVertexFit: Warning invalid weights matrix due to failing matrix inversion!");
-    return weights;
+    const double det2 = sxx * syy - sxy * sxy;
+    const double tr = sxx + syy;
+    w = {0, 0, 0, 0, 0, 0};
+    if (!(det2 > 1e-12 * tr * tr * 0.25) || !(szz > 0.0))
+      return false;
+    w = {syy / det2, -sxy / det2, 0.0, sxx / det2, 0.0, 1.0 / szz};
+    return true;
   }
 
   // -----------------------------------------------------------------------
-  // Per-track arc-length profiling (the inner 1-D Newton+LM solve)
+  // Per-track arc-length profiling (the inner 1-D Newton solve)
   // -----------------------------------------------------------------------
 
   // Find the arc length minimizing track i's weighted residual against the
   // current vertex estimate V: a few Newton steps with light LM damping,
-  // warm-started from lStart (the previous iteration's value, or the
-  // geometric-estimate seed on the first call).
+  // warm-started from lStart.
   //
   //   g(l) = d^T W (x(l) - V)
   //   H(l) = d^T W d + (x(l) - V)^T W d'(l)
   //
-  // Do NOT replace this with the closed-form transverse-only projection
-  // (alpha = atan2(Vy-Cy, Vx-Cx)): the Python reference measured up to ~1 cm
-  // arc-length error and ~94% chi2 inflation from that shortcut on displaced
-  // tracks. It is a fine seed, not a solution.
+  // If the exact Hessian is not positive, the Gauss-Newton part d^T W d is
+  // used (always > 0). The step is invariant under a common scale of W, so
+  // the huge tangential stiffness of W does not matter here.
   template <typename TAcc>
-  ALPAKA_FN_ACC ALPAKA_FN_INLINE float profileArcLength(TAcc const& acc,
-                                                        HelixGeom const& trk,
-                                                        SymMat3 const& w,
-                                                        Point3D v,
-                                                        float lStart,
-                                                        int maxIter = 3,
-                                                        float lmDamping = 1e-3f) {
-    float l = lStart;
+  ALPAKA_FN_ACC ALPAKA_FN_INLINE double profileArcLength(TAcc const& acc,
+                                                       HelixGeom const& trk,
+                                                       SymMat3d const& w,
+                                                       Vec3d v,
+                                                       double lStart,
+                                                       int maxIter,
+                                                       double lmDamping,
+                                                       double maxArcLength) {
+    double l = lStart;
     for (int iter = 0; iter < maxIter; ++iter) {
-      Point3D pos, dpos, ddpos;
-      geometry::helixPositionAndDerivatives(acc, trk, l, pos, dpos, ddpos);
-      const Point3D residual = pos - v;
-
-      const float grad = dot(dpos, mul(w, residual));
-      const float hess1 = dot(dpos, mul(w, dpos));
-      const float hess2 = dot(residual, mul(w, ddpos));
-      float hess = hess1 + hess2;
-      // guard against negative/zero hess (use hess1 only instead)
-      if (hess <= 0)
+      const HelixEvald e = geometry::helixEval<double>(acc, trk, l);
+      const Vec3d residual = e.pos - v;
+      const double grad = dot(e.d, mul(w, residual));
+      const double hess1 = dot(e.d, mul(w, e.d));
+      double hess = hess1 + dot(residual, mul(w, e.dd));
+      if (!(hess > 0.0))
         hess = hess1;
-      const float step = grad / alpaka::math::max(acc, hess * (1.f + lmDamping), 1e-12f);
-      l = geometry::clampArcLength(acc, l - step);
-      if (alpaka::math::abs(acc, step) < 1e-6f)
+      if (!(hess > 0.0))
+        break;  // degenerate weight: keep l
+      const double step = grad / (hess * (1.0 + lmDamping));
+      l = math::clamp(acc, l - step, maxArcLength);
+      if (alpaka::math::abs(acc, step) < 1e-9)
         break;
     }
     return l;
@@ -221,163 +218,155 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega::vertexfit {
   // Profiled-arc-length (Schur-complement) weight correction
   // -----------------------------------------------------------------------
 
-  // Correct a track's converged weight for the fact that its arc length l is
-  // itself fitted (a profiled nuisance parameter), not independently known.
-  // The direction along the track's own tangent is unmeasured by that track,
-  // so its weight in that direction is removed (partially restored by the
-  // nuisance uncertainty in l):
+  // Eliminate the nuisance parameter l from the track's quadratic form
+  // (x(l) - V)^T W (x(l) - V) exactly (Schur complement of the l-l entry):
   //
-  //   W_eff = W - (W d)(W d)^T / (d^T W d + 1/var_l)
+  //   W_eff = W - (W d)(W d)^T / h,   h = d^T W d + (x - V)^T W d'
   //
-  // with d = dx/dl at the converged l and var_l the nuisance variance from
-  // the profiling solve (1/H at convergence). Applied ONCE to the final
-  // weight, not inside the iteration - see vertexfit.py /
-  // _correctWeightForProfiledArcLength for the derivation and the ~40x
-  // covariance underestimate this fixes.
+  // with d, d' at the converged l. h is the full Hessian of the profiling
+  // problem (NOT d^T W d + 1/var_l with var_l = 1/(d^T W d), which gives
+  // 2 d^T W d and removes only half the tangential weight). W_eff d = 0 up
+  // to the small residual term: the track constrains V only across its own
+  // direction. h is clamped to [d^T W d / 2, inf) so that an unlucky
+  // residual term can never over-subtract.
   template <typename TAcc>
-  ALPAKA_FN_ACC ALPAKA_FN_INLINE SymMat3
-  correctWeightForProfiledArcLength(TAcc const& acc, HelixGeom const& trk, SymMat3 const& w, float l, float varL) {
-    Point3D pos, dpos, ddpos;
-    geometry::helixPositionAndDerivatives(acc, trk, l, pos, dpos, ddpos);
-    const Point3D wd = mul(w, dpos);
-    const float denom = alpaka::math::max(acc, dot(dpos, wd) + 1.f / alpaka::math::max(acc, varL, 1e-12f), 1e-12f);
-    const SymMat3 corr = outerProduct(wd);
-    const float s = 1.f / denom;
-    return {w.xx - s * corr.xx,
-            w.xy - s * corr.xy,
-            w.xz - s * corr.xz,
-            w.yy - s * corr.yy,
-            w.yz - s * corr.yz,
-            w.zz - s * corr.zz};
+  ALPAKA_FN_ACC ALPAKA_FN_INLINE SymMat3d
+  correctWeightForProfiledArcLength(TAcc const&, SymMat3d const& w, HelixEvald const& he, Vec3d v) {
+    const Vec3d wd = mul(w, he.d);
+    const double h1 = dot(he.d, wd);
+    double h = h1 + dot(he.pos - v, mul(w, he.dd));
+    if (!(h > 0.5 * h1))
+      h = h1;
+    if (!(h > 0.0))
+      return w;
+    const SymMat3d o = outerProduct(wd);
+    const double s = 1.0 / h;
+    return {w.xx - s * o.xx, w.xy - s * o.xy, w.xz - s * o.xz, w.yy - s * o.yy, w.yz - s * o.yz, w.zz - s * o.zz};
   }
 
   // -----------------------------------------------------------------------
   // Closed-form weighted-least-squares vertex update
   // -----------------------------------------------------------------------
 
-  // Exact WLS vertex position given both tracks' optimal points and weights:
-  //   V = (W1 + W2)^-1 (W1 x1 + W2 x2)
-  // One 3x3 solve, no iteration. The N-track generalization just widens the
-  // two sums.
+  // Exact WLS vertex given both tracks' points and weights:
+  //   V = (W1 + W2)^-1 (W1 x1 + W2 x2),   cov = (W1 + W2)^-1
+  // One 3x3 inversion, no iteration. The N-track generalization just widens
+  // the two sums. Returns false if (W1 + W2) is not invertible (exactly
+  // parallel tracks).
   template <typename TAcc>
-  ALPAKA_FN_ACC ALPAKA_FN_INLINE Point3D
-  weightedPoint(TAcc const& acc, Point3D x1, SymMat3 const& w1, Point3D x2, SymMat3 const& w2) {
-    const SymMat3 a = w1 + w2;
-    const Point3D b{w1.xx * x1.x + w1.xy * x1.y + w1.xz * x1.z + w2.xx * x2.x + w2.xy * x2.y + w2.xz * x2.z,
-                    w1.xy * x1.x + w1.yy * x1.y + w1.yz * x1.z + w2.xy * x2.x + w2.yy * x2.y + w2.yz * x2.z,
-                    w1.xz * x1.x + w1.yz * x1.y + w1.zz * x1.z + w2.xz * x2.x + w2.yz * x2.y + w2.zz * x2.z};
-    SymMat3 ia;
-    inverseSym(acc, a, ia);
-    return mul(ia, b);
+  ALPAKA_FN_ACC ALPAKA_FN_INLINE bool solveVertex(
+      TAcc const& acc, Vec3d x1, SymMat3d const& w1, Vec3d x2, SymMat3d const& w2, Vec3d& v, SymMat3d& cov) {
+    const Vec3d a1 = mul(w1, x1), a2 = mul(w2, x2);
+    const Vec3d b{a1.x + a2.x, a1.y + a2.y, a1.z + a2.z};
+    if (!inverseSym(acc, w1 + w2, cov))
+      return false;
+    v = mul(cov, b);
+    return true;
   }
 
   // -----------------------------------------------------------------------
-  // Fit result
-  // -----------------------------------------------------------------------
-
-  struct VertexFitResult {
-    Point3D position;
-    SymMat3 covariance;
-    float chi2;
-    float l1, l2;  // converged arc lengths (kept for downstream use / debugging)
-    bool valid;
-  };
-
-  // -----------------------------------------------------------------------
-  // Two-track fit driver: alternates per-track profiling with the
-  // closed-form vertex update, then applies the profiled-arc-length
-  // correction and computes the final covariance and chi2.
+  // Two-track fit driver (seeded)
   //
-  // Seeded from the geometric estimate (estimatedVertex) for V and
-  // smartStartArcLengths for l1/l2 - both already close for genuine pairs,
-  // so a small fixed iteration budget suffices (mirrors maxIter=4 in the
-  // Python reference).
+  // l1Seed/l2Seed should come from pairfit::refinePairGaussNewton (or the
+  // dual-start variant). The fit alternates profiling with the Schur-
+  // corrected closed-form vertex update, then returns V, its covariance and
+  // the chi2 of the converged state.
+  //
+  // fitTwoTrackVertexInternal returns the double (double) result, for callers
+  // that still compare or combine fits (e.g. the pair stage picking the better
+  // of two seeds); fitTwoTrackVertex below is the float-in / float-out
+  // interface.
   // -----------------------------------------------------------------------
+  template <typename TAcc>
+  ALPAKA_FN_ACC ALPAKA_FN_INLINE VertexFitResultT<double> fitTwoTrackVertexInternal(TAcc const& acc,
+                                                                     HelixGeom const& t1,
+                                                                     HelixGeom const& t2,
+                                                                     HelixCovariance const& cov1,
+                                                                     HelixCovariance const& cov2,
+                                                                     double l1Seed,
+                                                                     double l2Seed,
+                                                                     VertexFitConfig const& cfg = {}) {
+    VertexFitResultT<double> bad{{0, 0, 0}, {0, 0, 0, 0, 0, 0}, 0.0, twoTrackNdf, l1Seed, l2Seed, 0, false};
+
+    double l1 = math::clamp(acc, l1Seed, cfg.maxArcLength);
+    double l2 = math::clamp(acc, l2Seed, cfg.maxArcLength);
+
+    HelixEvald e1 = geometry::helixEval<double>(acc, t1, l1);
+    HelixEvald e2 = geometry::helixEval<double>(acc, t2, l2);
+    Vec3d v{0.5 * (e1.pos.x + e2.pos.x), 0.5 * (e1.pos.y + e2.pos.y), 0.5 * (e1.pos.z + e2.pos.z)};
+
+    SymMat3d w1, w2, eff1, eff2, vcov;
+    if (!positionWeight(acc, t1, cov1, e1, l1, w1) || !positionWeight(acc, t2, cov2, e2, l2, w2))
+      return bad;
+
+#if VEGA_VERTEXFIT_MONITOR_FIT_CONVERGENCE
+    printf("fitTwoTrackVertex: seed (l1, l2) = (%f, %f)  V = (%f, %f, %f)\n", l1, l2, v.x, v.y, v.z);
+#endif
+
+    int iter = 0;
+    for (; iter < cfg.maxIter; ++iter) {
+      // 1. profile each track against the current V (decoupled)
+      l1 = profileArcLength(acc, t1, w1, v, l1, cfg.maxIterProfiling, cfg.lmDamping, cfg.maxArcLength);
+      l2 = profileArcLength(acc, t2, w2, v, l2, cfg.maxIterProfiling, cfg.lmDamping, cfg.maxArcLength);
+      e1 = geometry::helixEval<double>(acc, t1, l1);
+      e2 = geometry::helixEval<double>(acc, t2, l2);
+      // weights at the refined arc lengths (also the profiling weights of the next iteration)
+      if (!positionWeight(acc, t1, cov1, e1, l1, w1) || !positionWeight(acc, t2, cov2, e2, l2, w2))
+        return bad;
+
+      // 2. closed-form vertex update with the Schur-corrected weights
+      eff1 = correctWeightForProfiledArcLength(acc, w1, e1, v);
+      eff2 = correctWeightForProfiledArcLength(acc, w2, e2, v);
+      const Vec3d vOld = v;
+      if (!solveVertex(acc, e1.pos, eff1, e2.pos, eff2, v, vcov))
+        return bad;
+
+#if VEGA_VERTEXFIT_MONITOR_FIT_CONVERGENCE
+      printf("fitTwoTrackVertex: iter %d  (l1, l2) = (%f, %f)  V = (%f, %f, %f)\n", iter, l1, l2, v.x, v.y, v.z);
+#endif
+      const Vec3d dv = v - vOld;
+      if (dot(dv, dv) < cfg.tolPosition * cfg.tolPosition) {
+        ++iter;
+        break;
+      }
+    }
+
+    // final, self-consistent state: W_eff at the final V, one more solve,
+    // then covariance and chi2 from the same weights
+    eff1 = correctWeightForProfiledArcLength(acc, w1, e1, v);
+    eff2 = correctWeightForProfiledArcLength(acc, w2, e2, v);
+    if (!solveVertex(acc, e1.pos, eff1, e2.pos, eff2, v, vcov))
+      return bad;
+    const Vec3d r1 = e1.pos - v;
+    const Vec3d r2 = e2.pos - v;
+    const double chi2 = dot(r1, mul(eff1, r1)) + dot(r2, mul(eff2, r2));
+    if (!(chi2 >= 0.0))
+      return bad;
+
+#if VEGA_VERTEXFIT_MONITOR_FIT_CONVERGENCE
+    printf("fitTwoTrackVertex: done after %d iters  V = (%f, %f, %f)  chi2 = %g  (l1, l2) = (%f, %f)\n",
+           iter,
+           v.x,
+           v.y,
+           v.z,
+           chi2,
+           l1,
+           l2);
+#endif
+    return {v, vcov, chi2, twoTrackNdf, l1, l2, iter, true};
+  }
+
+  // Public two-track fit: float in, float out.
   template <typename TAcc>
   ALPAKA_FN_ACC ALPAKA_FN_INLINE VertexFitResult fitTwoTrackVertex(TAcc const& acc,
                                                                    HelixGeom const& t1,
                                                                    HelixGeom const& t2,
-                                                                   TrackCovariance const& cov1,
-                                                                   TrackCovariance const& cov2,
-                                                                   int maxIter = 4,
-                                                                   int maxIterProfiling = 3,
-                                                                   float lmDampingProfiling = 1e-3f) {
-    // seed
-    const auto seed = geometry::estimatedVertex(acc, t1, t2);  // FIXME: avoid conversion maybe?
-    Point3D v{seed.x, seed.y, seed.z};
-    float l1, l2;
-    geometry::smartStartArcLengths(acc, t1, t2, l1, l2);  // FIXME: this completely repeats the lines above!!!
-
-#if VEGA_VERTEXFIT_MONITOR_FIT_CONVERGENCE
-    printf(
-        "fitTwoTrackVertex: track1 (cx, cy, r, q, refAngle, refZ, cotTheta, sinPhi, cosPhi, pt) = "
-        "(%f, %f, %f, %f, %f, %f, %f, %f, %f, %f)\n",
-        t1.cx, t1.cy, t1.r, t1.q, t1.refAngle, t1.refZ, t1.cotTheta, t1.sinPhi, t1.cosPhi, t1.pt);
-    printf(
-        "fitTwoTrackVertex: track2 (cx, cy, r, q, refAngle, refZ, cotTheta, sinPhi, cosPhi, pt) = "
-        "(%f, %f, %f, %f, %f, %f, %f, %f, %f, %f)\n",
-        t2.cx, t2.cy, t2.r, t2.q, t2.refAngle, t2.refZ, t2.cotTheta, t2.sinPhi, t2.cosPhi, t2.pt);
-    printf(
-        "fitTwoTrackVertex: cov1 (varPhi, covPhiDxy, covPhiQOverPt, varDxy, covDxyQOverPt, varQOverPt, "
-        "varCotTheta, covCotThetaDz, varDz) = (%g, %g, %g, %g, %g, %g, %g, %g, %g)\n",
-        cov1.varPhi, cov1.covPhiDxy, cov1.covPhiQOverPt, cov1.varDxy, cov1.covDxyQOverPt, cov1.varQOverPt,
-        cov1.varCotTheta, cov1.covCotThetaDz, cov1.varDz);
-    printf(
-        "fitTwoTrackVertex: cov2 (varPhi, covPhiDxy, covPhiQOverPt, varDxy, covDxyQOverPt, varQOverPt, "
-        "varCotTheta, covCotThetaDz, varDz) = (%g, %g, %g, %g, %g, %g, %g, %g, %g)\n",
-        cov2.varPhi, cov2.covPhiDxy, cov2.covPhiQOverPt, cov2.varDxy, cov2.covDxyQOverPt, cov2.varQOverPt,
-        cov2.varCotTheta, cov2.covCotThetaDz, cov2.varDz);
-    printf("fitTwoTrackVertex: seed V = (%f, %f, %f), (l1, l2) = (%f, %f)\n", v.x, v.y, v.z, l1, l2);
-#endif
-
-    // alternate per-track profiling and the closed-form vertex update
-    for (int iter = 0; iter < maxIter; ++iter) {
-      const SymMat3 w1 = positionWeight(acc, t1, cov1, l1);
-      const SymMat3 w2 = positionWeight(acc, t2, cov2, l2);
-      l1 = profileArcLength(acc, t1, w1, v, l1, maxIterProfiling, lmDampingProfiling);
-      l2 = profileArcLength(acc, t2, w2, v, l2, maxIterProfiling, lmDampingProfiling);
-      const Point3D x1 = geometry::helixPosition(acc, t1, l1);
-      const Point3D x2 = geometry::helixPosition(acc, t2, l2);
-      v = weightedPoint(acc, x1, w1, x2, w2);
-
-#if VEGA_VERTEXFIT_MONITOR_FIT_CONVERGENCE
-      printf(
-          "fitTwoTrackVertex: iter %d  (l1, l2) = (%f, %f)  x1 = (%f, %f, %f)  x2 = (%f, %f, %f)  "
-          "V = (%f, %f, %f)\n",
-          iter, l1, l2, x1.x, x1.y, x1.z, x2.x, x2.y, x2.z, v.x, v.y, v.z);
-#endif
-    }
-
-    // final weights with the profiled-arc-length correction
-    const SymMat3 w1 = positionWeight(acc, t1, cov1, l1);
-    const SymMat3 w2 = positionWeight(acc, t2, cov2, l2);
-    // nuisance variance from the profiling Hessian at convergence
-    Point3D pos1, dpos1, ddpos1, pos2, dpos2, ddpos2;
-    geometry::helixPositionAndDerivatives(acc, t1, l1, pos1, dpos1, ddpos1);
-    geometry::helixPositionAndDerivatives(acc, t2, l2, pos2, dpos2, ddpos2);
-    const float varL1 = 1.f / alpaka::math::max(acc, dot(dpos1, mul(w1, dpos1)), 1e-12f);
-    const float varL2 = 1.f / alpaka::math::max(acc, dot(dpos2, mul(w2, dpos2)), 1e-12f);
-    const SymMat3 w1eff = correctWeightForProfiledArcLength(acc, t1, w1, l1, varL1);
-    const SymMat3 w2eff = correctWeightForProfiledArcLength(acc, t2, w2, l2, varL2);
-
-    // final vertex position, covariance, chi2
-    const Point3D x1 = geometry::helixPosition(acc, t1, l1);
-    const Point3D x2 = geometry::helixPosition(acc, t2, l2);
-    v = weightedPoint(acc, x1, w1eff, x2, w2eff);
-    SymMat3 covariance;
-    inverseSym(acc, w1eff + w2eff, covariance);
-    const Point3D r1 = x1 - v;
-    const Point3D r2 = x2 - v;
-    const float chi2 = dot(r1, mul(w1eff, r1)) + dot(r2, mul(w2eff, r2));
-
-#if VEGA_VERTEXFIT_MONITOR_FIT_CONVERGENCE
-    printf(
-        "fitTwoTrackVertex: done  V = (%f, %f, %f)  chi2 = %f  (l1, l2) = (%f, %f)  "
-        "cov (xx, yy, zz) = (%g, %g, %g)\n",
-        v.x, v.y, v.z, chi2, l1, l2, covariance.xx, covariance.yy, covariance.zz);
-#endif
-
-    return {v, covariance, chi2, l1, l2, true};
+                                                                   HelixCovariance const& cov1,
+                                                                   HelixCovariance const& cov2,
+                                                                   float l1Seed,
+                                                                   float l2Seed,
+                                                                   VertexFitConfig const& cfg = {}) {
+    return toFloat(fitTwoTrackVertexInternal(acc, t1, t2, cov1, cov2, double(l1Seed), double(l2Seed), cfg));
   }
 
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE::vega::vertexfit
