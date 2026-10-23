@@ -50,10 +50,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
         if (wrongOrder) {
           ++counterWrongOrder;
         }
-        printf("KernelPrintSortedTracks: (< than prev)=%d, i=%d, it=%d, dz=%f\n", wrongOrder, i, it, dz);
+        printf("vega::KernelPrintSortedTracks: (< than prev)=%d, i=%d, it=%d, dz=%f\n", wrongOrder, i, it, dz);
         dzPrev = dz;
       }
-      printf("KernelPrintSortedTracks: Total wrong orders found: %d out of %d\n", counterWrongOrder, nTracks);
+      printf("vega::KernelPrintSortedTracks: Total wrong orders found: %d out of %d\n", counterWrongOrder, nTracks);
     }
   };
 
@@ -148,7 +148,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
             auto idx = alpaka::atomicAdd(acc, nPairs, 1u, alpaka::hierarchy::Blocks{});
             if (idx >= static_cast<uint32_t>(pairs.metadata().size())) {
 #if VEGA_PAIRS_WARNINGS
-              printf("Warning!!!! Too many pairs (maxNumOfPairs = %d)!\n", pairs.metadata().size());
+              printf("vega::KernelFindPairCandidates: Warning!!!! Too many pairs (maxNumOfPairs = %d)!\n", pairs.metadata().size());
 #endif
               alpaka::atomicSub(acc, nPairs, 1u, alpaka::hierarchy::Blocks{});
               continue;
@@ -192,31 +192,91 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
         auto tk2 = trks[i2];
         auto te1 = trksExtra[i1];
         auto te2 = trksExtra[i2];
+        auto covTrk1 = tk1.covariance();
+        auto covTrk2 = tk2.covariance();
 
-        const geometry::HelixGeom t1 = geometry::HelixGeom{.cx = te1.cx(),
-                                                           .cy = te1.cy(),
-                                                           .r = te1.r(),
-                                                           .q = te1.q(),
-                                                           .refAngle = te1.refAngle(),
-                                                           .refZ = ::reco::zip(trks, i1),
-                                                           .cotTheta = tk1.state()(3),
-                                                           .sinPhi = te1.sinPhi(),
-                                                           .cosPhi = te1.cosPhi(),
-                                                           .pt = tk1.pt()};
-        const geometry::HelixGeom t2 = geometry::HelixGeom{.cx = te2.cx(),
-                                                           .cy = te2.cy(),
-                                                           .r = te2.r(),
-                                                           .q = te2.q(),
-                                                           .refAngle = te2.refAngle(),
-                                                           .refZ = ::reco::zip(trks, i2),
-                                                           .cotTheta = tk2.state()(3),
-                                                           .sinPhi = te2.sinPhi(),
-                                                           .cosPhi = te2.cosPhi(),
-                                                           .pt = tk2.pt()};
+        const geometry::HelixGeom t1 = {.cx = te1.cx(),
+                                        .cy = te1.cy(),
+                                        .r = te1.r(),
+                                        .q = te1.q(),
+                                        .refAngle = te1.refAngle(),
+                                        .refZ = ::reco::zip(trks, i1),
+                                        .cotTheta = tk1.state()(3),
+                                        .sinPhi = te1.sinPhi(),
+                                        .cosPhi = te1.cosPhi(),
+                                        .pt = tk1.pt()};
+        const geometry::HelixGeom t2 = {.cx = te2.cx(),
+                                        .cy = te2.cy(),
+                                        .r = te2.r(),
+                                        .q = te2.q(),
+                                        .refAngle = te2.refAngle(),
+                                        .refZ = ::reco::zip(trks, i2),
+                                        .cotTheta = tk2.state()(3),
+                                        .sinPhi = te2.sinPhi(),
+                                        .cosPhi = te2.cosPhi(),
+                                        .pt = tk2.pt()};
 
-        float l1, l2;
-        pairfit::smartStartArcLengths(acc, t1, t2, l1, l2);
-        // FIXME - add actual vertex estimate and cut on 3D distance to it
+        const geometry::HelixCovariance cov1 = {.varPhi = covTrk1(0),
+                                                .covPhiDxy = covTrk1(1),
+                                                .covPhiQOverPt = covTrk1(2),
+                                                .varDxy = covTrk1(5),
+                                                .covDxyQOverPt = covTrk1(6),
+                                                .varQOverPt = covTrk1(9),
+                                                .varCotTheta = covTrk1(12),
+                                                .covCotThetaDz = covTrk1(13),
+                                                .varDz = covTrk1(14)};
+
+        const geometry::HelixCovariance cov2 = {.varPhi = covTrk2(0),
+                                                .covPhiDxy = covTrk2(1),
+                                                .covPhiQOverPt = covTrk2(2),
+                                                .varDxy = covTrk2(5),
+                                                .covDxyQOverPt = covTrk2(6),
+                                                .varQOverPt = covTrk2(9),
+                                                .varCotTheta = covTrk2(12),
+                                                .covCotThetaDz = covTrk2(13),
+                                                .varDz = covTrk2(14)};
+
+        const vertexfit::VertexFitConfig vertexFitConfig = {
+            .maxIter = 1,
+            .maxIterProfiling = 6,
+            .lmDamping = 1e-3,
+            .maxArcLength = 100.,
+            .tolPosition = 1e-6,
+        };
+        const pairfit::PairRefineConfig seedingConfig{
+            .maxIter = 10,
+            .lmDamping = 1e-3f,
+            .lmGrow = 5.f,
+            .lmShrink = 3.f,
+            .maxArcLength = 100.f,
+            .tolArcLength = 1e-4f,
+            .lmDampingMax = 1e4f,
+        };
+        auto fit = pairfit::fitTwoTrackVertexGaussNewtonSeeded(acc, t1, t2, cov1, cov2, vertexFitConfig, seedingConfig);
+
+        // reject failing fits
+        if (!fit.valid) {
+#if VEGA_PAIRS_WARNINGS
+          printf("vega::KernelFindPairs: Warning!!!! Fit of track pair failed (track pair %d)!\n", c);
+#endif
+          continue;
+        }
+
+        // cut on the fit quality
+        if (fit.chi2 > params.maxChi2)
+          continue;
+
+        // cuts on radial displacement significance
+        const auto& pos = fit.position;
+        const auto& cov = fit.covariance;
+        const float x2 = pos.x * pos.x;
+        const float y2 = pos.y * pos.y;
+        const float dxySigNum2 = (x2 + y2) * (x2 + y2);
+        const float dxySigDenom2 = x2 * cov.xx + 2 * pos.x * pos.y * cov.xy + y2 * cov.yy;
+        if ((params.minDXYSig >= 0.f) && (dxySigNum2 < params.minDXYSig * params.minDXYSig * dxySigDenom2))
+          continue;
+        if ((params.maxDXYSig >= 0.f) && (dxySigNum2 > params.maxDXYSig * params.maxDXYSig * dxySigDenom2))
+          continue;
 
         // count or fill the pair
         if constexpr (Mode == KernelMode::Count) {
@@ -226,15 +286,18 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
           auto idx = alpaka::atomicAdd(acc, nPairs, 1u, alpaka::hierarchy::Blocks{});
           if (idx >= static_cast<uint32_t>(pairs.metadata().size())) {
 #if VEGA_PAIRS_WARNINGS
-            printf("Warning!!!! Too many pairs (maxNumOfPairs = %d)!\n", pairs.metadata().size());
+            printf("vega::KernelFindPairs: Warning!!!! Too many pairs (maxNumOfPairs = %d)!\n", pairs.metadata().size());
 #endif
             alpaka::atomicSub(acc, nPairs, 1u, alpaka::hierarchy::Blocks{});
             continue;
           }
           pairs[idx].idx1() = i1;
           pairs[idx].idx2() = i2;
-          pairs[idx].arcLen1() = l1;
-          pairs[idx].arcLen2() = l2;
+          pairs[idx].arcLen1() = fit.l1;
+          pairs[idx].arcLen2() = fit.l2;
+          pairs[idx].vx() = pos.x;
+          pairs[idx].vy() = pos.y;
+          pairs[idx].vz() = pos.z;
         }
       }
     }
