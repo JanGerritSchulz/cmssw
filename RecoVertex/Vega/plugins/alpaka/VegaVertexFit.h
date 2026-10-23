@@ -201,7 +201,12 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega::vertexfit {
       const Point3D residual = pos - v;
 
       const float grad = dot(dpos, mul(w, residual));
-      const float hess = dot(dpos, mul(w, dpos)) + dot(residual, mul(w, ddpos));
+      const float hess1 = dot(dpos, mul(w, dpos));
+      const float hess2 = dot(residual, mul(w, ddpos));
+      float hess = hess1 + hess2;
+      // guard against negative/zero hess (use hess1 only instead)
+      if (hess <= 0)
+        hess = hess1;
       const float step = grad / alpaka::math::max(acc, hess * (1.f + lmDamping), 1e-12f);
       l = geometry::clampArcLength(acc, l - step);
       if (alpaka::math::abs(acc, step) < 1e-6f)
