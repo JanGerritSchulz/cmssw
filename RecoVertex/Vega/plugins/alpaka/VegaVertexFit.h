@@ -80,7 +80,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega::vertexfit {
   struct VertexFitConfig {
     int maxIter = 6;           // outer alternations; a GN-seeded fit converges in ~4
     int maxIterProfiling = 3;  // Newton steps per track per alternation
-    double lmDamping = 1e-3;     // LM damping of the profiling Newton step
+    double lmDamping = 1e-3;   // LM damping of the profiling Newton step
     double maxArcLength = geometry::defaultMaxArcLength;
     double tolPosition = 1e-6;  // cm: stop when the vertex moves less than this
   };
@@ -151,8 +151,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega::vertexfit {
     const double jy[3] = {double(trk.cx) + r * he.cosA, -cosPhi, pt * (r * cosPhi - q * r * he.sinA - l * he.cosA)};
 
     const double c3[3][3] = {{cov.varPhi, cov.covPhiDxy, cov.covPhiQOverPt},
-                           {cov.covPhiDxy, cov.varDxy, cov.covDxyQOverPt},
-                           {cov.covPhiQOverPt, cov.covDxyQOverPt, cov.varQOverPt}};
+                             {cov.covPhiDxy, cov.varDxy, cov.covDxyQOverPt},
+                             {cov.covPhiQOverPt, cov.covDxyQOverPt, cov.varQOverPt}};
     double cx[3], cy[3];  // C3 * jx, C3 * jy
     for (int a = 0; a < 3; ++a) {
       cx[a] = c3[a][0] * jx[0] + c3[a][1] * jx[1] + c3[a][2] * jx[2];
@@ -188,13 +188,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega::vertexfit {
   // the huge tangential stiffness of W does not matter here.
   template <typename TAcc>
   ALPAKA_FN_ACC ALPAKA_FN_INLINE double profileArcLength(TAcc const& acc,
-                                                       HelixGeom const& trk,
-                                                       SymMat3d const& w,
-                                                       Vec3d v,
-                                                       double lStart,
-                                                       int maxIter,
-                                                       double lmDamping,
-                                                       double maxArcLength) {
+                                                         HelixGeom const& trk,
+                                                         SymMat3d const& w,
+                                                         Vec3d v,
+                                                         double lStart,
+                                                         int maxIter,
+                                                         double lmDamping,
+                                                         double maxArcLength) {
     double l = lStart;
     for (int iter = 0; iter < maxIter; ++iter) {
       const HelixEvald e = geometry::helixEval<double>(acc, trk, l);
@@ -279,13 +279,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega::vertexfit {
   // -----------------------------------------------------------------------
   template <typename TAcc>
   ALPAKA_FN_ACC ALPAKA_FN_INLINE VertexFitResultT<double> fitTwoTrackVertexInternal(TAcc const& acc,
-                                                                     HelixGeom const& t1,
-                                                                     HelixGeom const& t2,
-                                                                     HelixCovariance const& cov1,
-                                                                     HelixCovariance const& cov2,
-                                                                     double l1Seed,
-                                                                     double l2Seed,
-                                                                     VertexFitConfig const& cfg = {}) {
+                                                                                    HelixGeom const& t1,
+                                                                                    HelixGeom const& t2,
+                                                                                    HelixCovariance const& cov1,
+                                                                                    HelixCovariance const& cov2,
+                                                                                    double l1Seed,
+                                                                                    double l2Seed,
+                                                                                    VertexFitConfig const& cfg = {}) {
     VertexFitResultT<double> bad{{0, 0, 0}, {0, 0, 0, 0, 0, 0}, 0.0, twoTrackNdf, l1Seed, l2Seed, 0, false};
 
     double l1 = math::clamp(acc, l1Seed, cfg.maxArcLength);
@@ -296,10 +296,54 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega::vertexfit {
     Vec3d v{0.5 * (e1.pos.x + e2.pos.x), 0.5 * (e1.pos.y + e2.pos.y), 0.5 * (e1.pos.z + e2.pos.z)};
 
     SymMat3d w1, w2, eff1, eff2, vcov;
-    if (!positionWeight(acc, t1, cov1, e1, l1, w1) || !positionWeight(acc, t2, cov2, e2, l2, w2))
+    if (!positionWeight(acc, t1, cov1, e1, l1, w1) || !positionWeight(acc, t2, cov2, e2, l2, w2)) {
+#if VEGA_VERTEXFIT_MONITOR_FIT_CONVERGENCE
+      printf("fitTwoTrackVertex: FAILED propagating covariance to seed position!!!\n");
+#endif
       return bad;
+    }
 
 #if VEGA_VERTEXFIT_MONITOR_FIT_CONVERGENCE
+    printf("fitTwoTrackVertex: track1 (cx, cy, r, q, refAngle, refZ, cotTheta) = (%f, %f, %f, %f, %f, %f, %f)\n",
+           t1.cx,
+           t1.cy,
+           t1.r,
+           t1.q,
+           t1.refAngle,
+           t1.refZ,
+           t1.cotTheta);
+    printf("fitTwoTrackVertex: track2 (cx, cy, r, q, refAngle, refZ, cotTheta) = (%f, %f, %f, %f, %f, %f, %f)\n",
+           t2.cx,
+           t2.cy,
+           t2.r,
+           t2.q,
+           t2.refAngle,
+           t2.refZ,
+           t2.cotTheta);
+    printf(
+        "fitTwoTrackVertex: cov1 (varPhi, covPhiDxy, covPhiQOverPt, varDxy, covDxyQOverPt, varQOverPt, varCotTheta, "
+        "covCotThetaDz, varDz) = (%f, %f, %f, %f, %f, %f, %f, %f, %f)\n",
+        cov1.varPhi,
+        cov1.covPhiDxy,
+        cov1.covPhiQOverPt,
+        cov1.varDxy,
+        cov1.covDxyQOverPt,
+        cov1.varQOverPt,
+        cov1.varCotTheta,
+        cov1.covCotThetaDz,
+        cov1.varDz);
+    printf(
+        "fitTwoTrackVertex: cov2 (varPhi, covPhiDxy, covPhiQOverPt, varDxy, covDxyQOverPt, varQOverPt, varCotTheta, "
+        "covCotThetaDz, varDz) = (%f, %f, %f, %f, %f, %f, %f, %f, %f)\n",
+        cov2.varPhi,
+        cov2.covPhiDxy,
+        cov2.covPhiQOverPt,
+        cov2.varDxy,
+        cov2.covDxyQOverPt,
+        cov2.varQOverPt,
+        cov2.varCotTheta,
+        cov2.covCotThetaDz,
+        cov2.varDz);
     printf("fitTwoTrackVertex: seed (l1, l2) = (%f, %f)  V = (%f, %f, %f)\n", l1, l2, v.x, v.y, v.z);
 #endif
 
@@ -311,15 +355,23 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega::vertexfit {
       e1 = geometry::helixEval<double>(acc, t1, l1);
       e2 = geometry::helixEval<double>(acc, t2, l2);
       // weights at the refined arc lengths (also the profiling weights of the next iteration)
-      if (!positionWeight(acc, t1, cov1, e1, l1, w1) || !positionWeight(acc, t2, cov2, e2, l2, w2))
+      if (!positionWeight(acc, t1, cov1, e1, l1, w1) || !positionWeight(acc, t2, cov2, e2, l2, w2)) {
+#if VEGA_VERTEXFIT_MONITOR_FIT_CONVERGENCE
+        printf("fitTwoTrackVertex: FAILED propagating covariance to new position!!!\n");
+#endif
         return bad;
+      }
 
       // 2. closed-form vertex update with the Schur-corrected weights
       eff1 = correctWeightForProfiledArcLength(acc, w1, e1, v);
       eff2 = correctWeightForProfiledArcLength(acc, w2, e2, v);
       const Vec3d vOld = v;
-      if (!solveVertex(acc, e1.pos, eff1, e2.pos, eff2, v, vcov))
+      if (!solveVertex(acc, e1.pos, eff1, e2.pos, eff2, v, vcov)) {
+#if VEGA_VERTEXFIT_MONITOR_FIT_CONVERGENCE
+        printf("fitTwoTrackVertex: FAILED solving for the vertex position update!!!\n");
+#endif
         return bad;
+      }
 
 #if VEGA_VERTEXFIT_MONITOR_FIT_CONVERGENCE
       printf("fitTwoTrackVertex: iter %d  (l1, l2) = (%f, %f)  V = (%f, %f, %f)\n", iter, l1, l2, v.x, v.y, v.z);
@@ -335,13 +387,21 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega::vertexfit {
     // then covariance and chi2 from the same weights
     eff1 = correctWeightForProfiledArcLength(acc, w1, e1, v);
     eff2 = correctWeightForProfiledArcLength(acc, w2, e2, v);
-    if (!solveVertex(acc, e1.pos, eff1, e2.pos, eff2, v, vcov))
+    if (!solveVertex(acc, e1.pos, eff1, e2.pos, eff2, v, vcov)) {
+#if VEGA_VERTEXFIT_MONITOR_FIT_CONVERGENCE
+      printf("fitTwoTrackVertex: FAILED solving for the final vertex position!!!\n");
+#endif
       return bad;
+    }
     const Vec3d r1 = e1.pos - v;
     const Vec3d r2 = e2.pos - v;
     const double chi2 = dot(r1, mul(eff1, r1)) + dot(r2, mul(eff2, r2));
-    if (!(chi2 >= 0.0))
+    if (!(chi2 >= 0.0)) {
+#if VEGA_VERTEXFIT_MONITOR_FIT_CONVERGENCE
+      printf("fitTwoTrackVertex: FAILED due to negative chi2!!!\n");
+#endif
       return bad;
+    }
 
 #if VEGA_VERTEXFIT_MONITOR_FIT_CONVERGENCE
     printf("fitTwoTrackVertex: done after %d iters  V = (%f, %f, %f)  chi2 = %g  (l1, l2) = (%f, %f)\n",
