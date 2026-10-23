@@ -342,6 +342,124 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega::geometry {
     return vtx;
   }
 
+  // -----------------------------------------------------------------------
+  // Unweighted LM-damped Gauss-Newton helix-helix refinement
+  //
+  // Minimizes f(l1, l2) = |x1(l1) - x2(l2)|^2 (squared 3D distance between
+  // the two helices) over the two signed arc lengths, starting from (l1, l2).
+  //
+  // Gauss-Newton: the Hessian is approximated by J^T J (the residual-times-
+  // curvature term is dropped), so no second derivatives are needed and the
+  // 2x2 normal matrix is always positive semi-definite. Levenberg-Marquardt:
+  // the diagonal is scaled by (1 + lambda), and lambda is adapted by
+  // accept/reject of every trial step:
+  //   - trial point has smaller |r|^2  -> accept, lambda /= lmShrink
+  //   - otherwise                      -> reject, lambda *= lmGrow, retry
+  // Every trial arc length is clamped to |l| <= maxArcLength (see
+  // defaultMaxArcLength for the failure mode this prevents).
+  //
+  // One iteration costs one pairNormalEquationsSolve and one evaluation of
+  // both helices at the trial point (position + derivative share one trig
+  // evaluation per track); an accepted trial's values are reused for the
+  // next iteration, so there is no redundant evaluation.
+  // -----------------------------------------------------------------------
+
+  // Tunable policy; defaults mirror the Python reference (see the constants
+  // above). tolArcLength is the |dl| below which an accepted step counts as
+  // converged (cm; 1e-4 cm = 1 micron, below tracker resolution).
+  struct PairRefineConfig {
+    int maxIter = defaultMaxRefineIter;
+    float lmDamping = defaultLmDamping;
+    float lmGrow = defaultLmGrow;
+    float lmShrink = defaultLmShrink;
+    float maxArcLength = defaultMaxArcLength;
+    float tolArcLength = 1e-4f;
+    float lmDampingMax = 1e4f;  // give up (stalled) when rejects push lambda beyond this
+  };
+
+  struct PairRefineResult {
+    float l1, l2;     // refined arc lengths
+    float distance2;  // |x1(l1) - x2(l2)|^2 at the returned point
+    int iterations;   // trial steps taken (accepted + rejected)
+    bool converged;   // an accepted step fell below tolArcLength
+  };
+
+  template <typename TAcc>
+  ALPAKA_FN_ACC ALPAKA_FN_INLINE PairRefineResult refinePairGaussNewton(TAcc const& acc,
+                                                                        HelixGeom const& t1,
+                                                                        HelixGeom const& t2,
+                                                                        float l1Start,
+                                                                        float l2Start,
+                                                                        PairRefineConfig const& cfg = {}) {
+    float l1 = clampArcLength(acc, l1Start, cfg.maxArcLength);
+    float l2 = clampArcLength(acc, l2Start, cfg.maxArcLength);
+
+    Point3D p1, d1, dd1, p2, d2, dd2;  // dd* (second derivative) is unused by Gauss-Newton
+    helixPositionAndDerivatives(acc, t1, l1, p1, d1, dd1);
+    helixPositionAndDerivatives(acc, t2, l2, p2, d2, dd2);
+    Point3D r = p1 - p2;
+    float cost = norm2(r);
+
+    float lam = cfg.lmDamping;
+    int iter = 0;
+    bool converged = false;
+
+    while (iter < cfg.maxIter) {
+      ++iter;
+
+      // damped step, to be subtracted from (l1, l2)
+      float dl1, dl2;
+      pairNormalEquationsSolve(acc, d1, d2, r, lam, dl1, dl2);
+
+      const float n1 = clampArcLength(acc, l1 - dl1, cfg.maxArcLength);
+      const float n2 = clampArcLength(acc, l2 - dl2, cfg.maxArcLength);
+
+      Point3D np1, nd1, ndd1, np2, nd2, ndd2;
+      helixPositionAndDerivatives(acc, t1, n1, np1, nd1, ndd1);
+      helixPositionAndDerivatives(acc, t2, n2, np2, nd2, ndd2);
+      const Point3D nr = np1 - np2;
+      const float nCost = norm2(nr);
+
+      if (nCost < cost) {
+        // accept; judge convergence on the step actually applied (after clamping)
+        const float applied1 = alpaka::math::abs(acc, n1 - l1);
+        const float applied2 = alpaka::math::abs(acc, n2 - l2);
+        l1 = n1;
+        l2 = n2;
+        p1 = np1;
+        d1 = nd1;
+        p2 = np2;
+        d2 = nd2;
+        r = nr;
+        cost = nCost;
+        lam = lam / cfg.lmShrink;
+        if (applied1 < cfg.tolArcLength && applied2 < cfg.tolArcLength) {
+          converged = true;
+          break;
+        }
+      } else {
+        // reject: more damping, retry from the same point
+        lam = lam * cfg.lmGrow;
+        if (lam > cfg.lmDampingMax)
+          break;
+      }
+    }
+    return {l1, l2, cost, iter, converged};
+  }
+
+  // Two-start variant: run from the geometric ("smart") seed and from
+  // l1 = l2 = 0 (the reference points, "dumb" start), keep the lower final
+  // distance. ~2x cost; use where wrong-basin pairs matter.
+  template <typename TAcc>
+  ALPAKA_FN_ACC ALPAKA_FN_INLINE PairRefineResult
+  refinePairDualStart(TAcc const& acc, HelixGeom const& t1, HelixGeom const& t2, PairRefineConfig const& cfg = {}) {
+    float s1, s2;
+    smartStartArcLengths(acc, t1, t2, s1, s2, cfg.maxArcLength);
+    const auto smart = refinePairGaussNewton(acc, t1, t2, s1, s2, cfg);
+    const auto dumb = refinePairGaussNewton(acc, t1, t2, 0.f, 0.f, cfg);
+    return (dumb.distance2 < smart.distance2) ? dumb : smart;
+  }
+
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE::vega::geometry
 
 #endif  // RecoVertex_Vega_plugins_alpaka_VegaGeometry_h
