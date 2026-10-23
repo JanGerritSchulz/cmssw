@@ -84,7 +84,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega::geometry {
   //   l = -sign(q) * r * dTheta
   // with dTheta the shortest signed angle from refAngle to the target's
   // angular position on the circle. Inverse of the position map
-  // theta(l) = refAngle - sign(q) * l / r.
+  // alpha(l) = refAngle - sign(q) * l / r.
   template <typename TAcc>
   ALPAKA_FN_ACC ALPAKA_FN_INLINE float arcLengthTo(TAcc const& acc, HelixGeom const& trk, float targetX, float targetY) {
     const float targetAngle = alpaka::math::atan2(acc, targetY - trk.cy, targetX - trk.cx);
@@ -199,11 +199,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega::geometry {
   // What lives here are the pure math primitives the loop is built from,
   // each individually testable against the Python reference:
   //
-  //   helixPositionAndDerivative  position map x(l) and derivative dx/dl
-  //   pairNormalEquationsSolve    one damped 2x2 normal-equations solve
-  //   clampArcLength              the maxArcLength bound on |l|
-  //   smartStartArcLengths        seed (l1, l2) from the geometric estimate
-  //   refinedVertex               epilogue: converged (l1, l2) -> VertexEstimate
+  //   helixPositionAndDerivatives  position map x(l) and derivatives dx/dl + d2x/dl2
+  //   pairNormalEquationsSolve     one damped 2x2 normal-equations solve
+  //   clampArcLength               the maxArcLength bound on |l|
+  //   smartStartArcLengths         seed (l1, l2) from the geometric estimate
+  //   refinedVertex                epilogue: converged (l1, l2) -> VertexEstimate
   //
   // Per-iteration math (mirrors refineVertex): with residual r = p1 - p2 and
   // j_i = dr/dl_i, solve the LM-damped normal equations
@@ -242,25 +242,44 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega::geometry {
 
   // Position on trk's helix at signed transverse arc length l, and the
   // derivative d(position)/dl there - one trig evaluation shared between the
-  // two. Position map: theta(l) = refAngle - q * l / r (inverse of
-  // arcLengthTo), x = cx + r cos(theta), y = cy + r sin(theta),
+  // two. Position map: alpha(l) = refAngle - q * l / r (inverse of
+  // arcLengthTo), x = cx + r cos(alpha), y = cy + r sin(alpha),
   // z = refZ + l * cotTheta.
   template <typename TAcc>
-  ALPAKA_FN_ACC ALPAKA_FN_INLINE void helixPositionAndDerivative(
-      TAcc const& acc, HelixGeom const& trk, float l, Point3D& pos, Point3D& dpos) {
-    const float theta = trk.refAngle - trk.q * l / trk.r;
-    const float sinTheta = alpaka::math::sin(acc, theta);
-    const float cosTheta = alpaka::math::cos(acc, theta);
-    pos = {trk.cx + trk.r * cosTheta, trk.cy + trk.r * sinTheta, trk.refZ + l * trk.cotTheta};
-    dpos = {trk.q * sinTheta, -trk.q * cosTheta, trk.cotTheta};
+  ALPAKA_FN_ACC ALPAKA_FN_INLINE void helixPositionAndDerivatives(
+      TAcc const& acc, HelixGeom const& trk, float l, Point3D& pos, Point3D& dpos, Point3D& ddpos) {
+    const float alpha = trk.refAngle - trk.q * l / trk.r;
+    const float sinAlpha = alpaka::math::sin(acc, alpha);
+    const float cosAlpha = alpaka::math::cos(acc, alpha);
+    pos = {trk.cx + trk.r * cosAlpha, trk.cy + trk.r * sinAlpha, trk.refZ + l * trk.cotTheta};
+    dpos = {trk.q * sinAlpha, -trk.q * cosAlpha, trk.cotTheta};
+    ddpos = {-cosAlpha / trk.r, -sinAlpha / trk.r, 0.f};
   }
 
   // Position only (epilogue use, when the derivative is not needed).
   template <typename TAcc>
   ALPAKA_FN_ACC ALPAKA_FN_INLINE Point3D helixPosition(TAcc const& acc, HelixGeom const& trk, float l) {
-    Point3D pos, dpos;
-    helixPositionAndDerivative(acc, trk, l, pos, dpos);
+    Point3D pos, dpos, ddpos;
+    helixPositionAndDerivatives(acc, trk, l, pos, dpos, ddpos);
     return pos;
+  }
+
+  // First derivative d(x)/dl of the helix position map.
+  template <typename TAcc>
+  ALPAKA_FN_ACC ALPAKA_FN_INLINE Point3D helixFirstDerivative(TAcc const& acc, HelixGeom const& trk, float l) {
+    Point3D pos, dpos, ddpos;
+    helixPositionAndDerivatives(acc, trk, l, pos, dpos, ddpos);
+    return dpos;
+  }
+
+  // Second derivative d^2(x)/dl^2 of the helix position map. The transverse
+  // part is the position rotated by 90 degrees scaled by 1/r (no new trig);
+  // z is linear in l so its second derivative vanishes.
+  template <typename TAcc>
+  ALPAKA_FN_ACC ALPAKA_FN_INLINE Point3D helixSecondDerivative(TAcc const& acc, HelixGeom const& trk, float l) {
+    Point3D pos, dpos, ddpos;
+    helixPositionAndDerivatives(acc, trk, l, pos, dpos, ddpos);
+    return ddpos;
   }
 
   // One LM-damped 2x2 normal-equations solve for the pair refinement. Takes

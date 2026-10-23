@@ -174,17 +174,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega::vertexfit {
   // Per-track arc-length profiling (the inner 1-D Newton+LM solve)
   // -----------------------------------------------------------------------
 
-  // Second derivative d^2(x)/dl^2 of the helix position map. The transverse
-  // part is the position rotated by 90 degrees scaled by 1/r (no new trig);
-  // z is linear in l so its second derivative vanishes.
-  template <typename TAcc>
-  ALPAKA_FN_ACC ALPAKA_FN_INLINE Point3D helixSecondDerivative(TAcc const& acc, HelixGeom const& trk, float l) {
-    const float alpha = trk.refAngle - trk.q * l / trk.r;
-    const float sinAlpha = alpaka::math::sin(acc, alpha);
-    const float cosAlpha = alpaka::math::cos(acc, alpha);
-    return {-cosAlpha / trk.r, -sinAlpha / trk.r, 0.f};
-  }
-
   // Find the arc length minimizing track i's weighted residual against the
   // current vertex estimate V: a few Newton steps with light LM damping,
   // warm-started from lStart (the previous iteration's value, or the
@@ -207,9 +196,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega::vertexfit {
                                                         float lmDamping = 1e-3f) {
     float l = lStart;
     for (int iter = 0; iter < maxIter; ++iter) {
-      Point3D pos, dpos;
-      geometry::helixPositionAndDerivative(acc, trk, l, pos, dpos);
-      const Point3D ddpos = helixSecondDerivative(acc, trk, l);
+      Point3D pos, dpos, ddpos;
+      geometry::helixPositionAndDerivatives(acc, trk, l, pos, dpos, ddpos);
       const Point3D residual = pos - v;
 
       const float grad = dot(dpos, mul(w, residual));
@@ -242,8 +230,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega::vertexfit {
   template <typename TAcc>
   ALPAKA_FN_ACC ALPAKA_FN_INLINE SymMat3
   correctWeightForProfiledArcLength(TAcc const& acc, HelixGeom const& trk, SymMat3 const& w, float l, float varL) {
-    Point3D pos, dpos;
-    geometry::helixPositionAndDerivative(acc, trk, l, pos, dpos);
+    Point3D pos, dpos, ddpos;
+    geometry::helixPositionAndDerivatives(acc, trk, l, pos, dpos, ddpos);
     const Point3D wd = mul(w, dpos);
     const float denom = alpaka::math::max(acc, dot(dpos, wd) + 1.f / alpaka::math::max(acc, varL, 1e-12f), 1e-12f);
     const SymMat3 corr = outerProduct(wd);
@@ -326,9 +314,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega::vertexfit {
     const SymMat3 w1 = positionWeight(acc, t1, cov1, l1);
     const SymMat3 w2 = positionWeight(acc, t2, cov2, l2);
     // nuisance variance from the profiling Hessian at convergence
-    Point3D pos1, dpos1, pos2, dpos2;
-    geometry::helixPositionAndDerivative(acc, t1, l1, pos1, dpos1);
-    geometry::helixPositionAndDerivative(acc, t2, l2, pos2, dpos2);
+    Point3D pos1, dpos1, ddpos1, pos2, dpos2, ddpos2;
+    geometry::helixPositionAndDerivatives(acc, t1, l1, pos1, dpos1, ddpos1);
+    geometry::helixPositionAndDerivatives(acc, t2, l2, pos2, dpos2, ddpos2);
     const float varL1 = 1.f / alpaka::math::max(acc, dot(dpos1, mul(w1, dpos1)), 1e-12f);
     const float varL2 = 1.f / alpaka::math::max(acc, dot(dpos2, mul(w2, dpos2)), 1e-12f);
     const SymMat3 w1eff = correctWeightForProfiledArcLength(acc, t1, w1, l1, varL1);
