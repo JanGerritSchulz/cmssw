@@ -5,6 +5,8 @@
 
 #include "VegaGeometry.h"
 
+#define VEGA_VERTEXFIT_MONITOR_FIT_CONVERGENCE 1
+
 // Weighted, covariance-aware two-track vertex fit - structured
 // for one-thread-per-pair GPU execution (no shared memory, no sync, all
 // state in registers).
@@ -306,6 +308,28 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega::vertexfit {
     float l1, l2;
     geometry::smartStartArcLengths(acc, t1, t2, l1, l2);  // FIXME: this completely repeats the lines above!!!
 
+#if VEGA_VERTEXFIT_MONITOR_FIT_CONVERGENCE
+    printf(
+        "fitTwoTrackVertex: track1 (cx, cy, r, q, refAngle, refZ, cotTheta, sinPhi, cosPhi, pt) = "
+        "(%f, %f, %f, %f, %f, %f, %f, %f, %f, %f)\n",
+        t1.cx, t1.cy, t1.r, t1.q, t1.refAngle, t1.refZ, t1.cotTheta, t1.sinPhi, t1.cosPhi, t1.pt);
+    printf(
+        "fitTwoTrackVertex: track2 (cx, cy, r, q, refAngle, refZ, cotTheta, sinPhi, cosPhi, pt) = "
+        "(%f, %f, %f, %f, %f, %f, %f, %f, %f, %f)\n",
+        t2.cx, t2.cy, t2.r, t2.q, t2.refAngle, t2.refZ, t2.cotTheta, t2.sinPhi, t2.cosPhi, t2.pt);
+    printf(
+        "fitTwoTrackVertex: cov1 (varPhi, covPhiDxy, covPhiQOverPt, varDxy, covDxyQOverPt, varQOverPt, "
+        "varCotTheta, covCotThetaDz, varDz) = (%g, %g, %g, %g, %g, %g, %g, %g, %g)\n",
+        cov1.varPhi, cov1.covPhiDxy, cov1.covPhiQOverPt, cov1.varDxy, cov1.covDxyQOverPt, cov1.varQOverPt,
+        cov1.varCotTheta, cov1.covCotThetaDz, cov1.varDz);
+    printf(
+        "fitTwoTrackVertex: cov2 (varPhi, covPhiDxy, covPhiQOverPt, varDxy, covDxyQOverPt, varQOverPt, "
+        "varCotTheta, covCotThetaDz, varDz) = (%g, %g, %g, %g, %g, %g, %g, %g, %g)\n",
+        cov2.varPhi, cov2.covPhiDxy, cov2.covPhiQOverPt, cov2.varDxy, cov2.covDxyQOverPt, cov2.varQOverPt,
+        cov2.varCotTheta, cov2.covCotThetaDz, cov2.varDz);
+    printf("fitTwoTrackVertex: seed V = (%f, %f, %f), (l1, l2) = (%f, %f)\n", v.x, v.y, v.z, l1, l2);
+#endif
+
     // alternate per-track profiling and the closed-form vertex update
     for (int iter = 0; iter < maxIter; ++iter) {
       const SymMat3 w1 = positionWeight(acc, t1, cov1, l1);
@@ -315,6 +339,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega::vertexfit {
       const Point3D x1 = geometry::helixPosition(acc, t1, l1);
       const Point3D x2 = geometry::helixPosition(acc, t2, l2);
       v = weightedPoint(acc, x1, w1, x2, w2);
+
+#if VEGA_VERTEXFIT_MONITOR_FIT_CONVERGENCE
+      printf(
+          "fitTwoTrackVertex: iter %d  (l1, l2) = (%f, %f)  x1 = (%f, %f, %f)  x2 = (%f, %f, %f)  "
+          "V = (%f, %f, %f)\n",
+          iter, l1, l2, x1.x, x1.y, x1.z, x2.x, x2.y, x2.z, v.x, v.y, v.z);
+#endif
     }
 
     // final weights with the profiled-arc-length correction
@@ -338,6 +369,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega::vertexfit {
     const Point3D r1 = x1 - v;
     const Point3D r2 = x2 - v;
     const float chi2 = dot(r1, mul(w1eff, r1)) + dot(r2, mul(w2eff, r2));
+
+#if VEGA_VERTEXFIT_MONITOR_FIT_CONVERGENCE
+    printf(
+        "fitTwoTrackVertex: done  V = (%f, %f, %f)  chi2 = %f  (l1, l2) = (%f, %f)  "
+        "cov (xx, yy, zz) = (%g, %g, %g)\n",
+        v.x, v.y, v.z, chi2, l1, l2, covariance.xx, covariance.yy, covariance.zz);
+#endif
 
     return {v, covariance, chi2, l1, l2, true};
   }

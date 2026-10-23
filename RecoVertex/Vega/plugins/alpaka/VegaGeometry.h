@@ -5,6 +5,9 @@
 
 #include "HeterogeneousCore/AlpakaMath/interface/deltaPhi.h"
 
+#define VEGA_GEOMETRY_MONITOR_FIT_CONVERGENCE 1
+
+
 // Helix geometry for track pairs: circle-circle closest approach in the
 // transverse plane plus z from propagating each track along its own helix.
 //
@@ -394,6 +397,16 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega::geometry {
     float l1 = clampArcLength(acc, l1Start, cfg.maxArcLength);
     float l2 = clampArcLength(acc, l2Start, cfg.maxArcLength);
 
+#if VEGA_GEOMETRY_MONITOR_FIT_CONVERGENCE
+    printf(
+        "refinePairGaussNewton: track1 (cx, cy, r, q, refAngle, refZ, cotTheta) = (%f, %f, %f, %f, %f, %f, %f)\n",
+        t1.cx, t1.cy, t1.r, t1.q, t1.refAngle, t1.refZ, t1.cotTheta);
+    printf(
+        "refinePairGaussNewton: track2 (cx, cy, r, q, refAngle, refZ, cotTheta) = (%f, %f, %f, %f, %f, %f, %f)\n",
+        t2.cx, t2.cy, t2.r, t2.q, t2.refAngle, t2.refZ, t2.cotTheta);
+    printf("refinePairGaussNewton: seed (l1, l2) = (%f, %f)\n", l1, l2);
+#endif
+
     Point3D p1, d1, dd1, p2, d2, dd2;  // dd* (second derivative) is unused by Gauss-Newton
     helixPositionAndDerivatives(acc, t1, l1, p1, d1, dd1);
     helixPositionAndDerivatives(acc, t2, l2, p2, d2, dd2);
@@ -433,6 +446,12 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega::geometry {
         r = nr;
         cost = nCost;
         lam = lam / cfg.lmShrink;
+#if VEGA_GEOMETRY_MONITOR_FIT_CONVERGENCE
+        printf(
+            "refinePairGaussNewton: iter %d ACCEPT  (l1, l2) = (%f, %f)  p1 = (%f, %f, %f)  p2 = (%f, %f, %f)  "
+            "dist = %f  lam = %g\n",
+            iter, l1, l2, p1.x, p1.y, p1.z, p2.x, p2.y, p2.z, alpaka::math::sqrt(acc, cost), lam);
+#endif
         if (applied1 < cfg.tolArcLength && applied2 < cfg.tolArcLength) {
           converged = true;
           break;
@@ -440,10 +459,18 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega::geometry {
       } else {
         // reject: more damping, retry from the same point
         lam = lam * cfg.lmGrow;
+#if VEGA_GEOMETRY_MONITOR_FIT_CONVERGENCE
+        printf("refinePairGaussNewton: iter %d REJECT  (l1, l2) = (%f, %f)  trial dist = %f  lam -> %g\n",
+               iter, l1, l2, alpaka::math::sqrt(acc, nCost), lam);
+#endif
         if (lam > cfg.lmDampingMax)
           break;
       }
     }
+#if VEGA_GEOMETRY_MONITOR_FIT_CONVERGENCE
+    printf("refinePairGaussNewton: done after %d iters, converged = %d, final (l1, l2) = (%f, %f), dist = %f\n",
+           iter, converged, l1, l2, alpaka::math::sqrt(acc, cost));
+#endif
     return {l1, l2, cost, iter, converged};
   }
 
