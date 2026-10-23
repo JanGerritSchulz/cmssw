@@ -1,5 +1,5 @@
-#ifndef RecoVertex_Vega_test_alpaka_VegaGeometry_test_h
-#define RecoVertex_Vega_test_alpaka_VegaGeometry_test_h
+#ifndef RecoVertex_Vega_test_alpaka_VegaPairFit_test_h
+#define RecoVertex_Vega_test_alpaka_VegaPairFit_test_h
 
 #include "HeterogeneousCore/AlpakaInterface/interface/config.h"
 
@@ -11,4 +11,4 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE
 
-#endif  // RecoVertex_Vega_test_alpaka_VegaGeometry_test_h
+#endif  // RecoVertex_Vega_test_alpaka_VegaPairFit_test_h

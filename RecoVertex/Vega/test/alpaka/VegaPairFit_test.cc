@@ -5,7 +5,7 @@
 #include "HeterogeneousCore/AlpakaInterface/interface/config.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/devices.h"
 
-#include "VegaGeometry_test.h"
+#include "VegaPairFit_test.h"
 
 using namespace ALPAKA_ACCELERATOR_NAMESPACE;
 
