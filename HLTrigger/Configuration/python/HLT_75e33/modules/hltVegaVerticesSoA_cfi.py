@@ -10,7 +10,9 @@ hltVegaVerticesSoA = cms.EDProducer('VegaVertexSoAProducer@alpaka',
       maxDEta = cms.float(0.4),
       maxDZ = cms.float(0.75),
       maxLinDistance = cms.float(0.1),
-      max3DDistance = cms.float(0.02)
+      maxChi2 = cms.float(9999),
+      minDXYSig = cms.float(-1),
+      maxDXYSig = cms.float(-1)
     ),
     tripletParams = cms.PSet(
       max3DDistance = cms.float(0.02)

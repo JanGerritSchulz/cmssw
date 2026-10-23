@@ -62,13 +62,16 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   VegaParams VegaVertexSoAProducer::getVegaParams(const edm::ParameterSet& iConfig) const {
     // configuration for track pair finding
     auto pairConfig = iConfig.getParameter<edm::ParameterSet>("pairParams");
-    ::vega::PairParams pairParams = {.minTrkQuality = pixelTrack::qualityByName(pairConfig.getParameter<std::string>("minTrackQuality")),
-                                     .minPt = pairConfig.getParameter<float>("minPt"),
-                                     .maxDPhi = pairConfig.getParameter<float>("maxDPhi"),
-                                     .maxDEta = pairConfig.getParameter<float>("maxDEta"),
-                                     .maxDZ = pairConfig.getParameter<float>("maxDZ"),
-                                     .maxLinDistance = pairConfig.getParameter<float>("maxLinDistance"),
-                                     .max3DDistance = pairConfig.getParameter<float>("max3DDistance")};
+    ::vega::PairParams pairParams = {
+        .minTrkQuality = pixelTrack::qualityByName(pairConfig.getParameter<std::string>("minTrackQuality")),
+        .minPt = pairConfig.getParameter<float>("minPt"),
+        .maxDPhi = pairConfig.getParameter<float>("maxDPhi"),
+        .maxDEta = pairConfig.getParameter<float>("maxDEta"),
+        .maxDZ = pairConfig.getParameter<float>("maxDZ"),
+        .maxLinDistance = pairConfig.getParameter<float>("maxLinDistance"),
+        .maxChi2 = pairConfig.getParameter<float>("maxChi2"),
+        .minDXYSig = pairConfig.getParameter<float>("minDXYSig"),
+        .maxDXYSig = pairConfig.getParameter<float>("maxDXYSig")};
 
     // configuration for triplet building
     auto tripletConfig = iConfig.getParameter<edm::ParameterSet>("tripletParams");
@@ -91,7 +94,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     // Pair finding configuration
     // ----------------------------------------------
     edm::ParameterSetDescription pairParams;
-    pairParams.add<std::string>("minTrackQuality", "tight")->setComment("Minimum track quality for both tracks in the track pair");
+    pairParams.add<std::string>("minTrackQuality", "tight")
+        ->setComment("Minimum track quality for both tracks in the track pair");
     pairParams.add<float>("minPt", 0.9)->setComment("Minimum track pT for the leading track in the track pair");
     pairParams.add<float>("maxDPhi", 0.4)->setComment("Maximum difference in phi for the track pair");
     pairParams.add<float>("maxDEta", 0.4)->setComment("Maximum difference in eta for the track pair");
@@ -100,7 +104,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     pairParams.add<float>("maxLinDistance", 0.1)
         ->setComment(
             "Maximum distance for the track pair using linear approx. around reference point (= PCA to beamspot)");
-    pairParams.add<float>("max3DDistance", 0.02)->setComment("Maximum 3D distance for the track pair (using helices)");
+    pairParams.add<float>("maxChi2", 5.0)->setComment("Maximum chi2/ndof for the vertex fit on the track pair");
+    pairParams.add<float>("minDXYSig", 3.0)
+        ->setComment("Minimum dxy significance of the fitted vertex of the pair (-1=disabled)");
+    pairParams.add<float>("maxDXYSig", -1.0)
+        ->setComment("Maximum dxy significance of the fitted vertex of the pair (-1=disabled)");
     desc.add<edm::ParameterSetDescription>("pairParams", pairParams);
 
     // ----------------------------------------------

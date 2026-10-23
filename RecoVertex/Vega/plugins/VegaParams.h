@@ -13,7 +13,9 @@ namespace vega {
     float maxDEta;
     float maxDZ;
     float maxLinDistance;
-    float max3DDistance;
+    float maxChi2;
+    float minDXYSig;
+    float maxDXYSig;
   };
 
   struct TripletParams {
