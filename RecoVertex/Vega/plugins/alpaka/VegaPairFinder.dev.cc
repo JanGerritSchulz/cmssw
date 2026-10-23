@@ -4,7 +4,8 @@
 #include "HeterogeneousCore/AlpakaInterface/interface/memory.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/radixSort.h"
 #include "RecoVertex/Vega/interface/alpaka/IndexPairSoACollection.h"
-#include "RecoVertex/Vega/plugins//alpaka/VegaGeometry.h"
+#include "RecoVertex/Vega/plugins/alpaka/VegaGeometry.h"
+#include "RecoVertex/Vega/plugins/alpaka/VegaPairFit.h"
 #include "RecoVertex/Vega/plugins/VegaConstants.h"
 
 #include "VegaPairFinder.h"
@@ -214,7 +215,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
                                                            .pt = tk2.pt()};
 
         float l1, l2;
-        geometry::smartStartArcLengths(acc, t1, t2, l1, l2);
+        pairfit::smartStartArcLengths(acc, t1, t2, l1, l2);
         // FIXME - add actual vertex estimate and cut on 3D distance to it
 
         // count or fill the pair
