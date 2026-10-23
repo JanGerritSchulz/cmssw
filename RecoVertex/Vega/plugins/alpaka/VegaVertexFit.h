@@ -297,7 +297,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega::vertexfit {
                                                                    HelixGeom const& t2,
                                                                    TrackCovariance const& cov1,
                                                                    TrackCovariance const& cov2,
-                                                                   int maxIter = 4) {
+                                                                   int maxIter = 4,
+                                                                   int maxIterProfiling = 3,
+                                                                   float lmDampingProfiling = 1e-3f) {
     // seed
     const auto seed = geometry::estimatedVertex(acc, t1, t2);  // FIXME: avoid conversion maybe?
     Point3D v{seed.x, seed.y, seed.z};
@@ -308,8 +310,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega::vertexfit {
     for (int iter = 0; iter < maxIter; ++iter) {
       const SymMat3 w1 = positionWeight(acc, t1, cov1, l1);
       const SymMat3 w2 = positionWeight(acc, t2, cov2, l2);
-      l1 = profileArcLength(acc, t1, w1, v, l1);
-      l2 = profileArcLength(acc, t2, w2, v, l2);
+      l1 = profileArcLength(acc, t1, w1, v, l1, maxIterProfiling, lmDampingProfiling);
+      l2 = profileArcLength(acc, t2, w2, v, l2, maxIterProfiling, lmDampingProfiling);
       const Point3D x1 = geometry::helixPosition(acc, t1, l1);
       const Point3D x2 = geometry::helixPosition(acc, t2, l2);
       v = weightedPoint(acc, x1, w1, x2, w2);
