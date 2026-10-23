@@ -13,6 +13,12 @@ namespace vega {
                       SOA_COLUMN(uint32_t, idx2),    // index of track 2
                       SOA_COLUMN(float, arcLen1),    // arc length of track 1 at closest approach
                       SOA_COLUMN(float, arcLen2),    // arc length of track 2 at closest approach
+                      SOA_COLUMN(float, vx),         // vertex fit x
+                      SOA_COLUMN(float, vy),         // vertex fit y
+                      SOA_COLUMN(float, vz),         // vertex fit z
+                      SOA_COLUMN(float, covx),         // vertex fit cov x
+                      SOA_COLUMN(float, covy),         // vertex fit cov y
+                      SOA_COLUMN(float, covz),         // vertex fit cov z
                       SOA_SCALAR(uint32_t, nPairs))  // number of pairs
 
   using VegaPairSoA = VegaPairSoALayout<>;
