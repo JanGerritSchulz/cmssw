@@ -21,6 +21,8 @@
 
 #include "VegaAlgo.h"
 
+#define VEGA_PRODUCER_DEBUG 0
+
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
   using namespace cms::alpakatools;
   using namespace ::vega;
@@ -137,7 +139,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   }
 
   void VegaVertexSoAProducer::produce(device::Event& iEvent, const device::EventSetup& iSetup) {
+#if VEGA_PRODUCER_DEBUG
     std::cout << "VegaVertexSoAProducer::produce: aquired nTracks = " << *nTracks_.data() << std::endl;
+#endif
 
     auto const& tracksOnDevice = iEvent.get(tracksDeviceToken_);
 
@@ -145,8 +149,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         verticesDeviceToken_,
         algo_.makeVerticesAsync(iEvent.queue(), tracksOnDevice.view().tracks(), maxVertices_, *nTracks_.data()));
 
+#if VEGA_PRODUCER_DEBUG
     std::cout << "VegaVertexSoAProducer::produce: produced vertex collection with maxVertices = " << maxVertices_
               << std::endl;
+#endif
   }
 
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE

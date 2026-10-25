@@ -9,7 +9,7 @@
 #include "VegaPairFinder.h"
 #include "VegaVertexClusterizer.h"
 
-#define VEGA_ALGO_DEBUG 1
+#define VEGA_ALGO_DEBUG 0
 #define VEGA_ALGO_PRINTALL 0
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE {

@@ -9,7 +9,7 @@
 #include "VegaVertexClusterizer.h"
 
 #define VEGA_VERTEX_DEBUG 0
-#define VEGA_VERTEX_WARNINGS 1
+#define VEGA_VERTEX_WARNINGS 0
 #define VEGA_VERTEX_PRINTALL 0
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
