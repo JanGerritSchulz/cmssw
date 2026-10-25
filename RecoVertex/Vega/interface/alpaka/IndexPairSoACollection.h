@@ -21,7 +21,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
 
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE::vega
 
-ASSERT_DEVICE_MATCHES_HOST_COLLECTION(vega::IndexPairSoACollection,
-                                      ::vega::IndexPairHost);
+ASSERT_DEVICE_MATCHES_HOST_COLLECTION(vega::IndexPairSoACollection, ::vega::IndexPairHost);
 
 #endif  // RecoVertex_Vega_interface_alpaka_IndexPairSoACollection_h
