@@ -11,6 +11,7 @@
 #include "RecoVertex/Vega/interface/IndexPairSoA.h"
 #include "RecoVertex/Vega/interface/TrackExtraSoA.h"
 #include "RecoVertex/Vega/interface/VegaPairSoA.h"
+#include "RecoVertex/Vega/interface/VegaTripletSoA.h"
 #include "RecoVertex/Vega/plugins/VegaParams.h"
 
 namespace vega::structs {
@@ -41,6 +42,12 @@ namespace vega::structs {
   using PairCandSoAConstView = ::vega::IndexPairSoAConstView;
   using VegaPairSoAView = ::vega::VegaPairSoAView;
   using VegaPairSoAConstView = ::vega::VegaPairSoAConstView;
+  
+  // track triplets
+  using TripletCandSoAView = ::vega::IndexPairSoAView;
+  using TripletCandSoAConstView = ::vega::IndexPairSoAConstView;
+  using VegaTripletSoAView = ::vega::VegaTripletSoAView;
+  using VegaTripletSoAConstView = ::vega::VegaTripletSoAConstView;
 
   // Vega parameters
   using Params = ::vega::VegaParams;
@@ -57,8 +64,8 @@ namespace vega::structs {
       cms::alpakatools::OneToManyAssocSequential<TrkIdx, cms::alpakatools::kDynamicSize, cms::alpakatools::kDynamicSize>;
 
   // specific association maps for vega
-  using PairToPair = OneToMany;
   using TrackToPair = OneToMany;
+  using PairToPair = OneToMany;
   using VtxToTrack = OneToManySeq;
 
 }  // namespace vega::structs

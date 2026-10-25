@@ -38,8 +38,11 @@ namespace vega {
   // If false, the pair SoA is sized with the heuristic and the pipeline stays
   // fully asynchronous; the Form kernel's overflow guard then becomes load-bearing.
   //
+  // useExactNTripletsOnHost provides the same logic for triplets from TripletBuilder
+  //
   // FIXME: check which option is to be preferred (timing, memory footprint, ...)
   constexpr bool useExactNPairsOnHost = true;
+  constexpr bool useExactNTripletsOnHost = true;
 
 }  // namespace vega
 
