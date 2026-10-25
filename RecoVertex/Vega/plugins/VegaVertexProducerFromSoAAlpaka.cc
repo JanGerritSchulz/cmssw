@@ -1,3 +1,4 @@
+#include "DataFormats/BeamSpot/interface/BeamSpot.h"
 #include "DataFormats/Common/interface/OrphanHandle.h"
 #include "DataFormats/TrackReco/interface/Track.h"
 #include "DataFormats/TrackReco/interface/TrackExtra.h"
@@ -60,7 +61,7 @@ private:
 };
 
 VegaVertexProducerFromSoAAlpaka::VegaVertexProducerFromSoAAlpaka(const edm::ParameterSet &iConfig)
-    : beamSpotToken_(consumes<reco::BeamSpot>(iConfig.getParameter<edm::InputTag>("beamSpot"))),
+    : beamSpotToken_(consumes(iConfig.getParameter<edm::InputTag>("beamSpot"))),
       vertexSoAToken_(consumes(iConfig.getParameter<edm::InputTag>("vertexSoACollection"))),
       tracksToken_(consumes(iConfig.getParameter<edm::InputTag>("trackCollection"))),
       indToEdmToken_(consumes(iConfig.getParameter<edm::InputTag>("trackCollection"))),
@@ -130,14 +131,13 @@ void VegaVertexProducerFromSoAAlpaka::produce(edm::StreamID iStreamID,
 
   // eventually build transient tracks for refitting
   std::vector<reco::TransientTrack> transientTracks;
-  if (refitVertices_) {
-    for (auto track = tracks->begin(); track != tracks->end(); ++track) {
-      transientTracks.push_back(tthelpers::buildTT(tracks, trackBuilder, track - tracks->begin()));
-    }
+  for (auto track = tracks->begin(); track != tracks->end(); ++track) {
+    transientTracks.push_back(tthelpers::buildTT(tracks, trackBuilder, track - tracks->begin()));
   }
 
 #if VEGA_CONVERTER_DEBUG
   printf("VegaVertexProducerFromSoAAlpaka: Everything is setup - start looping over vertices from SoA\n");
+  fflush(stdout);
 #endif
 
   for (auto iv = 0u; iv < nVertices; iv++) {
@@ -148,6 +148,7 @@ void VegaVertexProducerFromSoAAlpaka::produce(edm::StreamID iStreamID,
 
 #if VEGA_CONVERTER_DEBUG
     printf("VegaVertexProducerFromSoAAlpaka: Start with Vertex %d\n", iv);
+    fflush(stdout);
 #endif
 
     auto vtx = vertexSoA.view().vertex()[iv];
@@ -166,18 +167,21 @@ void VegaVertexProducerFromSoAAlpaka::produce(edm::StreamID iStreamID,
               "track\n",
               iv,
               trackIdSoA);
+        fflush(stdout);
 #endif
       }
     }
 
 #if VEGA_CONVERTER_DEBUG
     printf("VegaVertexProducerFromSoAAlpaka: Vertex %d - done with collecting tracks\n", iv);
+    fflush(stdout);
 #endif
 
     auto nt = vtxTrackIds.size();
     if (nt < 2) {
 #if VEGA_CONVERTER_WARNINGS
       printf("VegaVertexProducerFromSoAAlpaka: Vertex %d with less than two effective tracks - skip it\n", iv);
+      fflush(stdout);
 #endif
       continue;
     }
@@ -200,6 +204,7 @@ void VegaVertexProducerFromSoAAlpaka::produce(edm::StreamID iStreamID,
       if (!vtxEdm.isValid()) {
 #if VEGA_CONVERTER_WARNINGS
         printf("VegaVertexProducerFromSoAAlpaka: AVF refit of vertex %d invalid - skip it\n", iv);
+        fflush(stdout);
 #endif
         continue;
       }
@@ -214,12 +219,14 @@ void VegaVertexProducerFromSoAAlpaka::produce(edm::StreamID iStreamID,
 
 #if VEGA_CONVERTER_DEBUG
     printf("VegaVertexProducerFromSoAAlpaka: Vertex %d - done with refitting\n", iv);
+    fflush(stdout);
 #endif
 
     vertices->push_back(reco::Vertex(vtxEdm));
 
 #if VEGA_CONVERTER_DEBUG
     printf("VegaVertexProducerFromSoAAlpaka: Vertex %d - done with pushing it to the EDM collection\n", iv);
+    fflush(stdout);
 #endif
   }
 
@@ -227,6 +234,7 @@ void VegaVertexProducerFromSoAAlpaka::produce(edm::StreamID iStreamID,
 
 #if VEGA_CONVERTER_DEBUG
   printf("VegaVertexProducerFromSoAAlpaka: done\n");
+  fflush(stdout);
 #endif
 }
 
