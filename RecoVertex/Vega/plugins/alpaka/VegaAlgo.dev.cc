@@ -111,7 +111,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
       // Cluster the pairs and triplets into vertices
       VertexClusterizer vertexClusterizer(params_, nTracks, maxVertices, avgTracksPerVertex, queue);
-      auto vertices = vertexClusterizer.cluster(trks, trksExtra.view(), pairProducts.pairs.view());
+      auto vertices = vertexClusterizer.cluster(trks, trksExtra.view(), pairProducts.pairs.view(), triplets.view());
 
 #if VEGA_ALGO_DEBUG
       printf("VegaAlgo::makeVerticesAsync: created vertex collection with %d vertices\n", maxVertices);

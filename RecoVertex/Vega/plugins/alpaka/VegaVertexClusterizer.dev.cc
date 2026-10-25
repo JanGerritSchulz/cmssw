@@ -18,7 +18,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
   // VERTEX CLUSTERING KERNELS
   // -------------------------------------------------------------
 
-  class KernelClusterVertexCandidates {
+  class KernelClusterVertexCandidatesFromPairs {
   public:
     ALPAKA_FN_ACC void operator()(Acc1D const& acc,
                                   VertexParams const& params,
@@ -31,6 +31,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
       for (auto ip : cms::alpakatools::uniform_elements(acc, pairs.nPairs())) {
         TrkIdx trkTuplet[::vega::maxTracksPerVertex];
         auto pair = pairs[ip];
+
+        // skip pairs that are part of larger objects
+        if (pair.used())
+          continue;
+
         trkTuplet[0] = pair.idx1();
         trkTuplet[1] = pair.idx2();
         uint32_t nTracksInTuplet = 2;
@@ -47,6 +52,47 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
           vtx.ndof() = 1.0f;
           vtx.chi2() = pair.chi2();
           vtx.covariance() = pair.covariance();
+          // add trkToVertex association
+        } else {
+#if VEGA_VERTEX_WARNINGS
+          printf("Warning!!!! Too many vertices (maxNumOfVertices = %d. ip = %d)!\n", vertices.metadata().size(), ip);
+#endif
+          break;
+        }
+      }
+    }
+  };
+
+  class KernelClusterVertexCandidatesFromTriplets {
+  public:
+    ALPAKA_FN_ACC void operator()(Acc1D const& acc,
+                                  VertexParams const& params,
+                                  TrkSoAConstView trks,
+                                  TrkExtraSoAConstView trksExtra,
+                                  VegaTripletSoAConstView triplets,
+                                  VtxSoAView vertices,
+                                  VtxToTrack* trkTuplets,
+                                  cms::alpakatools::AtomicPairCounter* apc) const {
+      for (auto ip : cms::alpakatools::uniform_elements(acc, triplets.nTriplets())) {
+        TrkIdx trkTuplet[::vega::maxTracksPerVertex];
+        auto triplet = triplets[ip];
+        trkTuplet[0] = triplet.idx1();
+        trkTuplet[1] = triplet.idx2();
+        trkTuplet[2] = triplet.idx3();
+        uint32_t nTracksInTuplet = 3;
+
+        // put vertex candidate into the container
+        auto iv = trkTuplets->bulkFill(acc, *apc, trkTuplet, nTracksInTuplet);
+
+        if (iv != cms::alpakatools::kOverflow) {
+          auto vtx = vertices[iv];
+          vtx.x() = triplet.x();
+          vtx.y() = triplet.y();
+          vtx.z() = triplet.z();
+          vtx.t() = 0.0f;
+          vtx.ndof() = 1.0f;
+          vtx.chi2() = triplet.chi2();
+          vtx.covariance() = triplet.covariance();
           // add trkToVertex association
         } else {
 #if VEGA_VERTEX_WARNINGS
@@ -118,7 +164,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
 
   reco::VertexSoACollection VertexClusterizer::cluster(TrkSoAConstView trks,
                                                        TrkExtraSoAConstView trksExtra,
-                                                       VegaPairSoAConstView pairs) const {
+                                                       VegaPairSoAConstView pairs,
+                                                       VegaTripletSoAConstView triplets) const {
     reco::VertexSoACollection vertexCollection(queue_, maxVertices_, maxVertices_ * avgTracksPerVertex_);
     vertexCollection.zeroInitialise(queue_);
     auto vertices = vertexCollection.view().vertex();
@@ -142,7 +189,23 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
 
     alpaka::exec<Acc1D>(queue_,
                         workDivClusterCandidates,
-                        KernelClusterVertexCandidates{},
+                        KernelClusterVertexCandidatesFromTriplets{},
+                        params_,
+                        trks,
+                        trksExtra,
+                        triplets,
+                        vertices,
+                        trkTuplets.data(),
+                        trkTupletsAPC.data());
+
+#if VEGA_VERTEX_DEBUG
+    printf("VertexClusterizer::cluster: KernelClusterVertexCandidatesFromTriplets done\n");
+    alpaka::wait(queue_);
+#endif
+
+    alpaka::exec<Acc1D>(queue_,
+                        workDivClusterCandidates,
+                        KernelClusterVertexCandidatesFromPairs{},
                         params_,
                         trks,
                         trksExtra,
@@ -152,7 +215,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
                         trkTupletsAPC.data());
 
 #if VEGA_VERTEX_DEBUG
-    printf("VertexClusterizer::cluster: KernelClusterVertexCandidates done\n");
+    printf("VertexClusterizer::cluster: KernelClusterVertexCandidatesFromPairs done\n");
     alpaka::wait(queue_);
 #endif
 
