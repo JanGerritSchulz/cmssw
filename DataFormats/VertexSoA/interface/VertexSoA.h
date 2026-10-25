@@ -1,8 +1,9 @@
 #ifndef DataFormats_VertexSoA_interface_VertexSoA_h
 #define DataFormats_VertexSoA_interface_VertexSoA_h
 
+#include <alpaka/alpaka.hpp>
 #include <Eigen/Core>
-#include <Eigen/Dense>
+
 #include "DataFormats/SoATemplate/interface/SoABlocks.h"
 #include "DataFormats/SoATemplate/interface/SoACommon.h"
 #include "DataFormats/SoATemplate/interface/SoALayout.h"
