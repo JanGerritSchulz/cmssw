@@ -55,12 +55,35 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
     }
 
     // Owns device buffers and the view points into them: not copyable.
-    // Moving is fine as long as the buffers are heap-backed (their pointers stay stable);
-    // see the unit test suggested in the notes.
     PortableOneToManyAssoc(PortableOneToManyAssoc const&) = delete;
     PortableOneToManyAssoc& operator=(PortableOneToManyAssoc const&) = delete;
-    PortableOneToManyAssoc(PortableOneToManyAssoc&&) = default;
-    PortableOneToManyAssoc& operator=(PortableOneToManyAssoc&&) = default;
+
+    // Move: the device buffers are shared_ptr-backed handles, so moving them
+    // transfers ownership without moving the underlying device memory. But the
+    // view holds raw pointers into those buffers, so it must be REBUILT from
+    // the moved buffers - a defaulted move would copy the old view verbatim,
+    // leaving it pointing at the moved-from object's buffers (correct only by
+    // luck of the buffers being heap handles). Rebuilding restores the
+    // invariant "view_ points at my own buffers" by construction.
+    PortableOneToManyAssoc(PortableOneToManyAssoc&& other) noexcept
+        : nOnes_{other.nOnes_},
+          capacity_{other.capacity_},
+          assoc_{std::move(other.assoc_)},
+          offsets_{std::move(other.offsets_)},
+          storage_{std::move(other.storage_)},
+          view_{assoc_.data(), offsets_.data(), storage_.data(), nOnes_ + 1u, capacity_} {}
+
+    PortableOneToManyAssoc& operator=(PortableOneToManyAssoc&& other) noexcept {
+      if (this != &other) {
+        nOnes_ = other.nOnes_;
+        capacity_ = other.capacity_;
+        assoc_ = std::move(other.assoc_);
+        offsets_ = std::move(other.offsets_);
+        storage_ = std::move(other.storage_);
+        view_ = View{assoc_.data(), offsets_.data(), storage_.data(), nOnes_ + 1u, capacity_};
+      }
+      return *this;
+    }
 
     // Device pointer to the header: pass this to kernels that fill or read the association.
     Assoc* data() { return assoc_.data(); }
