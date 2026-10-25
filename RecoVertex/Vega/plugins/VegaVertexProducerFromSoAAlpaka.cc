@@ -187,7 +187,7 @@ void VegaVertexProducerFromSoAAlpaka::produce(edm::StreamID iStreamID,
     }
 
     // SoA vertex fitted in beamspot coordinates -> translate to CMS coordinates
-    GlobalPoint position(vtx.x() - beamspot.x(), vtx.y() - beamspot.y(), vtx.z() - beamspot.z());
+    GlobalPoint position(vtx.x() + beamspot.x(), vtx.y() + beamspot.y(), vtx.z() + beamspot.z());
 
     TransientVertex vtxEdm;
 
