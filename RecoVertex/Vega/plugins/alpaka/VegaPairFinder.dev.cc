@@ -10,8 +10,8 @@
 
 #include "VegaPairFinder.h"
 
-#define VEGA_PAIRS_DEBUG 1
-#define VEGA_PAIRS_WARNINGS 1
+#define VEGA_PAIRS_DEBUG 0
+#define VEGA_PAIRS_WARNINGS 0
 #define VEGA_PAIRS_PRINTALL 0
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
@@ -148,7 +148,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
             auto idx = alpaka::atomicAdd(acc, nPairs, 1u, alpaka::hierarchy::Blocks{});
             if (idx >= static_cast<uint32_t>(pairs.metadata().size())) {
 #if VEGA_PAIRS_WARNINGS
-              printf("vega::KernelFindPairCandidates: Warning!!!! Too many pairs (maxNumOfPairs = %d)!\n", pairs.metadata().size());
+              printf("vega::KernelFindPairCandidates: Warning!!!! Too many pairs (maxNumOfPairs = %d)!\n",
+                     pairs.metadata().size());
 #endif
               alpaka::atomicSub(acc, nPairs, 1u, alpaka::hierarchy::Blocks{});
               continue;
@@ -286,7 +287,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
           auto idx = alpaka::atomicAdd(acc, nPairs, 1u, alpaka::hierarchy::Blocks{});
           if (idx >= static_cast<uint32_t>(pairs.metadata().size())) {
 #if VEGA_PAIRS_WARNINGS
-            printf("vega::KernelFindPairs: Warning!!!! Too many pairs (maxNumOfPairs = %d)!\n", pairs.metadata().size());
+            printf("vega::KernelFindPairs: Warning!!!! Too many pairs (maxNumOfPairs = %d)!\n",
+                   pairs.metadata().size());
 #endif
             alpaka::atomicSub(acc, nPairs, 1u, alpaka::hierarchy::Blocks{});
             continue;
@@ -406,7 +408,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
     // Size the pair collection: exact count from the Count kernel (requires a
     // device-to-host copy + sync), or the heuristic upper bound.
     uint32_t pairCapacity = pairCandCapacity;
-    if constexpr (::vega::useExactNPairsOnHost) {
+    if constexpr (false) {  // currently disabled since expensive, could be ::vega::useExactNPairsOnHost again
       // const auto workDivFindPairCands = cms::alpakatools::make_workdiv<Acc2D>(1u, 256u);
       alpaka::exec<Acc1D>(queue_,
                           workDivFindPairs,
@@ -447,7 +449,12 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
                         pairs.view());
 
 #if VEGA_PAIRS_DEBUG
-    printf("PairFinder::find: formed pairs\n");
+    auto nPairHost = cms::alpakatools::make_host_buffer<uint32_t, Platform>();
+    alpaka::memcpy(queue_, nPairHost, nPairs);
+    alpaka::wait(queue_);  // host sync: pair count is now valid
+    pairCapacity = *nPairHost.data();
+
+    printf("PairFinder::find: formed %d pairs\n", *nPairHost.data());
     alpaka::wait(queue_);
 #endif
 
