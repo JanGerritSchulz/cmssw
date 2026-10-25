@@ -293,13 +293,16 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
             alpaka::atomicSub(acc, nPairs, 1u, alpaka::hierarchy::Blocks{});
             continue;
           }
-          pairs[idx].idx1() = i1;
-          pairs[idx].idx2() = i2;
-          pairs[idx].arcLen1() = fit.l1;
-          pairs[idx].arcLen2() = fit.l2;
-          pairs[idx].vx() = pos.x;
-          pairs[idx].vy() = pos.y;
-          pairs[idx].vz() = pos.z;
+          auto pair = pairs[idx];
+          pair.idx1() = i1;
+          pair.idx2() = i2;
+          pair.arcLen1() = fit.l1;
+          pair.arcLen2() = fit.l2;
+          pair.x() = pos.x;
+          pair.y() = pos.y;
+          pair.z() = pos.z;
+          pair.chi2() = fit.chi2;
+          pair.covariance() = math::toEigenCovariance(fit.covariance);
         }
       }
     }

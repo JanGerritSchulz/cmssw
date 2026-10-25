@@ -5,6 +5,7 @@
 
 <library file="alpaka/*.cc" name="RecoVertexVegaPluginsPortable">
   <use name="alpaka"/>
+  <use name="eigen"/>
   <use name="DataFormats/Portable"/>
   <use name="DataFormats/TrackSoA"/>
   <use name="DataFormats/VertexSoA"/>

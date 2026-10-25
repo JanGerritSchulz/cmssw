@@ -2,6 +2,7 @@
 #define RecoVertex_Vega_plugins_alpaka_VegaMath_h
 
 #include <alpaka/alpaka.hpp>
+#include <Eigen/Core>
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE::vega::math {
 
@@ -33,6 +34,15 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega::math {
   template <typename To, typename From>
   ALPAKA_FN_HOST_ACC ALPAKA_FN_INLINE SymMat3<To> cast(SymMat3<From> m) {
     return {To(m.xx), To(m.xy), To(m.xz), To(m.yy), To(m.yz), To(m.zz)};
+  }
+
+  // Convert a SymMat3<float> to the VertexSoA's Eigen covariance vector
+  // (Eigen::Matrix<float, 6, 1>). The element order is identical
+  // (xx, xy, xz, yy, yz, zz == kVarX, kCovXY, kCovXZ, kVarY, kCovYZ, kVarZ)
+  ALPAKA_FN_HOST_ACC ALPAKA_FN_INLINE Eigen::Matrix<float, 6, 1> toEigenCovariance(SymMat3f const& m) {
+    Eigen::Matrix<float, 6, 1> out;
+    out << m.xx, m.xy, m.xz, m.yy, m.yz, m.zz;
+    return out;
   }
 
   template <typename T>

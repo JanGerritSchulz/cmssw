@@ -1,11 +1,13 @@
 <bin name="testAlpakaVegaPairFit" file="alpaka/VegaPairFit_test.cc alpaka/VegaPairFit_test.dev.cc">
   <use name="alpaka"/>
+  <use name="eigen"/>
   <use name="catch2"/>
   <flags ALPAKA_BACKENDS="1"/>
 </bin>
 
 <bin name="testAlpakaVegaVertexFit" file="alpaka/VegaVertexFit_test.cc alpaka/VegaVertexFit_test.dev.cc">
   <use name="alpaka"/>
+  <use name="eigen"/>
   <use name="catch2"/>
   <flags ALPAKA_BACKENDS="1"/>
 </bin>

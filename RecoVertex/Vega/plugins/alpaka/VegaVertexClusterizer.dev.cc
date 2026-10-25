@@ -40,10 +40,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
 
         if (iv != cms::alpakatools::kOverflow) {
           auto vtx = vertices[iv];
-          vtx.x() = pair.vx();
-          vtx.y() = pair.vy();
-          vtx.z() = pair.vz();
+          vtx.x() = pair.x();
+          vtx.y() = pair.y();
+          vtx.z() = pair.z();
           vtx.t() = 0.0f;
+          vtx.ndof() = 1.0f;
+          vtx.chi2() = pair.chi2();
+          vtx.covariance() = pair.covariance();
           // add trkToVertex association
         } else {
 #if VEGA_VERTEX_WARNINGS
