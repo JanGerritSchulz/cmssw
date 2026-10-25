@@ -34,9 +34,14 @@
 //      answer was l = 2.85 cm, in double precision). The V update therefore
 //      uses W^eff = W - (W d)(W d)^T / h, which has no stiffness along d.
 //      W itself is only used for the l-profiling (scale invariant there).
-//  (b) h is the full Hessian d^T W d + r^T W d'. The earlier
-//      1/varL = d^T W d form halves the denominator and removes only half of
-//      the tangential weight (chi2 inflated by 5 - 450x).
+//  (b) The subtracted denominator must be d^T W d (Gauss-Newton), not the
+//      exact Hessian d^T W d + r^T W d'. The older 1/varL form (denominator
+//      2 d^T W d) removes only half of the tangential weight (chi2 inflated
+//      by 5 - 450x); the exact Hessian removes all of it for consistent
+//      pairs but makes W_eff INDEFINITE for pairs whose tracks do not meet
+//      (large residual r), and the vertex solve then fails (24 of 59 fits
+//      in the first pair-building logs). d^T W d is exact where it matters
+//      and keeps W_eff positive semi-definite for any input.
 //  (c) W^eff has rank 2; the sum of two of them is nearly singular for
 //      near-parallel tracks (0.9 mrad crossing is real). All 3x3 algebra is
 //      therefore done in double; in float the final solve returned garbage
@@ -90,7 +95,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega::vertexfit {
   inline constexpr int twoTrackNdf = 1;
 
   // Fit result, templated on precision: the fit itself produces the double
-  // (double) version; the public VertexFitResult (float, consistent with the
+  // version; the public VertexFitResult (float, consistent with the
   // float HelixGeom / HelixCovariance inputs) is produced from it by a single
   // narrowing at the very end (toFloat). A float 3x3 covariance keeps ~1e-7
   // relative precision, enough for an output; a consumer that must re-invert
@@ -219,24 +224,31 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega::vertexfit {
   // -----------------------------------------------------------------------
 
   // Eliminate the nuisance parameter l from the track's quadratic form
-  // (x(l) - V)^T W (x(l) - V) exactly (Schur complement of the l-l entry):
+  // (x(l) - V)^T W (x(l) - V) in the Gauss-Newton approximation:
   //
-  //   W_eff = W - (W d)(W d)^T / h,   h = d^T W d + (x - V)^T W d'
+  //   W_eff = W - (W d)(W d)^T / (d^T W d)
   //
-  // with d, d' at the converged l. h is the full Hessian of the profiling
-  // problem (NOT d^T W d + 1/var_l with var_l = 1/(d^T W d), which gives
-  // 2 d^T W d and removes only half the tangential weight). W_eff d = 0 up
-  // to the small residual term: the track constrains V only across its own
-  // direction. h is clamped to [d^T W d / 2, inf) so that an unlucky
-  // residual term can never over-subtract.
+  // with d at the converged l. This is the projection of W onto the plane
+  // transverse to the track in the W metric: W_eff d = 0 exactly (the track
+  // constrains V only across its own direction) and W_eff is positive
+  // semi-definite with rank 2 for ANY residual. Do NOT use the exact Hessian
+  // h = d^T W d + (x - V)^T W d' in the denominator: the curvature term can
+  // push h below d^T W d, which makes W_eff indefinite (a negative eigenvalue
+  // of size ~ (x - V)^T W d' along the track). That is invisible for
+  // consistent pairs (residual ~ sigma) but for pairs whose tracks do not
+  // meet (separations of 100 um - mm against sigma ~ 20 um) it exceeds the
+  // transverse stiffness of the other track, W_eff1 + W_eff2 is indefinite,
+  // and the final vertex solve / chi2 fail (found in the first pair-building
+  // logs: 24 of 59 fits). The dropped term has zero expectation at the true
+  // vertex, so the covariance (W_eff1 + W_eff2)^-1 is unaffected.
+  // (The profiling Newton step keeps the exact Hessian: there it only sets a
+  // step length and falls back to d^T W d when not positive.)
   template <typename TAcc>
-  ALPAKA_FN_ACC ALPAKA_FN_INLINE SymMat3d
-  correctWeightForProfiledArcLength(TAcc const&, SymMat3d const& w, HelixEvald const& he, Vec3d v) {
+  ALPAKA_FN_ACC ALPAKA_FN_INLINE SymMat3d correctWeightForProfiledArcLength(TAcc const&,
+                                                                            SymMat3d const& w,
+                                                                            HelixEvald const& he) {
     const Vec3d wd = mul(w, he.d);
-    const double h1 = dot(he.d, wd);
-    double h = h1 + dot(he.pos - v, mul(w, he.dd));
-    if (!(h > 0.5 * h1))
-      h = h1;
+    const double h = dot(he.d, wd);
     if (!(h > 0.0))
       return w;
     const SymMat3d o = outerProduct(wd);
@@ -304,25 +316,35 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega::vertexfit {
     }
 
 #if VEGA_VERTEXFIT_MONITOR_FIT_CONVERGENCE
-    printf("fitTwoTrackVertex: track1 (cx, cy, r, q, refAngle, refZ, cotTheta) = (%f, %f, %f, %f, %f, %f, %f)\n",
-           t1.cx,
-           t1.cy,
-           t1.r,
-           t1.q,
-           t1.refAngle,
-           t1.refZ,
-           t1.cotTheta);
-    printf("fitTwoTrackVertex: track2 (cx, cy, r, q, refAngle, refZ, cotTheta) = (%f, %f, %f, %f, %f, %f, %f)\n",
-           t2.cx,
-           t2.cy,
-           t2.r,
-           t2.q,
-           t2.refAngle,
-           t2.refZ,
-           t2.cotTheta);
+    printf(
+        "fitTwoTrackVertex: track1 (cx, cy, r, q, refAngle, refZ, cotTheta, sinPhi, cosPhi, pt) = (%.9g, %.9g, %.9g, "
+        "%.9g, %.9g, %.9g, %.9g, %.9g, %.9g, %.9g)\n",
+        t1.cx,
+        t1.cy,
+        t1.r,
+        t1.q,
+        t1.refAngle,
+        t1.refZ,
+        t1.cotTheta,
+        t1.sinPhi,
+        t1.cosPhi,
+        t1.pt);
+    printf(
+        "fitTwoTrackVertex: track2 (cx, cy, r, q, refAngle, refZ, cotTheta, sinPhi, cosPhi, pt) = (%.9g, %.9g, %.9g, %.9g, %.9g, %.9g, "
+        "%.9g, %.9g, %.9g, %.9g)\n",
+        t2.cx,
+        t2.cy,
+        t2.r,
+        t2.q,
+        t2.refAngle,
+        t2.refZ,
+        t2.cotTheta,
+        t2.sinPhi,
+        t2.cosPhi,
+        t2.pt);
     printf(
         "fitTwoTrackVertex: cov1 (varPhi, covPhiDxy, covPhiQOverPt, varDxy, covDxyQOverPt, varQOverPt, varCotTheta, "
-        "covCotThetaDz, varDz) = (%f, %f, %f, %f, %f, %f, %f, %f, %f)\n",
+        "covCotThetaDz, varDz) = (%.9g, %.9g, %.9g, %.9g, %.9g, %.9g, %.9g, %.9g, %.9g)\n",
         cov1.varPhi,
         cov1.covPhiDxy,
         cov1.covPhiQOverPt,
@@ -334,7 +356,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega::vertexfit {
         cov1.varDz);
     printf(
         "fitTwoTrackVertex: cov2 (varPhi, covPhiDxy, covPhiQOverPt, varDxy, covDxyQOverPt, varQOverPt, varCotTheta, "
-        "covCotThetaDz, varDz) = (%f, %f, %f, %f, %f, %f, %f, %f, %f)\n",
+        "covCotThetaDz, varDz) = (%.9g, %.9g, %.9g, %.9g, %.9g, %.9g, %.9g, %.9g, %.9g)\n",
         cov2.varPhi,
         cov2.covPhiDxy,
         cov2.covPhiQOverPt,
@@ -344,7 +366,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega::vertexfit {
         cov2.varCotTheta,
         cov2.covCotThetaDz,
         cov2.varDz);
-    printf("fitTwoTrackVertex: seed (l1, l2) = (%f, %f)  V = (%f, %f, %f)\n", l1, l2, v.x, v.y, v.z);
+    printf("fitTwoTrackVertex: seed (l1, l2) = (%.9g, %.9g)  V = (%.9g, %.9g, %.9g)\n", l1, l2, v.x, v.y, v.z);
 #endif
 
     int iter = 0;
@@ -363,8 +385,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega::vertexfit {
       }
 
       // 2. closed-form vertex update with the Schur-corrected weights
-      eff1 = correctWeightForProfiledArcLength(acc, w1, e1, v);
-      eff2 = correctWeightForProfiledArcLength(acc, w2, e2, v);
+      eff1 = correctWeightForProfiledArcLength(acc, w1, e1);
+      eff2 = correctWeightForProfiledArcLength(acc, w2, e2);
       const Vec3d vOld = v;
       if (!solveVertex(acc, e1.pos, eff1, e2.pos, eff2, v, vcov)) {
 #if VEGA_VERTEXFIT_MONITOR_FIT_CONVERGENCE
@@ -385,8 +407,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega::vertexfit {
 
     // final, self-consistent state: W_eff at the final V, one more solve,
     // then covariance and chi2 from the same weights
-    eff1 = correctWeightForProfiledArcLength(acc, w1, e1, v);
-    eff2 = correctWeightForProfiledArcLength(acc, w2, e2, v);
+    eff1 = correctWeightForProfiledArcLength(acc, w1, e1);
+    eff2 = correctWeightForProfiledArcLength(acc, w2, e2);
     if (!solveVertex(acc, e1.pos, eff1, e2.pos, eff2, v, vcov)) {
 #if VEGA_VERTEXFIT_MONITOR_FIT_CONVERGENCE
       printf("fitTwoTrackVertex: FAILED solving for the final vertex position!!!\n");
