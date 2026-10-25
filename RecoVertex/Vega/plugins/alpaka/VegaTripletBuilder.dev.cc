@@ -25,7 +25,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
 
     ALPAKA_FN_ACC void operator()(Acc2D const& acc,
                                   TripletParams const& params,
-                                  VegaPairSoAConstView const pairs,
+                                  VegaPairSoAConstView pairs,
                                   TrackToPair const* __restrict__ trk1ToPair,
                                   uint32_t* nTriplets,  // Count writes this, Form writes this as well
                                   TripletsArg triplets  // Form writes this
@@ -78,7 +78,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
 
     ALPAKA_FN_ACC void operator()(Acc1D const& acc,
                                   TripletParams const& params,
-                                  VegaPairSoAView const pairs,
+                                  VegaPairSoAView pairs,
                                   uint32_t const* nTripletCands,
                                   TripletCandSoAConstView tripletCands,
                                   uint32_t* nTriplets,  // Count writes this, Form writes this as well
@@ -93,6 +93,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
         auto trkIdx3 = pair2.idx2();
 
         // FIXME: add triplet cuts
+        if (params.max3DDistance <= 0.f)
+          continue;
 
         // count or fill the triplet candidate
         if constexpr (Mode == KernelMode::Count) {
@@ -110,6 +112,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
             alpaka::atomicSub(acc, nTriplets, 1u, alpaka::hierarchy::Blocks{});
             continue;
           }
+          pair1.used() = true;
+          pair2.used() = true;
 
           auto triplet = triplets[tripletIdx];
           triplet.idx1() = trkIdx1;

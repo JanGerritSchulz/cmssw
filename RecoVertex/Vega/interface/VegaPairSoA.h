@@ -22,6 +22,8 @@ namespace vega {
                       SOA_COLUMN(float, chi2),                               // chi2 of the vertex fit
                       SOA_EIGEN_COLUMN(reco::CovarianceMatrix, covariance),  // vertex fit covariances
 
+                      SOA_COLUMN(bool, used),  // used in larger object (flag to mark isolated pairs)
+
                       SOA_SCALAR(uint32_t, nPairs))  // number of pairs
 
   using VegaPairSoA = VegaPairSoALayout<>;

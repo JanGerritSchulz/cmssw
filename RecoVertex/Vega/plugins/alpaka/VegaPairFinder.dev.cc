@@ -303,6 +303,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
           pair.z() = pos.z;
           pair.chi2() = fit.chi2;
           pair.covariance() = math::toEigenCovariance(fit.covariance);
+          pair.used() = false;
 
           trk1ToPair->count(acc, i1);
         }
@@ -321,7 +322,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
                                   VegaPairSoAConstView pairs,
                                   TrackToPair* trk1ToPair) const {
       for (auto pairIdx : cms::alpakatools::uniform_elements(acc, *nPairs)) {
-#ifdef VEGA_PAIRS_PRINTALL
+#if VEGA_PAIRS_PRINTALL
         printf("vega::KernelFillTrk1ToPair: fill %d (trkIdx) -> %d (pairIdx)\n", pairs[pairIdx].idx1(), pairIdx);
 #endif
         trk1ToPair->fill(acc, pairs[pairIdx].idx1(), pairIdx);
