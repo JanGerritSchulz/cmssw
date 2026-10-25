@@ -16,8 +16,16 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
 
   class VertexClusterizer {
   public:
-    VertexClusterizer(Params const& params, TrkIdx const nTracks, TrkIdx const maxVertices, Queue& queue)
-        : params_(params.vertex), nTracks_(nTracks), maxVertices_(maxVertices), queue_(queue) {}
+    VertexClusterizer(Params const& params,
+                      TrkIdx const nTracks,
+                      TrkIdx const maxVertices,
+                      TrkIdx const avgTracksPerVertex,
+                      Queue& queue)
+        : params_(params.vertex),
+          nTracks_(nTracks),
+          maxVertices_(maxVertices),
+          avgTracksPerVertex_(avgTracksPerVertex),
+          queue_(queue) {}
 
     ~VertexClusterizer() = default;
 
@@ -34,6 +42,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
     VertexParams const params_;
     TrkIdx const nTracks_;
     TrkIdx const maxVertices_;
+    TrkIdx const avgTracksPerVertex_;
 
     // alpaka queue
     Queue& queue_;

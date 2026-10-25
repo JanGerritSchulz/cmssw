@@ -119,19 +119,20 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
   reco::VertexSoACollection VertexClusterizer::cluster(TrkSoAConstView trks,
                                                        TrkExtraSoAConstView trksExtra,
                                                        VegaPairSoAConstView pairs) const {
-    reco::VertexSoACollection vertexCollection(queue_, maxVertices_, 4 * nTracks_);  // FIXME: arbitrary number
+    reco::VertexSoACollection vertexCollection(queue_, maxVertices_, maxVertices_ * avgTracksPerVertex_);
     vertexCollection.zeroInitialise(queue_);
     auto vertices = vertexCollection.view().vertex();
     auto vtxTracks = vertexCollection.view().tracks();
 
 #if VEGA_VERTEX_DEBUG
-    printf("Create PortableOneToManyAssoc with maxVertices=%d and nVertices*maxTracksPerVertex=%d\n",
-           maxVertices_,
-           (maxVertices_ * ::vega::maxTracksPerVertex));
+    printf(
+        "VertexClusterizer::cluster: Create PortableOneToManyAssoc with maxVertices=%d and "
+        "maxVertices*avgTracksPerVertex=%d\n",
+        maxVertices_,
+        (maxVertices_ * avgTracksPerVertex_));
 #endif
 
-    auto trkTuplets =
-        PortableOneToManyAssoc<VtxToTrack>(queue_, maxVertices_, maxVertices_ * ::vega::maxTracksPerVertex);
+    auto trkTuplets = PortableOneToManyAssoc<VtxToTrack>(queue_, maxVertices_, maxVertices_ * avgTracksPerVertex_);
     auto trkTupletsAPC = cms::alpakatools::make_device_buffer<cms::alpakatools::AtomicPairCounter>(queue_);
     alpaka::memset(queue_, trkTupletsAPC, 0);
 

@@ -2,7 +2,8 @@ import FWCore.ParameterSet.Config as cms
 
 hltVegaVerticesSoA = cms.EDProducer('VegaVertexSoAProducer@alpaka',
     trackSoACollection = cms.InputTag('hltPhase2PixelTrackTorchHighPuritySelector'),
-    maxVertices = cms.int32(4000),
+    maxVertices = cms.int32(1000),
+    avgTracksPerVertex = cms.int32(4),
     pairParams = cms.PSet(
       minTrackQuality = cms.string("tight"),
       minPt = cms.float(0.9),

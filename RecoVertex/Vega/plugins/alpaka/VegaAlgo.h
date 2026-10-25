@@ -23,6 +23,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
     reco::VertexSoACollection makeVerticesAsync(Queue &queue,
                                                 TrkSoAConstView const &tracksView,
                                                 int const maxVertices,
+                                                int const avgTracksPerVertex,
                                                 int const nTracksRaw) const;
 
   private:

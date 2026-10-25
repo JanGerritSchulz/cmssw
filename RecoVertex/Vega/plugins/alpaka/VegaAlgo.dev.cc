@@ -59,6 +59,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     reco::VertexSoACollection VegaAlgo::makeVerticesAsync(Queue& queue,
                                                           TrkSoAConstView const& trks,
                                                           int const maxVertices,
+                                                          int const avgTracksPerVertex,
                                                           int const nTracksRaw) const {
 #if VEGA_ALGO_DEBUG
       printf("VegaAlgo::makeVerticesAsync: starting vertex creation\n");
@@ -98,7 +99,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 #endif
 
       // Cluster the pairs and triplets into vertices
-      VertexClusterizer vertexClusterizer(params_, nTracks, maxVertices, queue);
+      VertexClusterizer vertexClusterizer(params_, nTracks, maxVertices, avgTracksPerVertex, queue);
       auto vertices = vertexClusterizer.cluster(trks, trksExtra.view(), pairs.view());
 
 #if VEGA_ALGO_DEBUG

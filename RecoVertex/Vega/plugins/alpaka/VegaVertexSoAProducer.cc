@@ -47,6 +47,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     const Algo algo_;
 
     const int maxVertices_;
+    const int avgTracksPerVertex_;
     cms::alpakatools::host_buffer<int> nTracks_;
 
     device::EDGetToken<TrkSoADevice> tracksDeviceToken_;
@@ -57,6 +58,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       : SynchronizingEDProducer(iConfig),
         algo_(getVegaParams(iConfig)),
         maxVertices_(iConfig.getParameter<int>("maxVertices")),
+        avgTracksPerVertex_(iConfig.getParameter<int>("avgTracksPerVertex")),
         nTracks_{cms::alpakatools::make_host_buffer<int, Platform>()},
         tracksDeviceToken_(consumes(iConfig.getParameter<edm::InputTag>("trackSoACollection"))),
         verticesDeviceToken_(produces()) {}
@@ -91,6 +93,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
     desc.add<edm::InputTag>("trackSoACollection", edm::InputTag("pixelTracksAlpaka"));
     desc.add<int>("maxVertices", 100);
+    desc.add<int>("avgTracksPerVertex", 4);
 
     // ----------------------------------------------
     // Pair finding configuration
@@ -147,7 +150,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
     iEvent.emplace(
         verticesDeviceToken_,
-        algo_.makeVerticesAsync(iEvent.queue(), tracksOnDevice.view().tracks(), maxVertices_, *nTracks_.data()));
+        algo_.makeVerticesAsync(
+            iEvent.queue(), tracksOnDevice.view().tracks(), maxVertices_, avgTracksPerVertex_, *nTracks_.data()));
 
 #if VEGA_PRODUCER_DEBUG
     std::cout << "VegaVertexSoAProducer::produce: produced vertex collection with maxVertices = " << maxVertices_
