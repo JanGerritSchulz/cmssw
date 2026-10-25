@@ -6,6 +6,7 @@
 #include "DataFormats/VertexReco/interface/Vertex.h"
 #include "DataFormats/VertexReco/interface/VertexFwd.h"
 #include "DataFormats/VertexSoA/interface/VertexHost.h"
+#include "DataFormats/VertexSoA/interface/VertexSoA.h"
 #include "FWCore/Framework/interface/Event.h"
 #include "FWCore/Framework/interface/EventSetup.h"
 #include "FWCore/Framework/interface/MakerMacros.h"
@@ -26,7 +27,7 @@
 #include "TrackingTools/Records/interface/TransientTrackRecord.h"
 
 #define VEGA_CONVERTER_DEBUG 0
-#define VEGA_CONVERTER_WARNINGS 1
+#define VEGA_CONVERTER_WARNINGS 0
 
 class VegaVertexProducerFromSoAAlpaka : public edm::global::EDProducer<> {
 public:
@@ -46,10 +47,11 @@ private:
   FitParamsAVF getFitParams(const edm::ParameterSet &iConfig) const;
   void produce(edm::StreamID iStreamID, edm::Event &iEvent, const edm::EventSetup &iSetup) const override;
 
-  edm::EDGetTokenT<reco::VertexHost> vertexSoAToken_;
-  edm::EDGetTokenT<reco::TrackCollection> tracksToken_;
-  edm::EDGetTokenT<IndToEdm> indToEdmToken_;
-  edm::ESGetToken<TransientTrackBuilder, TransientTrackRecord> trackBuilderToken_;
+  const edm::EDGetTokenT<reco::BeamSpot> beamSpotToken_;
+  const edm::EDGetTokenT<reco::VertexHost> vertexSoAToken_;
+  const edm::EDGetTokenT<reco::TrackCollection> tracksToken_;
+  const edm::EDGetTokenT<IndToEdm> indToEdmToken_;
+  const edm::ESGetToken<TransientTrackBuilder, TransientTrackRecord> trackBuilderToken_;
 
   const float minTrackWeight_;  // minimum track weight for a track to be put in the vertex
 
@@ -58,7 +60,8 @@ private:
 };
 
 VegaVertexProducerFromSoAAlpaka::VegaVertexProducerFromSoAAlpaka(const edm::ParameterSet &iConfig)
-    : vertexSoAToken_(consumes(iConfig.getParameter<edm::InputTag>("vertexSoACollection"))),
+    : beamSpotToken_(consumes<reco::BeamSpot>(iConfig.getParameter<edm::InputTag>("beamSpot"))),
+      vertexSoAToken_(consumes(iConfig.getParameter<edm::InputTag>("vertexSoACollection"))),
       tracksToken_(consumes(iConfig.getParameter<edm::InputTag>("trackCollection"))),
       indToEdmToken_(consumes(iConfig.getParameter<edm::InputTag>("trackCollection"))),
       trackBuilderToken_(
@@ -82,6 +85,7 @@ VegaVertexProducerFromSoAAlpaka::FitParamsAVF VegaVertexProducerFromSoAAlpaka::g
 void VegaVertexProducerFromSoAAlpaka::fillDescriptions(edm::ConfigurationDescriptions &descriptions) {
   edm::ParameterSetDescription desc;
 
+  desc.add<edm::InputTag>("beamSpot", edm::InputTag("offlineBeamSpot"));
   desc.add<edm::InputTag>("trackCollection", edm::InputTag("pixelTracks"));
   desc.add<edm::InputTag>("vertexSoACollection", edm::InputTag("vegaVerticesAlpaka"));
 
@@ -101,13 +105,17 @@ void VegaVertexProducerFromSoAAlpaka::fillDescriptions(edm::ConfigurationDescrip
 void VegaVertexProducerFromSoAAlpaka::produce(edm::StreamID iStreamID,
                                               edm::Event &iEvent,
                                               const edm::EventSetup &iSetup) const {
+  // output collection
   auto vertices = std::make_unique<reco::VertexCollection>();
 
+  // input collections and objects
   auto tracks = iEvent.getHandle(tracksToken_);
   auto const &indToEdm = iEvent.get(indToEdmToken_);
   auto const &vertexSoA = iEvent.get(vertexSoAToken_);
   auto const nVertices = vertexSoA.view().vertex().nVertices();
   auto const vtxTracksSoA = vertexSoA.view().tracks();
+  const auto &bsh = iEvent.get(beamSpotToken_);
+  GlobalPoint beamspot(bsh.x0(), bsh.y0(), bsh.z0());
 
   std::vector<int32_t> vtxTrackIds;
   vtxTrackIds.reserve(64);  // avoid first relocations
@@ -174,22 +182,19 @@ void VegaVertexProducerFromSoAAlpaka::produce(edm::StreamID iStreamID,
       continue;
     }
 
-    GlobalPoint position(vtx.x(), vtx.y(), vtx.z());
+    // SoA vertex fitted in beamspot coordinates -> translate to CMS coordinates
+    GlobalPoint position(vtx.x() - beamspot.x(), vtx.y() - beamspot.y(), vtx.z() - beamspot.z());
 
     TransientVertex vtxEdm;
 
-#if VEGA_CONVERTER_DEBUG
-    printf("VegaVertexProducerFromSoAAlpaka: Vertex %d - done with position\n", iv);
-#endif
+    // created TransientTrack vector of the vertex
+    std::vector<reco::TransientTrack> vtxTracks;
+    for (auto it : vtxTrackIds) {
+      reco::TransientTrack &tt = (transientTracks)[it];
+      vtxTracks.push_back(tt);
+    }
 
-    if (refitVertices_) {
-      // created TransientTrack vector of the vertex
-      std::vector<reco::TransientTrack> vtxTracks;
-      for (auto it : vtxTrackIds) {
-        reco::TransientTrack &tt = (transientTracks)[it];
-        vtxTracks.push_back(tt);
-      }
-
+    if (refitVertices_) {  // refitting with AVF
       vtxEdm = theAdaptiveFitter.vertex(vtxTracks, position);
 
       if (!vtxEdm.isValid()) {
@@ -198,6 +203,13 @@ void VegaVertexProducerFromSoAAlpaka::produce(edm::StreamID iStreamID,
 #endif
         continue;
       }
+    } else {  // no refitting (use SoA parameters)
+      auto cov = vtx.covariance();
+      using C = reco::VertexSoACovIdx;
+      GlobalError positionError(
+          cov(C::kVarX), cov(C::kCovXY), cov(C::kVarY), cov(C::kCovXZ), cov(C::kCovYZ), cov(C::kVarZ));
+      float chi2 = vtx.chi2();
+      vtxEdm = TransientVertex(position, positionError, vtxTracks, chi2);
     }
 
 #if VEGA_CONVERTER_DEBUG
