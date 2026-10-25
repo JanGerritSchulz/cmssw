@@ -7,12 +7,19 @@
 
 #include "HeterogeneousCore/AlpakaInterface/interface/config.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/workdivision.h"
+#include "RecoVertex/Vega/interface/alpaka/PortableOneToManyAssoc.h"
 #include "RecoVertex/Vega/interface/alpaka/VegaPairSoACollection.h"
 
 #include "VegaStructures.h"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
   using namespace ::vega::structs;
+
+  struct PairProducts {
+    uint32_t nPairs;                                 // number of pairs (host side)
+    VegaPairSoACollection pairs;                     // the track pairs
+    PortableOneToManyAssoc<TrackToPair> trk1ToPair;  // track -> pairs map
+  };
 
   class PairFinder {
   public:
@@ -25,7 +32,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
     PairFinder(const PairFinder&) = delete;
     PairFinder& operator=(const PairFinder&) = delete;
 
-    VegaPairSoACollection find(TrkSoAConstView trks, TrkExtraSoAConstView trksExtra) const;
+    PairProducts find(TrkSoAConstView trks, TrkExtraSoAConstView trksExtra) const;
 
   private:
     // parameters (stored by value to avoid dangling reference)

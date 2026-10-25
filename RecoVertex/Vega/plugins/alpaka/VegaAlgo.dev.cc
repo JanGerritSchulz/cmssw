@@ -7,6 +7,7 @@
 
 #include "VegaAlgo.h"
 #include "VegaPairFinder.h"
+#include "VegaTripletBuilder.h"
 #include "VegaVertexClusterizer.h"
 
 #define VEGA_ALGO_DEBUG 0
@@ -91,7 +92,17 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
       // Find pairs of tracks compatible with vertexing
       PairFinder pairFinder(params_, nTracks, queue);
-      auto pairs = pairFinder.find(trks, trksExtra.view());
+      auto pairProducts = pairFinder.find(trks, trksExtra.view());
+
+#if VEGA_ALGO_DEBUG
+      printf("VegaAlgo::makeVerticesAsync: found pairs of tracks compatible for vertexing\n");
+      alpaka::wait(queue);
+#endif
+
+      // Find triplets of tracks compatible with vertexing
+      TripletBuilder tripletBuilder(params_, nTracks, queue);
+      auto triplets = tripletBuilder.build(
+          trks, trksExtra.view(), pairProducts.nPairs, pairProducts.pairs.view(), pairProducts.trk1ToPair.data());
 
 #if VEGA_ALGO_DEBUG
       printf("VegaAlgo::makeVerticesAsync: found pairs of tracks compatible for vertexing\n");
@@ -100,7 +111,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
       // Cluster the pairs and triplets into vertices
       VertexClusterizer vertexClusterizer(params_, nTracks, maxVertices, avgTracksPerVertex, queue);
-      auto vertices = vertexClusterizer.cluster(trks, trksExtra.view(), pairs.view());
+      auto vertices = vertexClusterizer.cluster(trks, trksExtra.view(), pairProducts.pairs.view());
 
 #if VEGA_ALGO_DEBUG
       printf("VegaAlgo::makeVerticesAsync: created vertex collection with %d vertices\n", maxVertices);
