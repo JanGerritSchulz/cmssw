@@ -43,7 +43,19 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
           auto pairIdx2 = potentialPairs2[j];
           //   auto pair2 = pairs[pairIdx2];
 
-          // FIXME: add triplet cuts
+          // cut on the distance significance between two pairs
+          auto dx = pair1.x() - pair2.x();
+          auto dy = pair1.y() - pair2.y();
+          auto dz = pair1.z() - pair2.z();
+          auto dist2 = dx * dx + dy * dy + dz * dz;
+          auto covTot = pair1.covariance() + pair2.covariance();
+          using C = ::reco::VertexSoACovIdx;
+          auto distErr2TimesDist2 = dx * dx * covTot(C::kVarX) + dy * dy * covTot(C::kVarY) +
+                                    dz * dz * covTot(C::kVarZ) + 2 * dx * dy * covTot(C::kCovXY) +
+                                    2 * dx * dz * covTot(C::kCovXZ) + 2 * dy * dz * covTot(C::kCovYZ);
+
+          if (params.maxDistanceSig * params.maxDistanceSig * distErr2TimesDist2 < dist2 * dist2)
+            continue;
 
           // count or fill the triplet candidate
           if constexpr (Mode == KernelMode::Count) {
@@ -93,8 +105,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
         auto trkIdx3 = pair2.idx2();
 
         // FIXME: add triplet cuts
-        if (params.max3DDistance <= 0.f)
-          continue;
 
         // count or fill the triplet candidate
         if constexpr (Mode == KernelMode::Count) {
@@ -249,12 +259,12 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
                         triplets.view());
 
 #if VEGA_TRIPLETS_DEBUG
-    auto nPairHost = cms::alpakatools::make_host_buffer<uint32_t, Platform>();
-    alpaka::memcpy(queue_, nPairHost, nPairs);
+    auto nTripletHost = cms::alpakatools::make_host_buffer<uint32_t, Platform>();
+    alpaka::memcpy(queue_, nTripletHost, nTriplets);
     alpaka::wait(queue_);  // host sync: triplet count is now valid
-    tripletCapacity = *nPairHost.data();
+    tripletCapacity = *nTripletHost.data();
 
-    printf("TripletBuilder::build: formed %d triplets\n", *nPairHost.data());
+    printf("TripletBuilder::build: formed %d triplets\n", *nTripletHost.data());
     alpaka::wait(queue_);
 #endif
 

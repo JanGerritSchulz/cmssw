@@ -79,11 +79,15 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
     // configuration for triplet building
     auto tripletConfig = iConfig.getParameter<edm::ParameterSet>("tripletParams");
-    ::vega::TripletParams tripletParams = {.max3DDistance = tripletConfig.getParameter<float>("max3DDistance")};
+    ::vega::TripletParams tripletParams = {.maxDistanceSig = tripletConfig.getParameter<float>("maxDistanceSig")};
 
     // configuration for vertex clustering
     auto vertexConfig = iConfig.getParameter<edm::ParameterSet>("vertexParams");
-    ::vega::VertexParams vertexParams = {.maxChi2 = vertexConfig.getParameter<float>("maxChi2")};
+    ::vega::VertexParams vertexParams = {.maxChi2 = vertexConfig.getParameter<float>("maxChi2"),
+                                         .minDXY = vertexConfig.getParameter<float>("minDXY"),
+                                         .maxDXY = vertexConfig.getParameter<float>("maxDXY"),
+                                         .minDXYSig = vertexConfig.getParameter<float>("minDXYSig"),
+                                         .maxDXYSig = vertexConfig.getParameter<float>("maxDXYSig")};
 
     return VegaParams{.pair = pairParams, .triplet = tripletParams, .vertex = vertexParams};
   }
@@ -120,7 +124,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     // Triplet building configuration
     // ----------------------------------------------
     edm::ParameterSetDescription tripletParams;
-    tripletParams.add<float>("max3DDistance", 0.02)
+    tripletParams.add<float>("maxDistanceSig", 0.02)
         ->setComment("Maximum 3D distance for the track <-> best vertex-estimate of this triplet (using helices)");
     desc.add<edm::ParameterSetDescription>("tripletParams", tripletParams);
 
@@ -129,6 +133,14 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     // ----------------------------------------------
     edm::ParameterSetDescription vertexParams;
     vertexParams.add<float>("maxChi2", 5.0)->setComment("Maximum chi-squared for the vertex fit");
+    vertexParams.add<float>("minDXY", 3.0)
+        ->setComment("Minimum dxy (cm) of the final fitted vertex (-1=disabled)");
+    vertexParams.add<float>("maxDXY", -1.0)
+        ->setComment("Maximum dxy (cm) of the final fitted vertex (-1=disabled)");
+    vertexParams.add<float>("minDXYSig", 3.0)
+        ->setComment("Minimum dxy significance of the final fitted vertex (-1=disabled)");
+    vertexParams.add<float>("maxDXYSig", -1.0)
+        ->setComment("Maximum dxy significance of the final fitted vertex (-1=disabled)");
     desc.add<edm::ParameterSetDescription>("vertexParams", vertexParams);
 
     descriptions.addWithDefaultLabel(desc);

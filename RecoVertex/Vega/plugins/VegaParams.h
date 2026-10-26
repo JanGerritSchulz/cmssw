@@ -19,11 +19,15 @@ namespace vega {
   };
 
   struct TripletParams {
-    float max3DDistance;
+    float maxDistanceSig;
   };
 
   struct VertexParams {
     float maxChi2;
+    float minDXY;
+    float maxDXY;
+    float minDXYSig;
+    float maxDXYSig;
   };
 
   struct VegaParams {
