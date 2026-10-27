@@ -11,6 +11,8 @@ namespace vega {
 
   // pair of tracks (two vertex-compatible tracks)
   GENERATE_SOA_LAYOUT(VegaTripletSoALayout,
+                      SOA_COLUMN(uint32_t, pairIdx1),  // index of pair 1
+                      SOA_COLUMN(uint32_t, pairIdx2),  // index of pair 2
                       SOA_COLUMN(uint32_t, idx1),  // index of track 1
                       SOA_COLUMN(uint32_t, idx2),  // index of track 2
                       SOA_COLUMN(uint32_t, idx3),  // index of track 3
@@ -23,6 +25,8 @@ namespace vega {
                       SOA_COLUMN(float, z),                                  // vertex fit z
                       SOA_COLUMN(float, chi2),                               // chi2 of the vertex fit
                       SOA_EIGEN_COLUMN(reco::CovarianceMatrix, covariance),  // vertex fit covariances
+
+                      SOA_COLUMN(bool, used),  // is used in a larger objects
 
                       SOA_SCALAR(uint32_t, nTriplets))  // number of pairs
 

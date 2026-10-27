@@ -173,7 +173,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
   class KernelFindPairs {
   public:
     using PairsArg = std::conditional_t<Mode == KernelMode::Form, VegaPairSoAView, NoInput>;
-    using MapArg = std::conditional_t<Mode == KernelMode::Form, TrackToPair*, NoInput>;
+    using MapArg = std::conditional_t<Mode == KernelMode::Form, TrkToPair*, NoInput>;
 
     ALPAKA_FN_ACC void operator()(Acc1D const& acc,
                                   PairParams const& params,
@@ -304,6 +304,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
           pair.chi2() = fit.chi2;
           pair.covariance() = math::toEigenCovariance(fit.covariance);
           pair.used() = false;
+          pair.start() = true;
 
           trk1ToPair->count(acc, i1);
         }
@@ -320,7 +321,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
     ALPAKA_FN_ACC void operator()(Acc1D const& acc,
                                   uint32_t* nPairs,
                                   VegaPairSoAConstView pairs,
-                                  TrackToPair* trk1ToPair) const {
+                                  TrkToPair* trk1ToPair) const {
       for (auto pairIdx : cms::alpakatools::uniform_elements(acc, *nPairs)) {
 #if VEGA_PAIRS_PRINTALL
         printf("vega::KernelFillTrk1ToPair: fill %d (trkIdx) -> %d (pairIdx)\n", pairs[pairIdx].idx1(), pairIdx);
@@ -461,7 +462,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
     // pairs: collection of track pairs
     // trk1ToPair: map from track to pairs in which this track fills idx1
     auto pairs = VegaPairSoACollection(queue_, pairCapacity);
-    auto trk1ToPair = PortableOneToManyAssoc<TrackToPair>(queue_, nTracks_, pairCapacity);
+    auto trk1ToPair = PortableOneToManyAssoc<TrkToPair>(queue_, nTracks_, pairCapacity);
 
     // reset nPairs counter for the filling
     alpaka::memset(queue_, nPairs, 0u);
@@ -498,7 +499,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
     const auto workDivFill = cms::alpakatools::make_workdiv<Acc1D>(numberOfBlocksFill, blockSizeFill);
 
     // fill the trk1ToPair map
-    TrackToPair::template launchFinalize<Acc1D>(trk1ToPair.view(), queue_);
+    TrkToPair::template launchFinalize<Acc1D>(trk1ToPair.view(), queue_);
     alpaka::exec<Acc1D>(queue_, workDivFill, KernelFillTrk1ToPair{}, nPairs.data(), pairs.view(), trk1ToPair.data());
 
 #if VEGA_PAIRS_DEBUG

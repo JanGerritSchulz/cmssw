@@ -35,8 +35,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
 
     reco::VertexSoACollection cluster(TrkSoAConstView trks,
                                       TrkExtraSoAConstView trksExtra,
+                                      uint32_t const nPairs,
                                       VegaPairSoAConstView pairs,
-                                      VegaTripletSoAConstView triplets) const;
+                                      uint32_t const nTriplets,
+                                      VegaTripletSoAConstView triplets,
+                                      PairToTriplet const* pair1ToTriplet) const;
 
   private:
     // parameters (stored by value to avoid dangling reference)

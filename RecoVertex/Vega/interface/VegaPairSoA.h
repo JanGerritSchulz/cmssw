@@ -22,6 +22,9 @@ namespace vega {
                       SOA_COLUMN(float, chi2),                               // chi2 of the vertex fit
                       SOA_EIGEN_COLUMN(reco::CovarianceMatrix, covariance),  // vertex fit covariances
 
+                      // pair can be used as starting point for candidate building
+                      // because it is not used as a second pair in a triplet somewhere
+                      SOA_COLUMN(bool, start),
                       SOA_COLUMN(bool, used),  // used in larger object (flag to mark isolated pairs)
 
                       SOA_SCALAR(uint32_t, nPairs))  // number of pairs

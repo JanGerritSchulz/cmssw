@@ -5,7 +5,6 @@
 
 #include "DataFormats/TrackSoA/interface/TracksSoA.h"
 #include "DataFormats/VertexSoA/interface/VertexSoA.h"
-#include "DataFormats/VertexSoA/interface/alpaka/VertexSoACollection.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/OneToManyAssoc.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/SimpleVector.h"
 #include "RecoVertex/Vega/interface/IndexPairSoA.h"
@@ -64,9 +63,11 @@ namespace vega::structs {
       cms::alpakatools::OneToManyAssocSequential<TrkIdx, cms::alpakatools::kDynamicSize, cms::alpakatools::kDynamicSize>;
 
   // specific association maps for vega
-  using TrackToPair = OneToMany;
+  using TrkToPair = OneToMany;
   using PairToPair = OneToMany;
-  using VtxToTrack = OneToManySeq;
+  using PairToTriplet = OneToMany;
+  using VtxToTrk = OneToManySeq;
+  using TrkToVtx = OneToMany;
 
 }  // namespace vega::structs
 

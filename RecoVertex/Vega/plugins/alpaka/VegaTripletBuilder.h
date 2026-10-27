@@ -7,12 +7,19 @@
 
 #include "HeterogeneousCore/AlpakaInterface/interface/config.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/workdivision.h"
+#include "RecoVertex/Vega/interface/alpaka/PortableOneToManyAssoc.h"
 #include "RecoVertex/Vega/interface/alpaka/VegaTripletSoACollection.h"
 
 #include "VegaStructures.h"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
   using namespace ::vega::structs;
+
+  struct TripletProducts {
+    uint32_t nTriplets;                                    // number of triplets (host side)
+    VegaTripletSoACollection triplets;                     // the track triplets
+    PortableOneToManyAssoc<PairToTriplet> pair1ToTriplet;  // pair -> triplets map
+  };
 
   class TripletBuilder {
   public:
@@ -25,11 +32,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
     TripletBuilder(const TripletBuilder&) = delete;
     TripletBuilder& operator=(const TripletBuilder&) = delete;
 
-    VegaTripletSoACollection build(TrkSoAConstView trks,
-                                   TrkExtraSoAConstView trksExtra,
-                                   uint32_t const nPairs,
-                                   VegaPairSoAView pairs,
-                                   TrackToPair const* trk1ToPair) const;
+    TripletProducts build(TrkSoAConstView trks,
+                          TrkExtraSoAConstView trksExtra,
+                          uint32_t const nPairs,
+                          VegaPairSoAView pairs,
+                          TrkToPair const* trk1ToPair) const;
 
   private:
     // parameters (stored by value to avoid dangling reference)

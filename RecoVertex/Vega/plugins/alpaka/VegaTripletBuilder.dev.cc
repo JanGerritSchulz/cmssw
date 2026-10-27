@@ -1,6 +1,7 @@
 #include <alpaka/alpaka.hpp>
 #include <Eigen/Core>
 
+#include "DataFormats/VertexSoA/interface/VertexSoA.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/memory.h"
 #include "RecoVertex/Vega/interface/alpaka/IndexPairSoACollection.h"
 #include "RecoVertex/Vega/plugins/alpaka/VegaGeometry.h"
@@ -26,7 +27,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
     ALPAKA_FN_ACC void operator()(Acc2D const& acc,
                                   TripletParams const& params,
                                   VegaPairSoAConstView pairs,
-                                  TrackToPair const* __restrict__ trk1ToPair,
+                                  TrkToPair const* __restrict__ trk1ToPair,
                                   uint32_t* nTriplets,  // Count writes this, Form writes this as well
                                   TripletsArg triplets  // Form writes this
     ) const {
@@ -41,7 +42,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
 
         for (auto j : cms::alpakatools::uniform_elements_x(acc, nPotentialPairs2)) {
           auto pairIdx2 = potentialPairs2[j];
-          //   auto pair2 = pairs[pairIdx2];
+          auto pair2 = pairs[pairIdx2];
 
           // cut on the distance significance between two pairs
           auto dx = pair1.x() - pair2.x();
@@ -87,14 +88,16 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
   class KernelBuildTriplets {
   public:
     using TripletsArg = std::conditional_t<Mode == KernelMode::Form, VegaTripletSoAView, NoInput>;
+    using MapArg = std::conditional_t<Mode == KernelMode::Form, PairToTriplet*, NoInput>;
 
     ALPAKA_FN_ACC void operator()(Acc1D const& acc,
                                   TripletParams const& params,
                                   VegaPairSoAView pairs,
                                   uint32_t const* nTripletCands,
                                   TripletCandSoAConstView tripletCands,
-                                  uint32_t* nTriplets,  // Count writes this, Form writes this as well
-                                  TripletsArg triplets  // Form writes this
+                                  uint32_t* nTriplets,   // Count writes this, Form writes this as well
+                                  TripletsArg triplets,  // Form writes this
+                                  MapArg pair1ToTriplet  // Form writes this
     ) const {
       for (auto candIdx : cms::alpakatools::uniform_elements(acc, *nTripletCands)) {
         auto cand = tripletCands[candIdx];
@@ -124,8 +127,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
           }
           pair1.used() = true;
           pair2.used() = true;
+          pair2.start() = false;
 
           auto triplet = triplets[tripletIdx];
+          triplet.pairIdx1() = cand.idx1();
+          triplet.pairIdx2() = cand.idx2();
           triplet.idx1() = trkIdx1;
           triplet.idx2() = trkIdx2;
           triplet.idx3() = trkIdx3;
@@ -134,7 +140,31 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
           triplet.z() = pair1.z();
           triplet.chi2() = pair1.chi2();
           triplet.covariance() = pair1.covariance();
+          triplet.used() = false;
+
+          pair1ToTriplet->count(acc, cand.idx1());
         }
+      }
+    }
+  };
+
+  // -------------------------------------------------------------
+  // MAP FILLING KERNELS
+  // -------------------------------------------------------------
+
+  class KernelFillPair1ToTriplet {
+  public:
+    ALPAKA_FN_ACC void operator()(Acc1D const& acc,
+                                  uint32_t* nTriplets,
+                                  VegaTripletSoAConstView triplets,
+                                  PairToTriplet* pair1ToTriplet) const {
+      for (auto tripletIdx : cms::alpakatools::uniform_elements(acc, *nTriplets)) {
+#if VEGA_TRIPLETS_PRINTALL
+        printf("vega::KernelFillPair1ToTriplet: fill %d (pairIdx) -> %d (tripletIdx)\n",
+               triplets[tripletIdx].pairIdx1(),
+               tripletIdx);
+#endif
+        pair1ToTriplet->fill(acc, triplets[tripletIdx].pairIdx1(), tripletIdx);
       }
     }
   };
@@ -143,11 +173,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
   // MAIN FUNCTION
   // -------------------------------------------------------------
 
-  VegaTripletSoACollection TripletBuilder::build(TrkSoAConstView trks,
+  TripletProducts TripletBuilder::build(TrkSoAConstView trks,
                                                  TrkExtraSoAConstView trksExtra,
                                                  uint32_t const nPairs,
                                                  VegaPairSoAView pairs,
-                                                 TrackToPair const* trk1ToPair) const {
+                                                 TrkToPair const* trk1ToPair) const {
     // Find triplets of tracks compatible with vertexing
     auto nTripletCands = cms::alpakatools::make_device_buffer<uint32_t>(queue_);
     alpaka::memset(queue_, nTripletCands, 0u);
@@ -229,6 +259,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
                           nTripletCands.data(),
                           tripletCands.view(),
                           nTriplets.data(),
+                          NoInput{},
                           NoInput{});  // Count mode, no triplets are filled
 
       auto nTripletHost = cms::alpakatools::make_host_buffer<uint32_t, Platform>();
@@ -243,7 +274,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
     }
 
     // triplets: collection of track triplets
+    // pair1ToTriplet: map from track to pairs in which this track fills idx1
     auto triplets = VegaTripletSoACollection(queue_, tripletCapacity);
+    auto pair1ToTriplet = PortableOneToManyAssoc<PairToTriplet>(queue_, nPairs, tripletCapacity);
 
     // reset nTriplets counter for the filling
     alpaka::memset(queue_, nTriplets, 0u);
@@ -256,7 +289,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
                         nTripletCands.data(),
                         tripletCands.view(),
                         nTriplets.data(),
-                        triplets.view());
+                        triplets.view(),
+                        pair1ToTriplet.data());
 
 #if VEGA_TRIPLETS_DEBUG
     auto nTripletHost = cms::alpakatools::make_host_buffer<uint32_t, Platform>();
@@ -272,12 +306,22 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
     auto nTripletsView = cms::alpakatools::make_device_view(alpaka::getDev(queue_), triplets.view().nTriplets());
     alpaka::memcpy(queue_, nTripletsView, nTriplets);
 
+    const uint32_t blockSizeFill = 128u;
+    const uint32_t numberOfBlocksFill =
+        cms::alpakatools::divide_up_by(tripletCapacity + blockSizeFill - 1u, blockSizeFill);
+    const auto workDivFill = cms::alpakatools::make_workdiv<Acc1D>(numberOfBlocksFill, blockSizeFill);
+
+    // fill the pair1ToTriplet map
+    PairToTriplet::template launchFinalize<Acc1D>(pair1ToTriplet.view(), queue_);
+    alpaka::exec<Acc1D>(
+        queue_, workDivFill, KernelFillPair1ToTriplet{}, nTriplets.data(), triplets.view(), pair1ToTriplet.data());
+
 #if VEGA_TRIPLETS_DEBUG
     printf("TripletBuilder::build: done\n");
     alpaka::wait(queue_);
 #endif
 
-    return triplets;
+    return TripletProducts{tripletCapacity, std::move(triplets), std::move(pair1ToTriplet)};
   }
 
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE::vega

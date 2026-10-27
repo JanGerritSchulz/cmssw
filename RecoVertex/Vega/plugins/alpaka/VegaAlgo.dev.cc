@@ -101,17 +101,23 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
       // Find triplets of tracks compatible with vertexing
       TripletBuilder tripletBuilder(params_, nTracks, queue);
-      auto triplets = tripletBuilder.build(
+      auto tripletProducts = tripletBuilder.build(
           trks, trksExtra.view(), pairProducts.nPairs, pairProducts.pairs.view(), pairProducts.trk1ToPair.data());
 
 #if VEGA_ALGO_DEBUG
-      printf("VegaAlgo::makeVerticesAsync: found pairs of tracks compatible for vertexing\n");
+      printf("VegaAlgo::makeVerticesAsync: found triplets of tracks compatible for vertexing\n");
       alpaka::wait(queue);
 #endif
 
       // Cluster the pairs and triplets into vertices
       VertexClusterizer vertexClusterizer(params_, nTracks, maxVertices, avgTracksPerVertex, queue);
-      auto vertices = vertexClusterizer.cluster(trks, trksExtra.view(), pairProducts.pairs.view(), triplets.view());
+      auto vertices = vertexClusterizer.cluster(trks,
+                                                trksExtra.view(),
+                                                pairProducts.nPairs,
+                                                pairProducts.pairs.view(),
+                                                tripletProducts.nTriplets,
+                                                tripletProducts.triplets.view(),
+                                                tripletProducts.pair1ToTriplet.data());
 
 #if VEGA_ALGO_DEBUG
       printf("VegaAlgo::makeVerticesAsync: created vertex collection with %d vertices\n", maxVertices);

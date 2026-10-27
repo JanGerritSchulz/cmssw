@@ -18,7 +18,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
   struct PairProducts {
     uint32_t nPairs;                                 // number of pairs (host side)
     VegaPairSoACollection pairs;                     // the track pairs
-    PortableOneToManyAssoc<TrackToPair> trk1ToPair;  // track -> pairs map
+    PortableOneToManyAssoc<TrkToPair> trk1ToPair;  // track -> pairs map
   };
 
   class PairFinder {
