@@ -324,12 +324,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
 
     auto trkToVtx = PortableOneToManyAssoc<TrkToVtx>(queue_, nTracks_, maxVertices_ * avgTracksPerVertex_);
 
-    const uint32_t blockSize = 64u;
-    const uint32_t numberOfBlocks = cms::alpakatools::divide_up_by(nTriplets + blockSize - 1u, blockSize);
-    const auto workDivClusterCandidates = cms::alpakatools::make_workdiv<Acc1D>(numberOfBlocks, blockSize);
+    const auto workDivClusterVertexCandidates =
+        cms::alpakatools::make_workdiv<Acc1D>(cms::alpakatools::divide_up_by(nTriplets, 64u), 64u);
 
     alpaka::exec<Acc1D>(queue_,
-                        workDivClusterCandidates,
+                        workDivClusterVertexCandidates,
                         KernelClusterVertexCandidates{},
                         pairs,
                         triplets,
@@ -339,17 +338,15 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
                         trkTupletsAPC.data());
 
 #if VEGA_VERTEX_DEBUG
-    printf("VertexClusterizer::cluster: KernelAddVertexCandidatesFromTriplets done\n");
+    printf("VertexClusterizer::cluster: KernelClusterVertexCandidates done\n");
     alpaka::wait(queue_);
 #endif
 
-    const uint32_t blockSizeAddPairs = 64u;
-    const uint32_t numberOfBlocksAddPairs =
-        cms::alpakatools::divide_up_by(nPairs + blockSizeAddPairs - 1u, blockSizeAddPairs);
-    const auto workDivAddPairs = cms::alpakatools::make_workdiv<Acc1D>(numberOfBlocksAddPairs, blockSizeAddPairs);
+    const auto workDivAddVertexCandidatesFromPairs =
+        cms::alpakatools::make_workdiv<Acc1D>(cms::alpakatools::divide_up_by(nPairs, 64u), 64u);
 
     alpaka::exec<Acc1D>(queue_,
-                        workDivAddPairs,
+                        workDivAddVertexCandidatesFromPairs,
                         KernelAddVertexCandidatesFromPairs{},
                         trks,
                         trksExtra,
@@ -363,7 +360,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
     alpaka::wait(queue_);
 #endif
 
-    const auto workDivFillTracksIntoVertex = cms::alpakatools::make_workdiv<Acc1D>(numberOfBlocks, blockSize);
+    const auto workDivFillTracksIntoVertex =
+        cms::alpakatools::make_workdiv<Acc1D>(cms::alpakatools::divide_up_by(maxVertices_, 64u), 64u);
 
     alpaka::exec<Acc1D>(
         queue_, workDivFillTracksIntoVertex, typename VtxToTrk::finalizeBulk{}, trkTupletsAPC.data(), trkTuplets.data());
@@ -386,16 +384,16 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
     alpaka::wait(queue_);
 #endif
 
-    const uint32_t blockSizeFill = 64u;
-    const uint32_t numberOfBlocksFill =
-        cms::alpakatools::divide_up_by(maxVertices_ + blockSizeFill - 1u, blockSizeFill);
-    const auto workDivFill = cms::alpakatools::make_workdiv<Acc1D>(numberOfBlocksFill, blockSizeFill);
+    const auto workDivCountVerticesPerTrack =
+        cms::alpakatools::make_workdiv<Acc1D>(cms::alpakatools::divide_up_by(maxVertices_, 64u), 64u);
+    const auto workDivFillVerticesPerTrack =
+        cms::alpakatools::make_workdiv<Acc1D>(cms::alpakatools::divide_up_by(maxVertices_, 64u), 64u);
 
     alpaka::exec<Acc1D>(
-        queue_, workDivFill, KernelCountVerticesPerTrack{}, vertices, trkTuplets.data(), trkToVtx.data());
+        queue_, workDivCountVerticesPerTrack, KernelCountVerticesPerTrack{}, vertices, trkTuplets.data(), trkToVtx.data());
     TrkToVtx::template launchFinalize<Acc1D>(trkToVtx.view(), queue_);
     alpaka::exec<Acc1D>(
-        queue_, workDivFill, KernelFillVerticesPerTrack{}, vertices, trkTuplets.data(), trkToVtx.data());
+        queue_, workDivFillVerticesPerTrack, KernelFillVerticesPerTrack{}, vertices, trkTuplets.data(), trkToVtx.data());
 
 #if VEGA_VERTEX_DEBUG
     printf("VertexClusterizer::cluster: KernelFillVerticesPerTrack done\n");

@@ -369,7 +369,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
     alpaka::memset(queue_, nPairs, 0u);
 
     constexpr TrkIdx T = KernelFindPairCandidates<KernelMode::Count>::T;  // tile size
-    const uint32_t nTiles = cms::alpakatools::divide_up_by(nTracks_ + T - 1u, T);
+    const uint32_t nTiles = cms::alpakatools::divide_up_by(nTracks_, T);
 
     using Vec2D = alpaka::Vec<alpaka::DimInt<2u>, uint32_t>;
     Vec2D blocksPerGrid{nTiles, nTiles};  // (row tiles, col tiles) -- Alpaka convention: index 0 = outer/y
@@ -385,7 +385,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
     // device-to-host copy + sync), or the heuristic upper bound.
     uint32_t pairCandCapacity = nTracks_ * 10u;
     if constexpr (::vega::useExactNPairsOnHost) {
-      // const auto workDivFindPairCands = cms::alpakatools::make_workdiv<Acc2D>(1u, 256u);
       alpaka::exec<Acc2D>(queue_,
                           workDivFindPairCands,
                           KernelFindPairCandidates<KernelMode::Count>{},
@@ -427,15 +426,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
     alpaka::wait(queue_);
 #endif
 
-    const uint32_t blockSize = 128u;
-    const uint32_t numberOfBlocks = cms::alpakatools::divide_up_by(pairCandCapacity + blockSize - 1u, blockSize);
-    const auto workDivFindPairs = cms::alpakatools::make_workdiv<Acc1D>(numberOfBlocks, blockSize);
+    const auto workDivFindPairs =
+        cms::alpakatools::make_workdiv<Acc1D>(cms::alpakatools::divide_up_by(pairCandCapacity, 128u), 128u);
 
     // Size the pair collection: exact count from the Count kernel (requires a
     // device-to-host copy + sync), or the heuristic upper bound.
     uint32_t pairCapacity = pairCandCapacity;
     if constexpr (false) {  // currently disabled since expensive, could be ::vega::useExactNPairsOnHost again
-      // const auto workDivFindPairCands = cms::alpakatools::make_workdiv<Acc2D>(1u, 256u);
       alpaka::exec<Acc1D>(queue_,
                           workDivFindPairs,
                           KernelFindPairs<KernelMode::Count>{},
@@ -493,14 +490,12 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
     auto nPairsView = cms::alpakatools::make_device_view(alpaka::getDev(queue_), pairs.view().nPairs());
     alpaka::memcpy(queue_, nPairsView, nPairs);
 
-    const uint32_t blockSizeFill = 128u;
-    const uint32_t numberOfBlocksFill =
-        cms::alpakatools::divide_up_by(pairCapacity + blockSizeFill - 1u, blockSizeFill);
-    const auto workDivFill = cms::alpakatools::make_workdiv<Acc1D>(numberOfBlocksFill, blockSizeFill);
-
     // fill the trk1ToPair map
+    const auto workDivFillTrk1ToPair =
+        cms::alpakatools::make_workdiv<Acc1D>(cms::alpakatools::divide_up_by(pairCapacity, 128u), 128u);
     TrkToPair::template launchFinalize<Acc1D>(trk1ToPair.view(), queue_);
-    alpaka::exec<Acc1D>(queue_, workDivFill, KernelFillTrk1ToPair{}, nPairs.data(), pairs.view(), trk1ToPair.data());
+    alpaka::exec<Acc1D>(
+        queue_, workDivFillTrk1ToPair, KernelFillTrk1ToPair{}, nPairs.data(), pairs.view(), trk1ToPair.data());
 
 #if VEGA_PAIRS_DEBUG
     printf("PairFinder::find: done\n");

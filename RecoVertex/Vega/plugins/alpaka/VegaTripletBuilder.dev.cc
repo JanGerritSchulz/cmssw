@@ -174,23 +174,24 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
   // -------------------------------------------------------------
 
   TripletProducts TripletBuilder::build(TrkSoAConstView trks,
-                                                 TrkExtraSoAConstView trksExtra,
-                                                 uint32_t const nPairs,
-                                                 VegaPairSoAView pairs,
-                                                 TrkToPair const* trk1ToPair) const {
+                                        TrkExtraSoAConstView trksExtra,
+                                        uint32_t const nPairs,
+                                        VegaPairSoAView pairs,
+                                        TrkToPair const* trk1ToPair) const {
     // Find triplets of tracks compatible with vertexing
     auto nTripletCands = cms::alpakatools::make_device_buffer<uint32_t>(queue_);
     alpaka::memset(queue_, nTripletCands, 0u);
     auto nTriplets = cms::alpakatools::make_device_buffer<uint32_t>(queue_);
     alpaka::memset(queue_, nTriplets, 0u);
 
-    const uint32_t nThreadsPerBlock = 64u;
-    const uint32_t stride = 4u;
-    const auto nThreadsPerStride = nThreadsPerBlock / stride;
-    const uint32_t nBlocks = cms::alpakatools::divide_up_by(nPairs + nThreadsPerStride - 1u, nThreadsPerStride);
+    // 2D work division: each block handles a stride-sized set of first-pairs,
+    // with the x-threads scanning the candidate second-pairs.
+    constexpr uint32_t nThreadsPerBlock = 64u;
+    constexpr uint32_t stride = 4u;
+    constexpr uint32_t nPairsPerBlock = nThreadsPerBlock / stride;
 
     using Vec2D = alpaka::Vec<alpaka::DimInt<2u>, uint32_t>;
-    Vec2D blocksPerGrid{nBlocks, 1u};  // (row tiles, col tiles) -- Alpaka convention: index 0 = outer/y
+    Vec2D blocksPerGrid{cms::alpakatools::divide_up_by(nPairs, nPairsPerBlock), 1u};  // index 0 = outer/y
     Vec2D threadsPerBlock{nThreadsPerBlock, stride};
     const auto workDivBuildTripletCands = cms::alpakatools::make_workdiv<Acc2D>(blocksPerGrid, threadsPerBlock);
 
@@ -242,15 +243,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
     alpaka::wait(queue_);
 #endif
 
-    const uint32_t blockSize = 64u;
-    const uint32_t numberOfBlocks = cms::alpakatools::divide_up_by(tripletCandCapacity + blockSize - 1u, blockSize);
-    const auto workDivBuildTriplets = cms::alpakatools::make_workdiv<Acc1D>(numberOfBlocks, blockSize);
+    const auto workDivBuildTriplets =
+        cms::alpakatools::make_workdiv<Acc1D>(cms::alpakatools::divide_up_by(tripletCandCapacity, 64u), 64u);
 
     // Size the triplet collection: exact count from the Count kernel (requires a
     // device-to-host copy + sync), or the heuristic upper bound.
     uint32_t tripletCapacity = tripletCandCapacity;
     if constexpr (false) {  // currently disabled since expensive, could be ::vega::useExactNTripletsOnHost again
-      // const auto workDivFindTripletCands = cms::alpakatools::make_workdiv<Acc2D>(1u, 256u);
       alpaka::exec<Acc1D>(queue_,
                           workDivBuildTriplets,
                           KernelBuildTriplets<KernelMode::Count>{},
@@ -306,15 +305,16 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
     auto nTripletsView = cms::alpakatools::make_device_view(alpaka::getDev(queue_), triplets.view().nTriplets());
     alpaka::memcpy(queue_, nTripletsView, nTriplets);
 
-    const uint32_t blockSizeFill = 128u;
-    const uint32_t numberOfBlocksFill =
-        cms::alpakatools::divide_up_by(tripletCapacity + blockSizeFill - 1u, blockSizeFill);
-    const auto workDivFill = cms::alpakatools::make_workdiv<Acc1D>(numberOfBlocksFill, blockSizeFill);
-
     // fill the pair1ToTriplet map
+    const auto workDivFillPair1ToTriplet =
+        cms::alpakatools::make_workdiv<Acc1D>(cms::alpakatools::divide_up_by(tripletCapacity, 128u), 128u);
     PairToTriplet::template launchFinalize<Acc1D>(pair1ToTriplet.view(), queue_);
-    alpaka::exec<Acc1D>(
-        queue_, workDivFill, KernelFillPair1ToTriplet{}, nTriplets.data(), triplets.view(), pair1ToTriplet.data());
+    alpaka::exec<Acc1D>(queue_,
+                        workDivFillPair1ToTriplet,
+                        KernelFillPair1ToTriplet{},
+                        nTriplets.data(),
+                        triplets.view(),
+                        pair1ToTriplet.data());
 
 #if VEGA_TRIPLETS_DEBUG
     printf("TripletBuilder::build: done\n");
