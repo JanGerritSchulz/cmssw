@@ -19,7 +19,8 @@ namespace vega {
   };
 
   struct TripletParams {
-    float maxDistanceSig;
+    float maxSepSig;
+    bool requireClosedLoop;
   };
 
   struct VertexParams {

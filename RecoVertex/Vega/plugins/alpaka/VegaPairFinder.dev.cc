@@ -173,7 +173,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
   class KernelFindPairs {
   public:
     using PairsArg = std::conditional_t<Mode == KernelMode::Form, VegaPairSoAView, NoInput>;
-    using MapArg = std::conditional_t<Mode == KernelMode::Form, TrkToPair*, NoInput>;
+    using TrkMapArg = std::conditional_t<Mode == KernelMode::Form, TrkToTrk*, NoInput>;
+    using PairMapArg = std::conditional_t<Mode == KernelMode::Form, TrkToPair*, NoInput>;
 
     ALPAKA_FN_ACC void operator()(Acc1D const& acc,
                                   PairParams const& params,
@@ -181,9 +182,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
                                   TrkExtraSoAConstView trksExtra,
                                   uint32_t const* nPairCands,
                                   PairCandSoAView const pairCands,
-                                  uint32_t* nPairs,  // Count writes this, Form writes this as well
-                                  PairsArg pairs,    // Form writes this
-                                  MapArg trk1ToPair  // Form writes this
+                                  uint32_t* nPairs,     // Count writes this, Form writes this as well
+                                  PairsArg pairs,       // Form writes this
+                                  TrkMapArg trk1ToTrk2,   // Form writes this
+                                  PairMapArg trkToPair  // Form writes this
     ) const {
       for (auto c : cms::alpakatools::uniform_elements(acc, *nPairCands)) {
         auto cand = pairCands[c];
@@ -306,7 +308,30 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
           pair.used() = false;
           pair.start() = true;
 
-          trk1ToPair->count(acc, i1);
+          trk1ToTrk2->count(acc, i1);
+          trkToPair->count(acc, i1);
+          trkToPair->count(acc, i2);
+
+#if VEGA_PAIRS_PRINTALL
+          printf(
+              "vega::KernelFindPairs: New pair %d (%d, %d) with l1=%.9g, l2=%.9g, (x,y,z)=(%.9g, %.9g, %.9g), "
+              "chi2=%.9g, cov=(%.9g, %.9g, %.9g, %.9g, %.9g, %.9g)\n",
+              idx,
+              i1,
+              i2,
+              fit.l1,
+              fit.l2,
+              pos.x,
+              pos.y,
+              pos.z,
+              fit.chi2,
+              fit.covariance.xx,
+              fit.covariance.xy,
+              fit.covariance.xz,
+              fit.covariance.yy,
+              fit.covariance.yz,
+              fit.covariance.zz);
+#endif
         }
       }
     }
@@ -316,17 +341,22 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
   // MAP FILLING KERNELS
   // -------------------------------------------------------------
 
-  class KernelFillTrk1ToPair {
+  class KernelFillTrkMaps {
   public:
     ALPAKA_FN_ACC void operator()(Acc1D const& acc,
                                   uint32_t* nPairs,
                                   VegaPairSoAConstView pairs,
-                                  TrkToPair* trk1ToPair) const {
+                                  TrkToTrk* trk1ToTrk2,
+                                  TrkToPair* trkToPair) const {
       for (auto pairIdx : cms::alpakatools::uniform_elements(acc, *nPairs)) {
+        auto pair = pairs[pairIdx];
 #if VEGA_PAIRS_PRINTALL
-        printf("vega::KernelFillTrk1ToPair: fill %d (trkIdx) -> %d (pairIdx)\n", pairs[pairIdx].idx1(), pairIdx);
+        printf("vega::KernelFillTrkMaps: fill %d (trkIdx) -> %d (pairIdx)\n", pair.idx1(), pairIdx);
+        printf("vega::KernelFillTrkMaps: fill %d (trkIdx) -> %d (pairIdx)\n", pair.idx2(), pairIdx);
 #endif
-        trk1ToPair->fill(acc, pairs[pairIdx].idx1(), pairIdx);
+        trk1ToTrk2->fill(acc, pair.idx1(), pair.idx2());
+        trkToPair->fill(acc, pair.idx1(), pairIdx);
+        trkToPair->fill(acc, pair.idx2(), pairIdx);
       }
     }
   };
@@ -443,6 +473,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
                           pairCands.view(),
                           nPairs.data(),
                           NoInput{},
+                          NoInput{},
                           NoInput{});  // Count mode, no pairs are filled
 
       auto nPairHost = cms::alpakatools::make_host_buffer<uint32_t, Platform>();
@@ -457,9 +488,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
     }
 
     // pairs: collection of track pairs
-    // trk1ToPair: map from track to pairs in which this track fills idx1
+    // trkToPair: map from track to pairs in which this track fills idx1
     auto pairs = VegaPairSoACollection(queue_, pairCapacity);
-    auto trk1ToPair = PortableOneToManyAssoc<TrkToPair>(queue_, nTracks_, pairCapacity);
+    auto trk1ToTrk2 = PortableOneToManyAssoc<TrkToTrk>(queue_, nTracks_, pairCapacity);
+    auto trkToPair = PortableOneToManyAssoc<TrkToPair>(queue_, nTracks_, 2u * pairCapacity);
 
     // reset nPairs counter for the filling
     alpaka::memset(queue_, nPairs, 0u);
@@ -474,7 +506,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
                         pairCands.view(),
                         nPairs.data(),
                         pairs.view(),
-                        trk1ToPair.data());
+                        trk1ToTrk2.data(),
+                        trkToPair.data());
 
 #if VEGA_PAIRS_DEBUG
     auto nPairHost = cms::alpakatools::make_host_buffer<uint32_t, Platform>();
@@ -490,19 +523,20 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
     auto nPairsView = cms::alpakatools::make_device_view(alpaka::getDev(queue_), pairs.view().nPairs());
     alpaka::memcpy(queue_, nPairsView, nPairs);
 
-    // fill the trk1ToPair map
-    const auto workDivFillTrk1ToPair =
+    // fill the trk1ToTrk2 and trkToPair maps
+    const auto workDivFillTrkMaps =
         cms::alpakatools::make_workdiv<Acc1D>(cms::alpakatools::divide_up_by(pairCapacity, 128u), 128u);
-    TrkToPair::template launchFinalize<Acc1D>(trk1ToPair.view(), queue_);
+    TrkToPair::template launchFinalize<Acc1D>(trk1ToTrk2.view(), queue_);
+    TrkToPair::template launchFinalize<Acc1D>(trkToPair.view(), queue_);
     alpaka::exec<Acc1D>(
-        queue_, workDivFillTrk1ToPair, KernelFillTrk1ToPair{}, nPairs.data(), pairs.view(), trk1ToPair.data());
+        queue_, workDivFillTrkMaps, KernelFillTrkMaps{}, nPairs.data(), pairs.view(), trk1ToTrk2.data(), trkToPair.data());
 
 #if VEGA_PAIRS_DEBUG
     printf("PairFinder::find: done\n");
     alpaka::wait(queue_);
 #endif
 
-    return PairProducts{pairCapacity, std::move(pairs), std::move(trk1ToPair)};
+    return PairProducts{pairCapacity, std::move(pairs), std::move(trk1ToTrk2), std::move(trkToPair)};
   }
 
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE::vega

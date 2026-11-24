@@ -18,6 +18,22 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
   // -------------------------------------------------------------
   // TRIPLET BUILDING KERNELS
   // -------------------------------------------------------------
+  //
+  // Vocabulary used below
+  //   pair    : two tracks fitted to a common vertex (index into `pairs`)
+  //   triplet : three tracks = two pairs that share exactly one track
+  //   "path"  : (pairA, pairB) sharing track `sharedTrk`; the other tracks are `outerTrkA` (in pairA)
+  //             and `outerTrkB` (in pairB). A triplet {s,a,b} is reached by 1 path if open, 3 paths if closed.
+  //   closed  : the third pair {outerTrkA, outerTrkB} also exists (all three edges of the triangle present)
+
+  // Is `sharedTrk`-centred path (outerTrkA, outerTrkB) the unique representative of its triplet?
+  // Requires outerTrkA < outerTrkB (removes the A<->B mirror of every path) and, for closed
+  // triplets (three paths), additionally sharedTrk < outerTrkA, i.e. the path centred on the lowest index.
+  ALPAKA_FN_ACC inline bool isCanonicalPath(uint32_t sharedTrk, uint32_t outerTrkA, uint32_t outerTrkB, bool closed) {
+    if (outerTrkB < outerTrkA)
+      return false;
+    return !closed || sharedTrk < outerTrkA;
+  }
 
   template <KernelMode Mode>
   class KernelBuildTripletCandidates {
@@ -27,35 +43,67 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
     ALPAKA_FN_ACC void operator()(Acc2D const& acc,
                                   TripletParams const& params,
                                   VegaPairSoAConstView pairs,
-                                  TrkToPair const* __restrict__ trk1ToPair,
+                                  TrkToTrk const* __restrict__ trk1ToTrk2,
+                                  TrkToPair const* __restrict__ trkToPair,
                                   uint32_t* nTriplets,  // Count writes this, Form writes this as well
                                   TripletsArg triplets  // Form writes this
     ) const {
-      for (auto pairIdx1 : cms::alpakatools::uniform_elements_y(acc, pairs.nPairs())) {
-        auto pair1 = pairs[pairIdx1];
-        auto trk2Idx = pair1.idx2();  // second trk in first pair == first trk in second pair
-        auto const* __restrict__ potentialPairs2 = trk1ToPair->begin(trk2Idx);
-        auto const nPotentialPairs2 = trk1ToPair->size(trk2Idx);
+      // one work item per (pairA, side): `side` selects which of pairA's two tracks is the shared one
+      for (auto item : cms::alpakatools::uniform_elements_y(acc, 2u * pairs.nPairs())) {
+        auto const pairIdxA = item / 2u;
+        bool const sharedIsTrk1 = (item % 2 == 0);
+        auto const pairA = pairs[pairIdxA];
+        auto const sharedTrk = sharedIsTrk1 ? pairA.idx1() : pairA.idx2();
+        auto const outerTrkA = sharedIsTrk1 ? pairA.idx2() : pairA.idx1();
 
-        if (nPotentialPairs2 == 0)
+        auto const* __restrict__ sharingPairs = trkToPair->begin(sharedTrk);
+        auto const nSharingPairs = trkToPair->size(sharedTrk);
+        if (nSharingPairs <= 1)
           continue;
 
-        for (auto j : cms::alpakatools::uniform_elements_x(acc, nPotentialPairs2)) {
-          auto pairIdx2 = potentialPairs2[j];
-          auto pair2 = pairs[pairIdx2];
+        for (auto j : cms::alpakatools::uniform_elements_x(acc, nSharingPairs)) {
+          auto const pairIdxB = sharingPairs[j];
+          if (pairIdxB == pairIdxA)
+            continue;
+ 
+          auto const pairB = pairs[pairIdxB];
+          auto const outerTrkB = (pairB.idx1() != sharedTrk) ? pairB.idx1() : pairB.idx2();
+ 
+          // cheap early exit: this ordering condition is necessary for any canonical path
+          if (outerTrkB < outerTrkA)
+            continue;
+ 
+          // closed loop <=> third pair {outerTrkA, outerTrkB} exists (look up in the lower-index-keyed map;
+          // outerTrkA < outerTrkB here, so outerTrkA is the key)
+          bool closed = false;
+          for (auto it = trk1ToTrk2->begin(outerTrkA); it != trk1ToTrk2->end(outerTrkA); ++it) {
+            if (*it == outerTrkB) {
+              closed = true;
+              break;
+            }
+          }
+ 
+          if (!isCanonicalPath(sharedTrk, outerTrkA, outerTrkB, closed))
+            continue;
+          if (params.requireClosedLoop && !closed)
+            continue;
 
-          // cut on the distance significance between two pairs
-          auto dx = pair1.x() - pair2.x();
-          auto dy = pair1.y() - pair2.y();
-          auto dz = pair1.z() - pair2.z();
-          auto dist2 = dx * dx + dy * dy + dz * dz;
-          auto covTot = pair1.covariance() + pair2.covariance();
-          using C = ::reco::VertexSoACovIdx;
-          auto distErr2TimesDist2 = dx * dx * covTot(C::kVarX) + dy * dy * covTot(C::kVarY) +
-                                    dz * dz * covTot(C::kVarZ) + 2 * dx * dy * covTot(C::kCovXY) +
-                                    2 * dx * dz * covTot(C::kCovXZ) + 2 * dy * dz * covTot(C::kCovYZ);
-
-          if (params.maxDistanceSig * params.maxDistanceSig * distErr2TimesDist2 < dist2 * dist2)
+          // cut on the significance of the separation of the two pair vertices:
+          //   sep = vtxA - vtxB,  sepSig = |sep| / sigma_along_sep = |sep|^2 / sqrt(sep^T (CA+CB) sep)
+          // evaluated squared and without divisions: reject if sepSig > maxSepSig
+          // NOTE: for closed triplets this uses only the path centred on the lowest track index, so the
+          //       decision still depends on track labelling. Consider max/min over the three paths instead.
+          auto const sepX = pairA.x() - pairB.x();
+          auto const sepY = pairA.y() - pairB.y();
+          auto const sepZ = pairA.z() - pairB.z();
+          auto const sep2 = sepX * sepX + sepY * sepY + sepZ * sepZ;
+          auto const covSum = pairA.covariance() + pairB.covariance();
+          using Cov = ::reco::VertexSoACovIdx;
+          auto const sepCovSep = sepX * sepX * covSum(Cov::kVarX) + sepY * sepY * covSum(Cov::kVarY) +
+                                 sepZ * sepZ * covSum(Cov::kVarZ) + 2 * sepX * sepY * covSum(Cov::kCovXY) +
+                                 2 * sepX * sepZ * covSum(Cov::kCovXZ) + 2 * sepY * sepZ * covSum(Cov::kCovYZ);
+ 
+          if (params.maxSepSig * params.maxSepSig * sepCovSep < sep2 * sep2)
             continue;
 
           // count or fill the triplet candidate
@@ -76,8 +124,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
             }
 
             auto triplet = triplets[tripletIdx];
-            triplet.idx1() = pairIdx1;
-            triplet.idx2() = pairIdx2;
+            triplet.idx1() = pairIdxA;
+            triplet.idx2() = pairIdxB;
           }
         }
       }
@@ -177,7 +225,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
                                         TrkExtraSoAConstView trksExtra,
                                         uint32_t const nPairs,
                                         VegaPairSoAView pairs,
-                                        TrkToPair const* trk1ToPair) const {
+                                        TrkToTrk const* trk1ToTrk2,
+                                        TrkToPair const* trkToPair) const {
     // Find triplets of tracks compatible with vertexing
     auto nTripletCands = cms::alpakatools::make_device_buffer<uint32_t>(queue_);
     alpaka::memset(queue_, nTripletCands, 0u);
@@ -209,7 +258,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
                           KernelBuildTripletCandidates<KernelMode::Count>{},
                           params_,
                           pairs,
-                          trk1ToPair,
+                          trk1ToTrk2,
+                          trkToPair,
                           nTripletCands.data(),
                           NoInput{});  // Count mode, no triplets are filled
 
@@ -234,7 +284,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
                         KernelBuildTripletCandidates<KernelMode::Form>{},
                         params_,
                         pairs,
-                        trk1ToPair,
+                        trk1ToTrk2,
+                        trkToPair,
                         nTripletCands.data(),
                         tripletCands.view());
 

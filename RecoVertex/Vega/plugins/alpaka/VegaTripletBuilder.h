@@ -36,7 +36,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
                           TrkExtraSoAConstView trksExtra,
                           uint32_t const nPairs,
                           VegaPairSoAView pairs,
-                          TrkToPair const* trk1ToPair) const;
+                          TrkToTrk const* trk1ToTrk2,
+                          TrkToPair const* trkToPair) const;
 
   private:
     // parameters (stored by value to avoid dangling reference)

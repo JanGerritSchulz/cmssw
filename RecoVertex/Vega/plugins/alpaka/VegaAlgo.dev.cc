@@ -101,8 +101,12 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
       // Find triplets of tracks compatible with vertexing
       TripletBuilder tripletBuilder(params_, nTracks, queue);
-      auto tripletProducts = tripletBuilder.build(
-          trks, trksExtra.view(), pairProducts.nPairs, pairProducts.pairs.view(), pairProducts.trk1ToPair.data());
+      auto tripletProducts = tripletBuilder.build(trks,
+                                                  trksExtra.view(),
+                                                  pairProducts.nPairs,
+                                                  pairProducts.pairs.view(),
+                                                  pairProducts.trk1ToTrk2.data(),
+                                                  pairProducts.trkToPair.data());
 
 #if VEGA_ALGO_DEBUG
       printf("VegaAlgo::makeVerticesAsync: found triplets of tracks compatible for vertexing\n");

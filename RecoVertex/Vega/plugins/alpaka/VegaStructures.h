@@ -63,6 +63,7 @@ namespace vega::structs {
       cms::alpakatools::OneToManyAssocSequential<TrkIdx, cms::alpakatools::kDynamicSize, cms::alpakatools::kDynamicSize>;
 
   // specific association maps for vega
+  using TrkToTrk = OneToMany;
   using TrkToPair = OneToMany;
   using PairToPair = OneToMany;
   using PairToTriplet = OneToMany;
