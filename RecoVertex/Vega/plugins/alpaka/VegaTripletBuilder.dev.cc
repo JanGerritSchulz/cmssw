@@ -53,8 +53,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
         auto const pairIdxA = item / 2u;
         bool const sharedIsTrk1 = (item % 2 == 0);
         auto const pairA = pairs[pairIdxA];
-        auto const sharedTrk = sharedIsTrk1 ? pairA.idx1() : pairA.idx2();
-        auto const outerTrkA = sharedIsTrk1 ? pairA.idx2() : pairA.idx1();
+        auto const sharedTrk = sharedIsTrk1 ? pairA.trk1() : pairA.trk2();
+        auto const outerTrkA = sharedIsTrk1 ? pairA.trk2() : pairA.trk1();
 
         auto const* __restrict__ sharingPairs = trkToPair->begin(sharedTrk);
         auto const nSharingPairs = trkToPair->size(sharedTrk);
@@ -67,7 +67,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
             continue;
  
           auto const pairB = pairs[pairIdxB];
-          auto const outerTrkB = (pairB.idx1() != sharedTrk) ? pairB.idx1() : pairB.idx2();
+          auto const outerTrkB = (pairB.trk1() != sharedTrk) ? pairB.trk1() : pairB.trk2();
  
           // cheap early exit: this ordering condition is necessary for any canonical path
           if (outerTrkB < outerTrkA)
@@ -151,9 +151,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
         auto cand = tripletCands[candIdx];
         auto pair1 = pairs[cand.idx1()];
         auto pair2 = pairs[cand.idx2()];
-        auto trkIdx1 = pair1.idx1();
-        auto trkIdx2 = pair1.idx2();
-        auto trkIdx3 = pair2.idx2();
+        auto trkIdx1 = pair1.trk1();
+        auto trkIdx2 = pair1.trk2();
+        auto trkIdx3 = pair2.trk2();
 
         // FIXME: add triplet cuts
 
@@ -178,11 +178,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
           pair2.start() = false;
 
           auto triplet = triplets[tripletIdx];
-          triplet.pairIdx1() = cand.idx1();
-          triplet.pairIdx2() = cand.idx2();
-          triplet.idx1() = trkIdx1;
-          triplet.idx2() = trkIdx2;
-          triplet.idx3() = trkIdx3;
+          triplet.pair1() = cand.idx1();
+          triplet.pair2() = cand.idx2();
+          triplet.trk1() = trkIdx1;
+          triplet.trk2() = trkIdx2;
+          triplet.trk3() = trkIdx3;
           triplet.x() = pair1.x();
           triplet.y() = pair1.y();
           triplet.z() = pair1.z();
@@ -209,10 +209,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
       for (auto tripletIdx : cms::alpakatools::uniform_elements(acc, *nTriplets)) {
 #if VEGA_TRIPLETS_PRINTALL
         printf("vega::KernelFillPair1ToTriplet: fill %d (pairIdx) -> %d (tripletIdx)\n",
-               triplets[tripletIdx].pairIdx1(),
+               triplets[tripletIdx].pair1(),
                tripletIdx);
 #endif
-        pair1ToTriplet->fill(acc, triplets[tripletIdx].pairIdx1(), tripletIdx);
+        pair1ToTriplet->fill(acc, triplets[tripletIdx].pair1(), tripletIdx);
       }
     }
   };

@@ -11,11 +11,11 @@ namespace vega {
 
   // pair of tracks (two vertex-compatible tracks)
   GENERATE_SOA_LAYOUT(VegaTripletSoALayout,
-                      SOA_COLUMN(uint32_t, pairIdx1),  // index of pair 1
-                      SOA_COLUMN(uint32_t, pairIdx2),  // index of pair 2
-                      SOA_COLUMN(uint32_t, idx1),  // index of track 1
-                      SOA_COLUMN(uint32_t, idx2),  // index of track 2
-                      SOA_COLUMN(uint32_t, idx3),  // index of track 3
+                      SOA_COLUMN(uint32_t, pair1),  // index of pair 1
+                      SOA_COLUMN(uint32_t, pair2),  // index of pair 2
+                      SOA_COLUMN(uint32_t, trk1),  // index of track 1
+                      SOA_COLUMN(uint32_t, trk2),  // index of track 2
+                      SOA_COLUMN(uint32_t, trk3),  // index of track 3
                       SOA_COLUMN(float, arcLen1),  // arc length of track 1 at closest approach
                       SOA_COLUMN(float, arcLen2),  // arc length of track 2 at closest approach
                       SOA_COLUMN(float, arcLen3),  // arc length of track 3 at closest approach

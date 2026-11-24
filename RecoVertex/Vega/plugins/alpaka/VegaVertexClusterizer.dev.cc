@@ -50,8 +50,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
           for (auto i = 0u; i < nNextTriplets; i++) {
             auto nextTripletIdx = nextTripletsIdxs[i];
             auto triplet = triplets[nextTripletIdx];
-            trkTuplet[nTracksInTuplet++] = triplet.idx3();
-            auto lastPairIdx = triplet.pairIdx2();
+            trkTuplet[nTracksInTuplet++] = triplet.trk3();
+            auto lastPairIdx = triplet.pair2();
 
             collectTracks<DEPTH - 1>(
                 acc, pairs, triplets, pair1ToTriplet, vertices, trkTuplets, apc, trkTuplet, nTracksInTuplet, lastPairIdx);
@@ -100,16 +100,16 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
         auto triplet = triplets[i];
 
         // if the first pair of the triplet is not considered a valid start, don't start
-        auto firstPair = pairs[triplet.pairIdx1()];
+        auto firstPair = pairs[triplet.pair1()];
         if (!firstPair.start())
           continue;
 
-        trkTuplet[0] = triplet.idx1();
-        trkTuplet[1] = triplet.idx2();
-        trkTuplet[2] = triplet.idx3();
+        trkTuplet[0] = triplet.trk1();
+        trkTuplet[1] = triplet.trk2();
+        trkTuplet[2] = triplet.trk3();
         uint32_t nTracksInTuplet = 3;
 
-        auto lastPairIdx = triplet.pairIdx2();
+        auto lastPairIdx = triplet.pair2();
 
         // After adding the first 3 tracks to the vertex,
         // there are maxTracksPerVertex - 3 slots still available
@@ -137,8 +137,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
         if (pair.used())
           continue;
 
-        trkTuplet[0] = pair.idx1();
-        trkTuplet[1] = pair.idx2();
+        trkTuplet[0] = pair.trk1();
+        trkTuplet[1] = pair.trk2();
         uint32_t nTracksInTuplet = 2;
 
         // put vertex candidate into the container
@@ -182,9 +182,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
         if (triplet.used())
           continue;
 
-        trkTuplet[0] = triplet.idx1();
-        trkTuplet[1] = triplet.idx2();
-        trkTuplet[2] = triplet.idx3();
+        trkTuplet[0] = triplet.trk1();
+        trkTuplet[1] = triplet.trk2();
+        trkTuplet[2] = triplet.trk3();
         uint32_t nTracksInTuplet = 3;
 
         // put vertex candidate into the container

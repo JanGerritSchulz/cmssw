@@ -296,8 +296,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
             continue;
           }
           auto pair = pairs[idx];
-          pair.idx1() = i1;
-          pair.idx2() = i2;
+          pair.trk1() = i1;
+          pair.trk2() = i2;
           pair.arcLen1() = fit.l1;
           pair.arcLen2() = fit.l2;
           pair.x() = pos.x;
@@ -351,12 +351,12 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
       for (auto pairIdx : cms::alpakatools::uniform_elements(acc, *nPairs)) {
         auto pair = pairs[pairIdx];
 #if VEGA_PAIRS_PRINTALL
-        printf("vega::KernelFillTrkMaps: fill %d (trkIdx) -> %d (pairIdx)\n", pair.idx1(), pairIdx);
-        printf("vega::KernelFillTrkMaps: fill %d (trkIdx) -> %d (pairIdx)\n", pair.idx2(), pairIdx);
+        printf("vega::KernelFillTrkMaps: fill %d (trkIdx) -> %d (pairIdx)\n", pair.trk1(), pairIdx);
+        printf("vega::KernelFillTrkMaps: fill %d (trkIdx) -> %d (pairIdx)\n", pair.trk2(), pairIdx);
 #endif
-        trk1ToTrk2->fill(acc, pair.idx1(), pair.idx2());
-        trkToPair->fill(acc, pair.idx1(), pairIdx);
-        trkToPair->fill(acc, pair.idx2(), pairIdx);
+        trk1ToTrk2->fill(acc, pair.trk1(), pair.trk2());
+        trkToPair->fill(acc, pair.trk1(), pairIdx);
+        trkToPair->fill(acc, pair.trk2(), pairIdx);
       }
     }
   };
