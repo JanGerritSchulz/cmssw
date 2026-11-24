@@ -65,14 +65,14 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
           auto const pairIdxB = sharingPairs[j];
           if (pairIdxB == pairIdxA)
             continue;
- 
+
           auto const pairB = pairs[pairIdxB];
           auto const outerTrkB = (pairB.trk1() != sharedTrk) ? pairB.trk1() : pairB.trk2();
- 
+
           // cheap early exit: this ordering condition is necessary for any canonical path
           if (outerTrkB < outerTrkA)
             continue;
- 
+
           // closed loop <=> third pair {outerTrkA, outerTrkB} exists (look up in the lower-index-keyed map;
           // outerTrkA < outerTrkB here, so outerTrkA is the key)
           bool closed = false;
@@ -82,7 +82,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
               break;
             }
           }
- 
+
           if (!isCanonicalPath(sharedTrk, outerTrkA, outerTrkB, closed))
             continue;
           if (params.requireClosedLoop && !closed)
@@ -102,7 +102,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
           auto const sepCovSep = sepX * sepX * covSum(Cov::kVarX) + sepY * sepY * covSum(Cov::kVarY) +
                                  sepZ * sepZ * covSum(Cov::kVarZ) + 2 * sepX * sepY * covSum(Cov::kCovXY) +
                                  2 * sepX * sepZ * covSum(Cov::kCovXZ) + 2 * sepY * sepZ * covSum(Cov::kCovYZ);
- 
+
           if (params.maxSepSig * params.maxSepSig * sepCovSep < sep2 * sep2)
             continue;
 
@@ -152,8 +152,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
         auto pair1 = pairs[cand.idx1()];
         auto pair2 = pairs[cand.idx2()];
         auto trkIdx1 = pair1.trk1();
-        auto trkIdx2 = pair1.trk2();
         auto trkIdx3 = pair2.trk2();
+        auto trkIdx2 = (pair1.trk2() != trkIdx3) ? pair1.trk2() : pair2.trk1();
 
         // FIXME: add triplet cuts
 
@@ -191,6 +191,15 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
           triplet.used() = false;
 
           pair1ToTriplet->count(acc, cand.idx1());
+#if VEGA_TRIPLETS_PRINTALL
+          printf("vega::KernelBuildTriplets: triplet %d - pair1 %d, pair2 %d, trk1 %d, trk2 %d, trk3 %d\n",
+                 tripletIdx,
+                 triplets[tripletIdx].pair1(),
+                 triplets[tripletIdx].pair2(),
+                 triplets[tripletIdx].trk1(),
+                 triplets[tripletIdx].trk2(),
+                 triplets[tripletIdx].trk3());
+#endif
         }
       }
     }
