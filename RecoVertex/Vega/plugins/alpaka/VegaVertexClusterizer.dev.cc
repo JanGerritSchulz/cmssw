@@ -50,11 +50,19 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
           for (auto i = 0u; i < nNextTriplets; i++) {
             auto nextTripletIdx = nextTripletsIdxs[i];
             auto triplet = triplets[nextTripletIdx];
-            trkTuplet[nTracksInTuplet++] = triplet.trk3();
+            trkTuplet[nTracksInTuplet] = triplet.trk3();
             auto lastPairIdx = triplet.pair2();
 
-            collectTracks<DEPTH - 1>(
-                acc, pairs, triplets, pair1ToTriplet, vertices, trkTuplets, apc, trkTuplet, nTracksInTuplet, lastPairIdx);
+            collectTracks<DEPTH - 1>(acc,
+                                     pairs,
+                                     triplets,
+                                     pair1ToTriplet,
+                                     vertices,
+                                     trkTuplets,
+                                     apc,
+                                     trkTuplet,
+                                     nTracksInTuplet + 1u,
+                                     lastPairIdx);
           }
           // return after adding calling addions of next triplets, saving of the vertices is taken care of by them
           return;
@@ -324,23 +332,25 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
 
     auto trkToVtx = PortableOneToManyAssoc<TrkToVtx>(queue_, nTracks_, maxVertices_ * avgTracksPerVertex_);
 
-    const auto workDivClusterVertexCandidates =
-        cms::alpakatools::make_workdiv<Acc1D>(cms::alpakatools::divide_up_by(nTriplets, 64u), 64u);
+    if (nTriplets > 0u) {
+      const auto workDivClusterVertexCandidates =
+          cms::alpakatools::make_workdiv<Acc1D>(cms::alpakatools::divide_up_by(nTriplets, 64u), 64u);
 
-    alpaka::exec<Acc1D>(queue_,
-                        workDivClusterVertexCandidates,
-                        KernelClusterVertexCandidates{},
-                        pairs,
-                        triplets,
-                        pair1ToTriplet,
-                        vertices,
-                        trkTuplets.data(),
-                        trkTupletsAPC.data());
+      alpaka::exec<Acc1D>(queue_,
+                          workDivClusterVertexCandidates,
+                          KernelClusterVertexCandidates{},
+                          pairs,
+                          triplets,
+                          pair1ToTriplet,
+                          vertices,
+                          trkTuplets.data(),
+                          trkTupletsAPC.data());
 
 #if VEGA_VERTEX_DEBUG
-    printf("VertexClusterizer::cluster: KernelClusterVertexCandidates done\n");
-    alpaka::wait(queue_);
+      printf("VertexClusterizer::cluster: KernelClusterVertexCandidates done\n");
+      alpaka::wait(queue_);
 #endif
+    }
 
     const auto workDivAddVertexCandidatesFromPairs =
         cms::alpakatools::make_workdiv<Acc1D>(cms::alpakatools::divide_up_by(nPairs, 64u), 64u);
@@ -389,8 +399,12 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
     const auto workDivFillVerticesPerTrack =
         cms::alpakatools::make_workdiv<Acc1D>(cms::alpakatools::divide_up_by(maxVertices_, 64u), 64u);
 
-    alpaka::exec<Acc1D>(
-        queue_, workDivCountVerticesPerTrack, KernelCountVerticesPerTrack{}, vertices, trkTuplets.data(), trkToVtx.data());
+    alpaka::exec<Acc1D>(queue_,
+                        workDivCountVerticesPerTrack,
+                        KernelCountVerticesPerTrack{},
+                        vertices,
+                        trkTuplets.data(),
+                        trkToVtx.data());
     TrkToVtx::template launchFinalize<Acc1D>(trkToVtx.view(), queue_);
     alpaka::exec<Acc1D>(
         queue_, workDivFillVerticesPerTrack, KernelFillVerticesPerTrack{}, vertices, trkTuplets.data(), trkToVtx.data());

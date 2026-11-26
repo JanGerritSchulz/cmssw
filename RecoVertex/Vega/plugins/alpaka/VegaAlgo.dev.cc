@@ -69,6 +69,15 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
       TrkIdx nTracks = static_cast<TrkIdx>(std::min(nTracksRaw, ::vega::maxTracksForVertexing));
 
+      if (nTracks < 2u) {
+#if VEGA_ALGO_DEBUG
+        printf("VegaAlgo::makeVerticesAsync: less than 2 tracks -> emplace empty vertex collection");
+#endif
+        reco::VertexSoACollection verticesEmpty(queue, 0u, 0u);
+        verticesEmpty.zeroInitialise(queue);
+        return verticesEmpty;
+      }
+
 #if VEGA_ALGO_DEBUG
       printf("VegaAlgo::makeVerticesAsync: set nTracks to %d\n", nTracks);
       alpaka::wait(queue);

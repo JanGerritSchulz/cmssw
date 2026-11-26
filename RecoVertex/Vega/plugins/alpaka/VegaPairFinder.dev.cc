@@ -182,10 +182,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
                                   TrkExtraSoAConstView trksExtra,
                                   uint32_t const* nPairCands,
                                   PairCandSoAView const pairCands,
-                                  uint32_t* nPairs,     // Count writes this, Form writes this as well
-                                  PairsArg pairs,       // Form writes this
-                                  TrkMapArg trk1ToTrk2,   // Form writes this
-                                  PairMapArg trkToPair  // Form writes this
+                                  uint32_t* nPairs,      // Count writes this, Form writes this as well
+                                  PairsArg pairs,        // Form writes this
+                                  TrkMapArg trk1ToTrk2,  // Form writes this
+                                  PairMapArg trkToPair   // Form writes this
     ) const {
       for (auto c : cms::alpakatools::uniform_elements(acc, *nPairCands)) {
         auto cand = pairCands[c];
@@ -436,6 +436,14 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
 #endif
     }
 
+    // return early if no pair candidates were found
+    if (pairCandCapacity == 0u) {
+      auto pairsEmpty = VegaPairSoACollection(queue_, 0u);
+      auto trk1ToTrk2Empty = PortableOneToManyAssoc<TrkToTrk>(queue_, nTracks_, 0u);
+      auto trkToPairEmpty = PortableOneToManyAssoc<TrkToPair>(queue_, nTracks_, 0u);
+      return PairProducts{0u, std::move(pairsEmpty), std::move(trk1ToTrk2Empty), std::move(trkToPairEmpty)};
+    }
+
     auto pairCands = IndexPairSoACollection(queue_, pairCandCapacity);
 
     // reset nPairCands counter for the filling
@@ -493,6 +501,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
     auto trk1ToTrk2 = PortableOneToManyAssoc<TrkToTrk>(queue_, nTracks_, pairCapacity);
     auto trkToPair = PortableOneToManyAssoc<TrkToPair>(queue_, nTracks_, 2u * pairCapacity);
 
+    // return early if no pairs were found
+    if (pairCapacity == 0u) {
+      return PairProducts{pairCapacity, std::move(pairs), std::move(trk1ToTrk2), std::move(trkToPair)};
+    }
+
     // reset nPairs counter for the filling
     alpaka::memset(queue_, nPairs, 0u);
 
@@ -528,8 +541,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
         cms::alpakatools::make_workdiv<Acc1D>(cms::alpakatools::divide_up_by(pairCapacity, 128u), 128u);
     TrkToPair::template launchFinalize<Acc1D>(trk1ToTrk2.view(), queue_);
     TrkToPair::template launchFinalize<Acc1D>(trkToPair.view(), queue_);
-    alpaka::exec<Acc1D>(
-        queue_, workDivFillTrkMaps, KernelFillTrkMaps{}, nPairs.data(), pairs.view(), trk1ToTrk2.data(), trkToPair.data());
+    alpaka::exec<Acc1D>(queue_,
+                        workDivFillTrkMaps,
+                        KernelFillTrkMaps{},
+                        nPairs.data(),
+                        pairs.view(),
+                        trk1ToTrk2.data(),
+                        trkToPair.data());
 
 #if VEGA_PAIRS_DEBUG
     printf("PairFinder::find: done\n");

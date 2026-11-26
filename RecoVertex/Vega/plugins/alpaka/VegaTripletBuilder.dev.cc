@@ -285,6 +285,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
 
     auto tripletCands = IndexPairSoACollection(queue_, tripletCandCapacity);
 
+    // return early if no triplet candidates were found
+    if (tripletCandCapacity == 0u) {
+      auto tripletsEmpty = VegaTripletSoACollection(queue_, 0u);
+      auto pair1ToTripletEmpty = PortableOneToManyAssoc<PairToTriplet>(queue_, nPairs, 0u);
+      return TripletProducts{0u, std::move(tripletsEmpty), std::move(pair1ToTripletEmpty)};
+    }
+
     // reset nTripletCands counter for the filling
     alpaka::memset(queue_, nTripletCands, 0u);
 
@@ -336,6 +343,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vega {
     // pair1ToTriplet: map from track to pairs in which this track fills idx1
     auto triplets = VegaTripletSoACollection(queue_, tripletCapacity);
     auto pair1ToTriplet = PortableOneToManyAssoc<PairToTriplet>(queue_, nPairs, tripletCapacity);
+
+    // return early if no triplets were found
+    if (tripletCapacity == 0u) {
+      return TripletProducts{tripletCapacity, std::move(triplets), std::move(pair1ToTriplet)};
+    }
 
     // reset nTriplets counter for the filling
     alpaka::memset(queue_, nTriplets, 0u);
